@@ -3,8 +3,8 @@
  แก้ค่าตั้งต้นได้ที่ CFG ด้านล่าง โดยเฉพาะ DISCORD_LINK
 ]]
 local CFG={
- LOGO_ID="89636151751928",
- LOGO_DARK=Color3.fromRGB(165,165,165), -- ยิ่งเลขน้อยยิ่งเข้ม (255=สีเดิม)
+  LOGO_ID="91144361769901",
+ LOGO_DARK=Color3.fromRGB(255,255,255), -- ขาวเต็ม = รูปแสดงสีจริง
  DISCORD_ICON_ID="17056354182",
  DISCORD_LINK="https://discord.gg/vHRMNpDsQ4", -- <<< ใส่ลิงก์ดิสคอสของคุณตรงนี้
  NAME="NEXORA HUB",
@@ -20,13 +20,13 @@ local SINE=Enum.EasingStyle.Sine
 local IO=Enum.EasingDirection.InOut
 
 local COL={
- Bg=Color3.fromRGB(8,6,20),
- Side=Color3.fromRGB(26,18,52),
- Chip=Color3.fromRGB(34,24,68),
- Purple=Color3.fromRGB(140,80,255),
- Pink=Color3.fromRGB(215,125,255),
- Text=Color3.fromRGB(242,235,255),
- Sub=Color3.fromRGB(165,150,200),
+ Bg=Color3.fromRGB(4,4,6),
+ Side=Color3.fromRGB(16,16,19),
+ Chip=Color3.fromRGB(26,26,31),
+ Purple=Color3.fromRGB(95,95,105),
+ Pink=Color3.fromRGB(240,240,245),
+ Text=Color3.fromRGB(242,242,246),
+ Sub=Color3.fromRGB(150,150,160),
  Red=Color3.fromRGB(255,80,110),
  Green=Color3.fromRGB(90,230,160),
 }
@@ -77,9 +77,44 @@ local function setAccent(a,b) COL.Purple=a COL.Pink=b for _,fn in ipairs(accents
 local function glow(o,t)
  local s=make("UIStroke",{Thickness=t or 1.5,Color=Color3.new(1,1,1),ApplyStrokeMode=Enum.ApplyStrokeMode.Border},o)
  local g=make("UIGradient",{},s)
- onAccent(function(a,b) g.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,a),ColorSequenceKeypoint.new(.5,b),ColorSequenceKeypoint.new(1,a)}) end)
- TS:Create(g,TweenInfo.new(4,LIN,Enum.EasingDirection.In,-1),{Rotation=360}):Play()
+ onAccent(function(a,b) g.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,b),ColorSequenceKeypoint.new(.5,Color3.fromRGB(55,55,62)),ColorSequenceKeypoint.new(1,b)}) end)
+ TS:Create(g,TweenInfo.new(2.5,LIN,Enum.EasingDirection.In,-1),{Rotation=360}):Play()
  return s
+end
+
+-- ⚡ สายฟ้า: เส้นหักมุมสุ่ม (พิกัดหน่วยเดียวกับพื้นที่ที่วาด)
+local function bolt(par,x1,y1,x2,y2,col,th,segs,life)
+ th=th or 2 segs=segs or 8 life=life or .35
+ local dx,dy=x2-x1,y2-y1
+ local dist=math.max(math.sqrt(dx*dx+dy*dy),1)
+ local nx,ny=-dy/dist,dx/dist
+ local pts={{x1,y1}}
+ for i=1,segs-1 do
+  local t=i/segs
+  local j=(math.random()-.5)*dist*.22
+  pts[#pts+1]={x1+dx*t+nx*j,y1+dy*t+ny*j}
+ end
+ pts[#pts+1]={x2,y2}
+ local hold=make("Frame",{BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=6},par)
+ local parts={}
+ for i=1,#pts-1 do
+  local a,b=pts[i],pts[i+1]
+  local sx,sy=b[1]-a[1],b[2]-a[2]
+  local len=math.sqrt(sx*sx+sy*sy)
+  local ang=math.deg(math.atan2(sy,sx))
+  for k=1,2 do
+   parts[#parts+1]=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromOffset((a[1]+b[1])/2,(a[2]+b[2])/2),Size=UDim2.fromOffset(len+th*((k==1) and 4 or 1),th*((k==1) and 3.5 or 1)),Rotation=ang,BackgroundColor3=col,BackgroundTransparency=(k==1) and .8 or 0,BorderSizePixel=0,ZIndex=6+k},hold)
+  end
+ end
+ task.delay(life*.35,function()
+  for _,f in ipairs(parts) do TS:Create(f,TweenInfo.new(life*.65),{BackgroundTransparency=1}):Play() end
+ end)
+ task.delay(life+.05,function() hold:Destroy() end)
+ -- กิ่งแตกกลางสาย
+ if segs>=6 then
+  local m=pts[math.ceil(#pts/2)]
+  bolt(par,m[1],m[2],m[1]+(math.random()-.5)*dist*.5,m[2]+dist*.25,col,th*.6,4,life)
+ end
 end
 
 local parent=(gethui and gethui()) or game:GetService("CoreGui")
