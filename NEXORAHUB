@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local MAP_CONFIGS = {
-    [1428232901] = "https://raw.githubusercontent.com/aten131012-dot/Obf/refs/heads/main/MM2.lua.txt",
+    [142823291] = "https://raw.githubusercontent.com/aten131012-dot/Obf/refs/heads/main/MM2.lua.txt",
 
 local LINK = "https://discord.gg/vHRMNpDsQ4"
 local currentPlaceId = game.PlaceId
