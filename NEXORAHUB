@@ -6,6 +6,7 @@ local Lighting = game:GetService("Lighting")
 local HS = game:GetService("HttpService")
 local TPS = game:GetService("TeleportService")
 local MPS = game:GetService("MarketplaceService")
+local CP = game:GetService("ContentProvider")
 local LP = Players.LocalPlayer
 
 local CFG = {
@@ -29,15 +30,53 @@ local Scripts = {
     -- [เลขไอดี] = "ลิงก์สคริปต์", -- เพิ่มแมพใหม่ตรงนี้
 }
 
--- ทำการ์ดใน GUI เลือกแมพอัตโนมัติ (ดึงชื่อแมพจากไอดี)
+-- ชื่อแมพภาษาไทย (ไม่ใส่ก็ได้ ถ้าไม่ใส่จะใช้ชื่อภาษาอังกฤษ)
+local ThaiNames = {
+    [142823291] = "เมอร์เดอร์ มิสทรี 2",
+}
+
+-- ===== ภาษา (ใช้ร่วมกันทุก GUI) =====
+local LANG = "EN"
+local UIT = {
+    EN = {sel = "NEXORA // MAP SELECT", search = "SEARCH MAP...", server = "SERVER",
+          playing = "PLAYING", tp = "TELEPORT", here = "YOU ARE HERE",
+          going = "TELEPORTING...", fail = "FAILED", lang = "ภาษาไทย",
+          load = "LOADING MAPS..."},
+    TH = {sel = "NEXORA // เลือกแมพ", search = "ค้นหาแมพ...", server = "เซิร์ฟเวอร์",
+          playing = "กำลังเล่น", tp = "วาร์ปไป", here = "คุณอยู่ที่นี่",
+          going = "กำลังวาร์ป...", fail = "วาร์ปไม่ได้", lang = "English",
+          load = "กำลังโหลดแมพ..."},
+}
+
+-- ===== โหลดข้อมูลแมพล่วงหน้า (ชื่อ + ปก + จำนวนคน) =====
 local Active = {}
+local function FetchPlayers(m)
+    pcall(function()
+        if not m.uid then
+            if m.place == game.PlaceId and game.GameId ~= 0 then
+                m.uid = game.GameId
+            else
+                m.uid = HS:JSONDecode(game:HttpGet("https://apis.roblox.com/universes/v1/places/" .. m.place .. "/universe")).universeId
+            end
+        end
+        local g = HS:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games?universeIds=" .. m.uid))
+        m.playing = g.data[1].playing
+    end)
+end
+
 for id, link in pairs(Scripts) do
     if tostring(link):find("^http") then
         task.spawn(function()
             local ok, info = pcall(function() return MPS:GetProductInfo(id) end)
-            if ok and info and info.Name then
-                table.insert(Active, {name = info.Name, place = id, url = link})
+            if not (ok and info and info.Name) then return end
+            if info.AssetTypeId and info.AssetTypeId ~= 9 then return end -- ต้องเป็น PlaceId
+            local m = {name = info.Name, place = id, url = link}
+            if info.IconImageAssetId and info.IconImageAssetId ~= 0 then
+                m.icon = "rbxassetid://" .. info.IconImageAssetId
+                task.spawn(function() pcall(function() CP:PreloadAsync({m.icon}) end) end)
             end
+            table.insert(Active, m)
+            FetchPlayers(m)
         end)
     end
 end
@@ -112,13 +151,8 @@ local function storm(parent, w, h, color, alive)
     end)
 end-- ส่วน 2/4
 local mapsOpen = false
-local function GetInfo(place)
-    local ok, playing, uid = pcall(function()
-        local u = HS:JSONDecode(game:HttpGet("https://apis.roblox.com/universes/v1/places/" .. place .. "/universe")).universeId
-        local g = HS:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games?universeIds=" .. u))
-        return g.data[1].playing, u
-    end)
-    if ok then return playing, uid end
+local function MapName(m)
+    return (LANG == "TH" and ThaiNames[m.place]) or m.name
 end
 
 local function OpenMaps()
@@ -145,22 +179,21 @@ local function OpenMaps()
             BackgroundTransparency = 1, TextColor3 = WHITE, Font = font or Enum.Font.GothamBlack,
             TextSize = size, TextXAlignment = align or Enum.TextXAlignment.Left, ZIndex = 2}, win)
     end
-    lbl("NEXORA // MAP SELECT", 14, 6, 260, 26, 18)
-    local srv = lbl("", 250, 6, 220, 26, 13, Enum.Font.Code, Enum.TextXAlignment.Right)
-    task.spawn(function()
-        while alive.on do
-            srv.Text = "SERVER " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers
-            task.wait(2)
-        end
-    end)
+    local ttl = lbl("", 14, 6, 210, 26, 15)
+    local srv = lbl("", 224, 6, 130, 26, 12, Enum.Font.Code)
+    local langB = new("TextButton", {Position = UDim2.fromOffset(360, 5), Size = UDim2.fromOffset(112, 24),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 30), TextColor3 = WHITE, Font = Enum.Font.GothamBlack,
+        TextSize = 12, BorderSizePixel = 0, ZIndex = 2}, win)
+    new("UIStroke", {Color = WHITE, Thickness = 1}, langB)
     local x = new("TextButton", {Text = "×", Position = UDim2.fromOffset(480, 4), Size = UDim2.fromOffset(30, 28),
         BackgroundColor3 = WHITE, TextColor3 = BLACK, Font = Enum.Font.GothamBlack, TextSize = 22,
         BorderSizePixel = 0, ZIndex = 2}, win)
     local tb = new("TextBox", {Position = UDim2.fromOffset(14, 42), Size = UDim2.fromOffset(492, 28),
         BackgroundColor3 = Color3.fromRGB(18, 18, 18), BorderSizePixel = 0, Text = "",
-        PlaceholderText = "SEARCH MAP...", PlaceholderColor3 = Color3.fromRGB(120, 120, 120),
+        PlaceholderColor3 = Color3.fromRGB(120, 120, 120),
         TextColor3 = WHITE, Font = Enum.Font.Code, TextSize = 14, ClearTextOnFocus = false, ZIndex = 2}, win)
     new("UIStroke", {Color = WHITE, Thickness = 1}, tb)
+    local note = lbl("", 14, 110, 492, 24, 14, Enum.Font.Code, Enum.TextXAlignment.Center)
     local list = new("ScrollingFrame", {Position = UDim2.fromOffset(14, 80), Size = UDim2.fromOffset(492, 248),
         BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = WHITE,
         CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 2}, win)
@@ -168,13 +201,25 @@ local function OpenMaps()
         SortOrder = Enum.SortOrder.LayoutOrder}, list)
     new("UIPadding", {PaddingLeft = UDim.new(0, 2), PaddingTop = UDim.new(0, 2)}, list)
 
+    local cards = {}
+    local function setCount(m)
+        local c = cards[m.place]
+        if c and c.cnt.Parent then
+            c.cnt.Text = UIT[LANG].playing .. ": " .. (m.playing and tostring(m.playing) or "--")
+        end
+    end
+
     local function Build()
         for _, c in ipairs(list:GetChildren()) do
             if c:IsA("Frame") then c:Destroy() end
         end
+        cards = {}
+        note.Text = (#Active == 0) and UIT[LANG].load or ""
+        table.sort(Active, function(a, b) return a.name < b.name end)
         local q = tb.Text:lower()
         for i, m in ipairs(Active) do
-            if q == "" or m.name:lower():find(q, 1, true) then
+            local nm = MapName(m)
+            if q == "" or nm:lower():find(q, 1, true) or m.name:lower():find(q, 1, true) then
                 local c = new("Frame", {BackgroundTransparency = 1, LayoutOrder = i}, list)
                 new("Frame", {Position = UDim2.fromOffset(8, 8), Size = UDim2.new(1, -8, 1, -12),
                     BackgroundColor3 = Color3.fromRGB(55, 55, 55), BorderSizePixel = 0}, c)
@@ -185,48 +230,114 @@ local function OpenMaps()
                 new("UIStroke", {Color = WHITE, Thickness = 1}, face)
                 local img = new("ImageLabel", {Position = UDim2.fromOffset(6, 6), Size = UDim2.new(1, -12, 0, 72),
                     BackgroundColor3 = Color3.fromRGB(35, 35, 35), BorderSizePixel = 0,
-                    ScaleType = Enum.ScaleType.Crop}, face)
+                    ScaleType = Enum.ScaleType.Crop, Image = m.icon or ""}, face)
+                if not m.icon and m.uid then
+                    img.Image = ("rbxthumb://type=GameIcon&id=%d&w=150&h=150"):format(m.uid)
+                end
                 new("TextLabel", {Position = UDim2.fromOffset(6, 80), Size = UDim2.new(1, -12, 0, 16),
-                    BackgroundTransparency = 1, Text = m.name, TextColor3 = WHITE, Font = Enum.Font.GothamBold,
+                    BackgroundTransparency = 1, Text = nm, TextColor3 = WHITE, Font = Enum.Font.GothamBold,
                     TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
                     TextTruncate = Enum.TextTruncate.AtEnd}, face)
                 local cnt = new("TextLabel", {Position = UDim2.fromOffset(6, 96), Size = UDim2.new(1, -12, 0, 14),
-                    BackgroundTransparency = 1, Text = "PLAYING: ...", TextColor3 = Color3.fromRGB(170, 170, 170),
-                    Font = Enum.Font.Code, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, face)
+                    BackgroundTransparency = 1, Text = "", TextColor3 = Color3.fromRGB(170, 170, 170),
+                    Font = Enum.Font.Code, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd}, face)
                 local go = new("TextButton", {Position = UDim2.fromOffset(6, 114), Size = UDim2.new(1, -12, 0, 22),
-                    BackgroundColor3 = WHITE, TextColor3 = BLACK, Text = "TELEPORT", Font = Enum.Font.GothamBlack,
+                    BackgroundColor3 = WHITE, TextColor3 = BLACK, Text = UIT[LANG].tp, Font = Enum.Font.GothamBlack,
                     TextSize = 12, BorderSizePixel = 0}, face)
+                cards[m.place] = {cnt = cnt, img = img}
+                setCount(m)
 
                 face.MouseEnter:Connect(function() tw(face, 0.12, {Position = UDim2.fromOffset(-3, -3)}) end)
                 face.MouseLeave:Connect(function() tw(face, 0.12, {Position = UDim2.fromOffset(0, 0)}) end)
 
-                task.spawn(function()
-                    local n, uid = GetInfo(m.place)
-                    if not face.Parent then return end
-                    cnt.Text = "PLAYING: " .. (n and tostring(n) or "--")
-                    if uid then
-                        img.Image = ("rbxthumb://type=GameIcon&id=%d&w=150&h=150"):format(uid)
-                    end
-                end)
-
+                local busy = false
                 go.MouseButton1Click:Connect(function()
+                    if busy then return end
                     snd(SFX.click, 0.7)
-                    tw(face, 0.08, {Position = UDim2.fromOffset(3, 3)})
                     if m.place == game.PlaceId then
-                        go.Text = "YOU ARE HERE"
+                        go.Text = UIT[LANG].here
+                        task.delay(1.5, function() if go.Parent then go.Text = UIT[LANG].tp end end)
                         return
                     end
+                    busy = true
+                    go.Text = UIT[LANG].going
                     if CFG.LOADER_URL ~= "" and queue_on_teleport then
                         pcall(queue_on_teleport, 'loadstring(game:HttpGet("' .. CFG.LOADER_URL .. '"))()')
                     end
-                    go.Text = "TELEPORTING..."
-                    pcall(function() TPS:Teleport(m.place, LP) end)
+                    local reason
+                    local conn = TPS.TeleportInitFailed:Connect(function(_, res, msg)
+                        reason = tostring(msg ~= "" and msg or res)
+                    end)
+                    local ok, err = pcall(function() TPS:Teleport(m.place, LP) end)
+                    if not ok then reason = tostring(err) end
+                    local t = 0
+                    while t < 10 and not reason and go.Parent do
+                        task.wait(0.25)
+                        t += 0.25
+                    end
+                    conn:Disconnect()
+                    if go.Parent then
+                        reason = reason or "timeout"
+                        warn("[NEXORA] teleport: " .. reason)
+                        go.Text = UIT[LANG].fail
+                        cnt.Text = reason:sub(1, 30)
+                        cnt.TextColor3 = Color3.fromRGB(255, 90, 90)
+                        task.wait(2.5)
+                        if go.Parent then
+                            go.Text = UIT[LANG].tp
+                            cnt.TextColor3 = Color3.fromRGB(170, 170, 170)
+                            setCount(m)
+                        end
+                    end
+                    busy = false
                 end)
             end
         end
     end
-    Build()
+
+    local function applyL()
+        local L = UIT[LANG]
+        ttl.Text, tb.PlaceholderText, langB.Text = L.sel, L.search, L.lang
+        srv.Text = L.server .. " " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers
+        Build()
+    end
+    applyL()
     tb:GetPropertyChangedSignal("Text"):Connect(Build)
+    langB.MouseButton1Click:Connect(function()
+        snd(SFX.click, 0.6)
+        LANG = (LANG == "EN") and "TH" or "EN"
+        applyL()
+    end)
+
+    task.spawn(function()
+        while alive.on do
+            srv.Text = UIT[LANG].server .. " " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers
+            task.wait(2)
+        end
+    end)
+    task.spawn(function() -- เพิ่มการ์ดอัตโนมัติเมื่อแมพโหลดเสร็จ
+        local n = #Active
+        while alive.on do
+            if #Active ~= n then n = #Active; Build() end
+            task.wait(0.4)
+        end
+    end)
+    task.spawn(function() -- อัปเดตจำนวนคนทุก 15 วิ
+        while alive.on do
+            for _, m in ipairs(Active) do
+                task.spawn(function()
+                    FetchPlayers(m)
+                    setCount(m)
+                    local c = cards[m.place]
+                    if c and c.img.Parent and c.img.Image == "" and m.uid then
+                        c.img.Image = ("rbxthumb://type=GameIcon&id=%d&w=150&h=150"):format(m.uid)
+                    end
+                end)
+            end
+            task.wait(15)
+        end
+    end)
 
     x.MouseButton1Click:Connect(function()
         snd(SFX.click, 0.7)
@@ -376,7 +487,6 @@ local function Cutscene(gui)
     return blur, dark
 end-- ส่วน 4/4
 local function ShowNotice()
-    local LANG = "EN"
     local T = {
         EN = {title = "MAP NOT SUPPORTED", sub = "THIS MAP HAS NO SCRIPT YET",
               desc = "Join our Discord to request a script for this map.",
