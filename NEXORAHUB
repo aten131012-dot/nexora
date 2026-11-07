@@ -5,6 +5,7 @@ local RS = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local HS = game:GetService("HttpService")
 local TPS = game:GetService("TeleportService")
+local MPS = game:GetService("MarketplaceService")
 local LP = Players.LocalPlayer
 
 local CFG = {
@@ -22,22 +23,23 @@ local SFX = {
     land = "rbxasset://sounds/bass.mp3",
 }
 
--- ===== รายชื่อแมพ (เพิ่มได้เรื่อย ๆ) =====
-local MM2 = "https://raw.githubusercontent.com/aten131012-dot/Obf/refs/heads/main/MM2.lua"
-local ByPlace = {
-    [142823291] = MM2, -- Murder Mystery 2
-}
-local ByGame = {
-    [66654135] = MM2, -- Murder Mystery 2 (GameId)
+-- ===== รายชื่อแมพ: [ไอดี] = "ลิงก์สคริปต์" =====
+local Scripts = {
+    [142823291] = "https://raw.githubusercontent.com/aten131012-dot/Obf/refs/heads/main/MM2.lua", -- MM2
+    -- [เลขไอดี] = "ลิงก์สคริปต์", -- เพิ่มแมพใหม่ตรงนี้
 }
 
--- รายการที่โชว์ใน GUI เลือกแมพ (place ใช้สำหรับปุ่ม TELEPORT)
-local Maps = {
-    {name = "Murder Mystery 2", place = 142823291, url = MM2},
-}
+-- ทำการ์ดใน GUI เลือกแมพอัตโนมัติ (ดึงชื่อแมพจากไอดี)
 local Active = {}
-for _, m in ipairs(Maps) do
-    if tostring(m.url):find("^http") then table.insert(Active, m) end
+for id, link in pairs(Scripts) do
+    if tostring(link):find("^http") then
+        task.spawn(function()
+            local ok, info = pcall(function() return MPS:GetProductInfo(id) end)
+            if ok and info and info.Name then
+                table.insert(Active, {name = info.Name, place = id, url = link})
+            end
+        end)
+    end
 end
 
 local PURPLE, CYAN = Color3.fromRGB(150, 70, 255), Color3.fromRGB(70, 220, 255)
@@ -70,6 +72,7 @@ local function mkGui(name, order)
     end)
     local g = Instance.new("ScreenGui")
     g.Name, g.ResetOnSpawn, g.IgnoreGuiInset, g.DisplayOrder = name, false, true, order
+    g.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     local ok = pcall(function() g.Parent = (gethui and gethui()) or game:GetService("CoreGui") end)
     if not ok or not g.Parent then g.Parent = LP:WaitForChild("PlayerGui") end
     return g
@@ -519,7 +522,7 @@ local function ShowNotice()
 end
 
 -- ===== เลือกสคริปต์ตามแมพ =====
-local url = ByPlace[game.PlaceId] or ByGame[game.GameId]
+local url = Scripts[game.PlaceId] or Scripts[game.GameId]
 
 if url and tostring(url):find("^http") then
     local ok, err = pcall(function() loadstring(game:HttpGet(url))() end)
