@@ -1,4 +1,4 @@
--- NEXORA | MULTI-MAP LOADER  (ส่วน 1/4)
+-- NEXORA | MULTI-MAP LOADER  (ส่วน 1/2)
 local Players = game:GetService("Players")
 local TS = game:GetService("TweenService")
 local RS = game:GetService("RunService")
@@ -11,9 +11,9 @@ local LP = Players.LocalPlayer
 
 local CFG = {
     DISCORD = "https://discord.gg/vHRMNpDsQ4",
-    BOX_IMAGE = "rbxassetid://89636151751928",
-    MUSIC = "",       -- ใส่เพลง เช่น "rbxassetid://เลขเพลง"
-    LOADER_URL = "",  -- ลิงก์สคริปต์ตัวนี้ (รันต่ออัตโนมัติหลังย้ายแมพ)
+    BOX_IMAGE = "rbxassetid://91144361769901",
+    MUSIC = "",
+    LOADER_URL = "",
 }
 local SFX = {
     boot = "rbxasset://sounds/electronicpingshort.wav",
@@ -24,18 +24,14 @@ local SFX = {
     land = "rbxasset://sounds/bass.mp3",
 }
 
--- ===== รายชื่อแมพ: [ไอดี] = "ลิงก์สคริปต์" =====
 local Scripts = {
     [142823291] = "https://raw.githubusercontent.com/aten131012-dot/Obf/refs/heads/main/MM2.lua", -- MM2
-    -- [เลขไอดี] = "ลิงก์สคริปต์", -- เพิ่มแมพใหม่ตรงนี้
 }
 
--- ชื่อแมพภาษาไทย (ไม่ใส่ก็ได้ ถ้าไม่ใส่จะใช้ชื่อภาษาอังกฤษ)
 local ThaiNames = {
     [142823291] = "เมอร์เดอร์ มิสทรี 2",
 }
 
--- ===== ภาษา (ใช้ร่วมกันทุก GUI) =====
 local LANG = "EN"
 local UIT = {
     EN = {sel = "NEXORA // MAP SELECT", search = "SEARCH MAP...", server = "SERVER",
@@ -48,7 +44,6 @@ local UIT = {
           load = "กำลังโหลดแมพ..."},
 }
 
--- ===== โหลดข้อมูลแมพล่วงหน้า (ชื่อ + ปก + จำนวนคน) =====
 local Active = {}
 local function FetchPlayers(m)
     pcall(function()
@@ -69,7 +64,7 @@ for id, link in pairs(Scripts) do
         task.spawn(function()
             local ok, info = pcall(function() return MPS:GetProductInfo(id) end)
             if not (ok and info and info.Name) then return end
-            if info.AssetTypeId and info.AssetTypeId ~= 9 then return end -- ต้องเป็น PlaceId
+            if info.AssetTypeId and info.AssetTypeId ~= 9 then return end
             local m = {name = info.Name, place = id, url = link}
             if info.IconImageAssetId and info.IconImageAssetId ~= 0 then
                 m.icon = "rbxassetid://" .. info.IconImageAssetId
@@ -81,8 +76,14 @@ for id, link in pairs(Scripts) do
     end
 end
 
-local PURPLE, CYAN = Color3.fromRGB(150, 70, 255), Color3.fromRGB(70, 220, 255)
-local BLACK, WHITE = Color3.new(0, 0, 0), Color3.new(1, 1, 1)
+-- ===== สีธีมม่วงดำ =====
+local PURPLE  = Color3.fromRGB(150, 70, 255)
+local PURPLE2 = Color3.fromRGB(100, 30, 200)
+local PURPLE3 = Color3.fromRGB(60,  10, 140)
+local CYAN    = Color3.fromRGB(200, 130, 255)
+local BLACK   = Color3.new(0, 0, 0)
+local WHITE   = Color3.new(1, 1, 1)
+local DARK_BG = Color3.fromRGB(8, 4, 20)
 
 local function new(c, p, par)
     local i = Instance.new(c)
@@ -117,7 +118,6 @@ local function mkGui(name, order)
     return g
 end
 
--- สายฟ้า
 local function bolt(parent, a, b, color, th, segs, z)
     local f = Instance.new("Folder")
     f.Parent = parent
@@ -149,7 +149,9 @@ local function storm(parent, w, h, color, alive)
             task.wait(math.random(3, 10) / 10)
         end
     end)
-end-- ส่วน 2/4
+end
+
+-- ===== MAP SELECT GUI (ธีมม่วงดำ) =====
 local mapsOpen = false
 local function MapName(m)
     return (LANG == "TH" and ThaiNames[m.place]) or m.name
@@ -165,37 +167,58 @@ local function OpenMaps()
     new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = BLACK,
         BackgroundTransparency = 0.4, BorderSizePixel = 0, Active = true}, gui)
     local win = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(520, 4), BackgroundColor3 = Color3.fromRGB(8, 8, 8),
+        Size = UDim2.fromOffset(520, 4), BackgroundColor3 = DARK_BG,
         BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 3}, gui)
     new("UIScale", {Scale = math.min(1, vs.X * 0.92 / 520, vs.Y * 0.92 / 340)}, win)
-    new("UIStroke", {Color = WHITE, Thickness = 2}, win)
+    local winStroke = new("UIStroke", {Color = PURPLE, Thickness = 2}, win)
+    TS:Create(winStroke, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Transparency = 0.5, Color = CYAN}):Play()
     local bg = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
         ClipsDescendants = true, ZIndex = 1}, win)
-    storm(bg, 520, 340, WHITE, alive)
+    storm(bg, 520, 340, PURPLE, alive)
     tw(win, 0.5, {Size = UDim2.fromOffset(520, 340)}, Enum.EasingStyle.Back)
+
+    -- scan line
+    local scan = new("Frame", {Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = PURPLE,
+        BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 1}, bg)
+    TS:Create(scan, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
+        {Position = UDim2.fromOffset(0, 340)}):Play()
+
+    -- top bar ม่วงเข้ม
+    local topBar = new("Frame", {Size = UDim2.fromOffset(520, 32), BackgroundColor3 = PURPLE3,
+        BorderSizePixel = 0, ZIndex = 2}, win)
+    new("UIStroke", {Color = PURPLE, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, topBar)
 
     local function lbl(txt, x, y, w, h, size, font, align)
         return new("TextLabel", {Text = txt, Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, h),
-            BackgroundTransparency = 1, TextColor3 = WHITE, Font = font or Enum.Font.GothamBlack,
-            TextSize = size, TextXAlignment = align or Enum.TextXAlignment.Left, ZIndex = 2}, win)
+            BackgroundTransparency = 1, TextColor3 = CYAN, Font = font or Enum.Font.GothamBlack,
+            TextSize = size, TextXAlignment = align or Enum.TextXAlignment.Left, ZIndex = 3}, win)
     end
     local ttl = lbl("", 14, 6, 210, 26, 15)
     local srv = lbl("", 224, 6, 130, 26, 12, Enum.Font.Code)
     local langB = new("TextButton", {Position = UDim2.fromOffset(360, 5), Size = UDim2.fromOffset(112, 24),
-        BackgroundColor3 = Color3.fromRGB(30, 30, 30), TextColor3 = WHITE, Font = Enum.Font.GothamBlack,
+        BackgroundColor3 = PURPLE2, TextColor3 = CYAN, Font = Enum.Font.GothamBlack,
         TextSize = 12, BorderSizePixel = 0, ZIndex = 2}, win)
-    new("UIStroke", {Color = WHITE, Thickness = 1}, langB)
+    new("UIStroke", {Color = PURPLE, Thickness = 1}, langB)
+
+    -- ปุ่มปิด
     local x = new("TextButton", {Text = "×", Position = UDim2.fromOffset(480, 4), Size = UDim2.fromOffset(30, 28),
-        BackgroundColor3 = WHITE, TextColor3 = BLACK, Font = Enum.Font.GothamBlack, TextSize = 22,
-        BorderSizePixel = 0, ZIndex = 2}, win)
+        BackgroundColor3 = PURPLE2, TextColor3 = CYAN, Font = Enum.Font.GothamBlack, TextSize = 22,
+        BorderSizePixel = 0, ZIndex = 3}, win)
+    new("UIStroke", {Color = PURPLE, Thickness = 1}, x)
+
+    -- search box
     local tb = new("TextBox", {Position = UDim2.fromOffset(14, 42), Size = UDim2.fromOffset(492, 28),
-        BackgroundColor3 = Color3.fromRGB(18, 18, 18), BorderSizePixel = 0, Text = "",
-        PlaceholderColor3 = Color3.fromRGB(120, 120, 120),
-        TextColor3 = WHITE, Font = Enum.Font.Code, TextSize = 14, ClearTextOnFocus = false, ZIndex = 2}, win)
-    new("UIStroke", {Color = WHITE, Thickness = 1}, tb)
-    local note = lbl("", 14, 110, 492, 24, 14, Enum.Font.Code, Enum.TextXAlignment.Center)
+        BackgroundColor3 = Color3.fromRGB(18, 8, 38), BorderSizePixel = 0, Text = "",
+        PlaceholderColor3 = Color3.fromRGB(120, 80, 160),
+        TextColor3 = CYAN, Font = Enum.Font.Code, TextSize = 14, ClearTextOnFocus = false, ZIndex = 2}, win)
+    new("UIStroke", {Color = PURPLE, Thickness = 1}, tb)
+
+    local note = new("TextLabel", {Text = "", Position = UDim2.fromOffset(14, 110), Size = UDim2.fromOffset(492, 24),
+        BackgroundTransparency = 1, TextColor3 = CYAN, Font = Enum.Font.Code,
+        TextSize = 14, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3}, win)
     local list = new("ScrollingFrame", {Position = UDim2.fromOffset(14, 80), Size = UDim2.fromOffset(492, 248),
-        BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = WHITE,
+        BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = PURPLE,
         CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 2}, win)
     new("UIGridLayout", {CellSize = UDim2.fromOffset(150, 152), CellPadding = UDim2.fromOffset(10, 12),
         SortOrder = Enum.SortOrder.LayoutOrder}, list)
@@ -221,35 +244,41 @@ local function OpenMaps()
             local nm = MapName(m)
             if q == "" or nm:lower():find(q, 1, true) or m.name:lower():find(q, 1, true) then
                 local c = new("Frame", {BackgroundTransparency = 1, LayoutOrder = i}, list)
+                -- เงาการ์ด
                 new("Frame", {Position = UDim2.fromOffset(8, 8), Size = UDim2.new(1, -8, 1, -12),
-                    BackgroundColor3 = Color3.fromRGB(55, 55, 55), BorderSizePixel = 0}, c)
+                    BackgroundColor3 = PURPLE3, BorderSizePixel = 0}, c)
                 new("Frame", {Position = UDim2.fromOffset(4, 4), Size = UDim2.new(1, -8, 1, -12),
-                    BackgroundColor3 = Color3.fromRGB(110, 110, 110), BorderSizePixel = 0}, c)
+                    BackgroundColor3 = PURPLE2, BorderSizePixel = 0}, c)
                 local face = new("Frame", {Size = UDim2.new(1, -8, 1, -12),
-                    BackgroundColor3 = Color3.fromRGB(14, 14, 14), BorderSizePixel = 0}, c)
-                new("UIStroke", {Color = WHITE, Thickness = 1}, face)
+                    BackgroundColor3 = Color3.fromRGB(14, 6, 30), BorderSizePixel = 0}, c)
+                new("UIStroke", {Color = PURPLE, Thickness = 1}, face)
                 local img = new("ImageLabel", {Position = UDim2.fromOffset(6, 6), Size = UDim2.new(1, -12, 0, 72),
-                    BackgroundColor3 = Color3.fromRGB(35, 35, 35), BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(20, 8, 40), BorderSizePixel = 0,
                     ScaleType = Enum.ScaleType.Crop, Image = m.icon or ""}, face)
                 if not m.icon and m.uid then
                     img.Image = ("rbxthumb://type=GameIcon&id=%d&w=150&h=150"):format(m.uid)
                 end
                 new("TextLabel", {Position = UDim2.fromOffset(6, 80), Size = UDim2.new(1, -12, 0, 16),
-                    BackgroundTransparency = 1, Text = nm, TextColor3 = WHITE, Font = Enum.Font.GothamBold,
+                    BackgroundTransparency = 1, Text = nm, TextColor3 = CYAN, Font = Enum.Font.GothamBold,
                     TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
                     TextTruncate = Enum.TextTruncate.AtEnd}, face)
                 local cnt = new("TextLabel", {Position = UDim2.fromOffset(6, 96), Size = UDim2.new(1, -12, 0, 14),
-                    BackgroundTransparency = 1, Text = "", TextColor3 = Color3.fromRGB(170, 170, 170),
+                    BackgroundTransparency = 1, Text = "", TextColor3 = Color3.fromRGB(180, 130, 255),
                     Font = Enum.Font.Code, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
                     TextTruncate = Enum.TextTruncate.AtEnd}, face)
                 local go = new("TextButton", {Position = UDim2.fromOffset(6, 114), Size = UDim2.new(1, -12, 0, 22),
-                    BackgroundColor3 = WHITE, TextColor3 = BLACK, Text = UIT[LANG].tp, Font = Enum.Font.GothamBlack,
+                    BackgroundColor3 = PURPLE2, TextColor3 = CYAN, Text = UIT[LANG].tp, Font = Enum.Font.GothamBlack,
                     TextSize = 12, BorderSizePixel = 0}, face)
+                new("UIStroke", {Color = PURPLE, Thickness = 1}, go)
                 cards[m.place] = {cnt = cnt, img = img}
                 setCount(m)
 
-                face.MouseEnter:Connect(function() tw(face, 0.12, {Position = UDim2.fromOffset(-3, -3)}) end)
-                face.MouseLeave:Connect(function() tw(face, 0.12, {Position = UDim2.fromOffset(0, 0)}) end)
+                face.MouseEnter:Connect(function()
+                    tw(face, 0.12, {Position = UDim2.fromOffset(-3, -3), BackgroundColor3 = Color3.fromRGB(25, 10, 55)})
+                end)
+                face.MouseLeave:Connect(function()
+                    tw(face, 0.12, {Position = UDim2.fromOffset(0, 0), BackgroundColor3 = Color3.fromRGB(14, 6, 30)})
+                end)
 
                 local busy = false
                 go.MouseButton1Click:Connect(function()
@@ -286,7 +315,7 @@ local function OpenMaps()
                         task.wait(2.5)
                         if go.Parent then
                             go.Text = UIT[LANG].tp
-                            cnt.TextColor3 = Color3.fromRGB(170, 170, 170)
+                            cnt.TextColor3 = Color3.fromRGB(180, 130, 255)
                             setCount(m)
                         end
                     end
@@ -316,14 +345,14 @@ local function OpenMaps()
             task.wait(2)
         end
     end)
-    task.spawn(function() -- เพิ่มการ์ดอัตโนมัติเมื่อแมพโหลดเสร็จ
+    task.spawn(function()
         local n = #Active
         while alive.on do
             if #Active ~= n then n = #Active; Build() end
             task.wait(0.4)
         end
     end)
-    task.spawn(function() -- อัปเดตจำนวนคนทุก 15 วิ
+    task.spawn(function()
         while alive.on do
             for _, m in ipairs(Active) do
                 task.spawn(function()
@@ -347,7 +376,8 @@ local function OpenMaps()
         gui:Destroy()
         mapsOpen = false
     end)
-end-- ส่วน 3/4
+end
+-- NEXORA | MULTI-MAP LOADER  (ส่วน 2/2)
 local function DropBox()
     local old = workspace:FindFirstChild("NEXORA_BOX")
     if old then old:Destroy() end
@@ -362,20 +392,30 @@ local function DropBox()
     local landPos = Vector3.new(target.X, groundY + 3.5, target.Z)
 
     local box = new("Part", {Name = "NEXORA_BOX", Size = Vector3.new(4, 4, 4), Anchored = true,
-        CanCollide = true, Material = Enum.Material.SmoothPlastic, Color = Color3.fromRGB(15, 15, 15),
+        CanCollide = true, Material = Enum.Material.SmoothPlastic, Color = Color3.fromRGB(15, 5, 30),
         CFrame = CFrame.new(landPos + Vector3.new(0, 140, 0)) * CFrame.Angles(0.8, 0.5, 0.3)}, workspace)
     for _, f in ipairs(Enum.NormalId:GetEnumItems()) do
         new("Decal", {Texture = CFG.BOX_IMAGE, Face = f}, box)
     end
-    new("PointLight", {Color = PURPLE, Range = 18, Brightness = 3}, box)
-    local pe = new("ParticleEmitter", {Color = ColorSequence.new(PURPLE), Rate = 60,
-        Lifetime = NumberRange.new(0.5, 1), Speed = NumberRange.new(2, 6),
-        Size = NumberSequence.new(1, 0), LightEmission = 1}, box)
+    new("PointLight", {Color = PURPLE, Range = 20, Brightness = 4}, box)
+    -- particle ม่วง
+    local pe = new("ParticleEmitter", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, PURPLE),
+            ColorSequenceKeypoint.new(0.5, CYAN),
+            ColorSequenceKeypoint.new(1, PURPLE2),
+        }),
+        Rate = 80, Lifetime = NumberRange.new(0.5, 1.4),
+        Speed = NumberRange.new(3, 8),
+        Size = NumberSequence.new(1.2, 0),
+        LightEmission = 1, Transparency = NumberSequence.new(0, 1)
+    }, box)
 
     tw(box, 1.8, {CFrame = CFrame.new(landPos)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In).Completed:Wait()
-    pe.Rate = 5
+    pe.Rate = 6
     snd(SFX.land, 1)
 
+    -- วงแสงม่วงตอนลงพื้น
     local ring = new("Part", {Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 2, 2), Anchored = true,
         CanCollide = false, Material = Enum.Material.Neon, Color = PURPLE,
         CFrame = CFrame.new(landPos.X, groundY + 0.3, landPos.Z) * CFrame.Angles(0, 0, math.rad(90))}, workspace)
@@ -391,6 +431,7 @@ local function DropBox()
         hum.CameraOffset = Vector3.new()
     end
 
+    -- กล่องลอยหมุนแต่กดไม่ได้ — ใช้ ProximityPrompt + Mouse เปิด map list เท่านั้น
     local pp = new("ProximityPrompt", {ActionText = "OPEN MAP LIST", ObjectText = "NEXORA BOX",
         KeyboardKeyCode = Enum.KeyCode.E, HoldDuration = 0, MaxActivationDistance = 14,
         RequiresLineOfSight = false}, box)
@@ -401,6 +442,7 @@ local function DropBox()
         if mouse.Target == box then OpenMaps() end
     end)
 
+    -- หมุนลอยตลอด
     task.spawn(function()
         local t = 0
         while box.Parent do
@@ -419,15 +461,15 @@ local function Cutscene(gui)
     local top = new("Frame", {Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = BLACK, BorderSizePixel = 0, ZIndex = 5}, gui)
     local bot = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1),
         Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = BLACK, BorderSizePixel = 0, ZIndex = 5}, gui)
-    local flash = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE,
+    local flash = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = PURPLE,
         BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 9}, gui)
     local cut = new("TextLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45),
         Size = UDim2.fromScale(0.9, 0.16), BackgroundTransparency = 1, Text = "", TextColor3 = PURPLE,
         Font = Enum.Font.GothamBlack, TextScaled = true, ZIndex = 6}, gui)
     local sub = new("TextLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.56),
-        Size = UDim2.fromScale(0.8, 0.05), BackgroundTransparency = 1, Text = "", TextColor3 = WHITE,
+        Size = UDim2.fromScale(0.8, 0.05), BackgroundTransparency = 1, Text = "", TextColor3 = CYAN,
         Font = Enum.Font.GothamBold, TextScaled = true, ZIndex = 6}, gui)
-    new("UIStroke", {Color = CYAN, Thickness = 2, Transparency = 0.3}, cut)
+    new("UIStroke", {Color = PURPLE2, Thickness = 2, Transparency = 0.3}, cut)
 
     local function strike(n)
         for _ = 1, n do
@@ -485,7 +527,8 @@ local function Cutscene(gui)
     task.wait(0.6)
     cut:Destroy() sub:Destroy()
     return blur, dark
-end-- ส่วน 4/4
+end
+
 local function ShowNotice()
     local T = {
         EN = {title = "MAP NOT SUPPORTED", sub = "THIS MAP HAS NO SCRIPT YET",
@@ -508,7 +551,7 @@ local function ShowNotice()
     new("UIScale", {Scale = math.min(1, vs.X * 0.92 / W, vs.Y * 0.92 / H)}, panel)
     local stroke = new("UIStroke", {Color = PURPLE, Thickness = 2}, panel)
     TS:Create(stroke, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-        {Transparency = 0.7}):Play()
+        {Transparency = 0.7, Color = CYAN}):Play()
 
     local bg = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
         ClipsDescendants = true, ZIndex = 1}, panel)
@@ -518,10 +561,11 @@ local function ShowNotice()
     TS:Create(scan, TweenInfo.new(2.5, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
         {Position = UDim2.fromOffset(0, H)}):Play()
 
-    local bar = new("Frame", {Size = UDim2.fromOffset(W, 28), BackgroundColor3 = Color3.fromRGB(24, 10, 48),
+    local bar = new("Frame", {Size = UDim2.fromOffset(W, 28), BackgroundColor3 = PURPLE3,
         BorderSizePixel = 0, ZIndex = 2}, panel)
+    new("UIStroke", {Color = PURPLE, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, bar)
     new("TextLabel", {Position = UDim2.fromOffset(10, 0), Size = UDim2.fromOffset(200, 28), BackgroundTransparency = 1,
-        Text = "// NEXORA.SYS :: ERR_404", TextColor3 = PURPLE, Font = Enum.Font.Code, TextSize = 12,
+        Text = "// NEXORA.SYS :: ERR_404", TextColor3 = CYAN, Font = Enum.Font.Code, TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3}, bar)
 
     local function btn(par, x, y, w, h, bgc, fg, size)
@@ -533,23 +577,23 @@ local function ShowNotice()
     end
     local function lbl(y, h, size, font, color)
         return new("TextLabel", {Position = UDim2.fromOffset(0, y), Size = UDim2.fromOffset(W, h),
-            BackgroundTransparency = 1, TextColor3 = color or WHITE, Font = font, TextSize = size,
+            BackgroundTransparency = 1, TextColor3 = color or CYAN, Font = font, TextSize = size,
             TextWrapped = true, ZIndex = 2}, panel)
     end
-    local langBtn = btn(bar, 392, 3, 84, 22, Color3.fromRGB(40, 20, 80), WHITE, 11)
-    local muteBtn = btn(bar, 300, 3, 84, 22, Color3.fromRGB(40, 20, 80), WHITE, 11)
+    local langBtn = btn(bar, 392, 3, 84, 22, PURPLE2, CYAN, 11)
+    local muteBtn = btn(bar, 300, 3, 84, 22, PURPLE2, CYAN, 11)
     muteBtn.Text = "MUSIC"
     muteBtn.Visible = music ~= nil
 
     local title = lbl(48, 40, 30, Enum.Font.GothamBlack, PURPLE)
-    local sub = lbl(92, 24, 16, Enum.Font.GothamBold)
-    local desc = lbl(120, 30, 14, Enum.Font.Gotham, Color3.fromRGB(180, 170, 210))
+    local sub = lbl(92, 24, 16, Enum.Font.GothamBold, CYAN)
+    local desc = lbl(120, 30, 14, Enum.Font.Gotham, Color3.fromRGB(180, 130, 255))
 
     local linkBox = new("TextLabel", {Position = UDim2.fromOffset(30, 162), Size = UDim2.fromOffset(420, 34),
         BackgroundColor3 = Color3.fromRGB(14, 8, 30), Text = CFG.DISCORD, TextColor3 = CYAN,
         Font = Enum.Font.Code, TextSize = 15, BorderSizePixel = 0, ZIndex = 2}, panel)
     new("UIStroke", {Color = PURPLE, Thickness = 1}, linkBox)
-    local copyBtn = btn(panel, 30, 206, 420, 42, Color3.fromRGB(100, 40, 210), WHITE, 15)
+    local copyBtn = btn(panel, 30, 206, 420, 42, PURPLE2, CYAN, 15)
     local close = btn(panel, 220, 264, 40, 40, Color3.fromRGB(35, 8, 20), Color3.fromRGB(255, 90, 110), 30)
     close.Text = "×"
     local cs = close:FindFirstChildOfClass("UIStroke")
@@ -598,7 +642,7 @@ local function ShowNotice()
         copyBtn.BackgroundColor3 = Color3.fromRGB(40, 190, 120)
         task.wait(1.5)
         copyBtn.Text = T[LANG].copy
-        copyBtn.BackgroundColor3 = Color3.fromRGB(100, 40, 210)
+        copyBtn.BackgroundColor3 = PURPLE2
         busy = false
     end)
 
@@ -615,7 +659,7 @@ local function ShowNotice()
             local f = bolt(gui, Vector2.new(bx, 0), Vector2.new(math.random(0, math.floor(vs.X)), math.floor(vs.Y)), PURPLE, 5, 12, 8)
             task.delay(0.2, function() f:Destroy() end)
         end
-        local fl = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE,
+        local fl = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = PURPLE,
             BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 9}, gui)
         tw(fl, 0.5, {BackgroundTransparency = 1})
         tw(panel, 0.4, {Size = UDim2.fromOffset(W, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
