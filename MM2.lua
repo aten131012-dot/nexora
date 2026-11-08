@@ -4,9 +4,9 @@
 ]]
 local CFG={
  LOGO_ID="91144361769901",
- LOGO_DARK=Color3.fromRGB(255,255,255), -- 255=สีเดิมของรูป (ยิ่งน้อยยิ่งเข้ม)
+ LOGO_DARK=Color3.fromRGB(255,255,255),
  DISCORD_ICON_ID="17056354182",
- DISCORD_LINK="https://discord.gg/YOUR_INVITE", -- <<< ใส่ลิงก์ดิสคอสของคุณตรงนี้
+ DISCORD_LINK="https://discord.gg/YOUR_INVITE",
  NAME="NEXORA HUB",
  SETTINGS_FILE="NexoraHub_Settings_v2.json",
 }
@@ -30,24 +30,28 @@ local COL={
  Red=Color3.fromRGB(255,80,110),
  Green=Color3.fromRGB(90,230,160),
 }
--- ธีมสี: 1=ขาว(ปกติ) 2=ม่วง 3=ฟ้า 4=แดง
+
 local PRESETS={
  {Color3.fromRGB(110,110,110),Color3.fromRGB(245,245,245)},
  {Color3.fromRGB(140,80,255),Color3.fromRGB(215,125,255)},
  {Color3.fromRGB(50,130,255),Color3.fromRGB(110,220,255)},
  {Color3.fromRGB(235,50,70),Color3.fromRGB(255,130,150)},
 }
+
 local function make(c,p,par)
  local o=Instance.new(c)
  for k,v in pairs(p) do o[k]=v end
  o.Parent=par
  return o
 end
-local function round(o,r) return make("UICorner",{CornerRadius=UDim.new(0,r)},o) end
 
--- โหลดรูปจากไอดี: แข่งโหลดหลายแหล่งพร้อมกัน ใครเสร็จก่อนใช้อันนั้น (เร็วขึ้นมาก)
+local function round(o,r)
+ return make("UICorner",{CornerRadius=UDim.new(0,r)},o)
+end
+
 local CP=game:GetService("ContentProvider")
 local imgCache={}
+
 local function resolveImg(id)
  if imgCache[id] then return imgCache[id] end
  local c={}
@@ -63,308 +67,345 @@ local function resolveImg(id)
  end
  return c
 end
+
 local function setImg(o,id)
  local c=resolveImg(id)
  o.Image=c.url or ("rbxassetid://"..id)
  if c.url then return end
  task.spawn(function()
   local t=0
-  while not c.url and t<8 do task.wait(.05) t+=.05 end
+  while not c.url and t<8 do
+   task.wait(.05)
+   t+=.05
+  end
   if c.url then o.Image=c.url end
  end)
 end
--- เริ่มโหลดรูปทันทีตั้งแต่บรรทัดแรก ก่อนสร้าง GUI
+
 resolveImg(CFG.LOGO_ID)
 resolveImg(CFG.DISCORD_ICON_ID)
 
--- ระบบเปลี่ยนสีธีม
 local accents={}
-local function onAccent(fn) accents[#accents+1]=fn fn(COL.Purple,COL.Pink) end
-local function setAccent(a,b) COL.Purple=a COL.Pink=b for _,fn in ipairs(accents) do fn(a,b) end end
+
+local function onAccent(fn)
+ accents[#accents+1]=fn
+ fn(COL.Purple,COL.Pink)
+end
+
+local function setAccent(a,b)
+ COL.Purple=a
+ COL.Pink=b
+ for _,fn in ipairs(accents) do fn(a,b) end
+end
+
 local function glow(o,t)
- local s=make("UIStroke",{Thickness=t or 1.5,Color=Color3.new(1,1,1),ApplyStrokeMode=Enum.ApplyStrokeMode.Border},o)
+ local s=make("UIStroke",{
+  Thickness=t or 1.5,
+  Color=Color3.new(1,1,1),
+  ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+ },o)
+
  local g=make("UIGradient",{},s)
- onAccent(function(a,b) g.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,a),ColorSequenceKeypoint.new(.5,b),ColorSequenceKeypoint.new(1,a)}) end)
- TS:Create(g,TweenInfo.new(4,LIN,Enum.EasingDirection.In,-1),{Rotation=360}):Play()
+
+ onAccent(function(a,b)
+  g.Color=ColorSequence.new({
+   ColorSequenceKeypoint.new(0,a),
+   ColorSequenceKeypoint.new(.5,b),
+   ColorSequenceKeypoint.new(1,a)
+  })
+ end)
+
+ TS:Create(g,TweenInfo.new(4,LIN,Enum.EasingDirection.In,-1),{
+  Rotation=360
+ }):Play()
+
  return s
 end
 
--- สายฟ้าสีขาว: วาดจากเส้นหักมุม + ชั้นเรืองแสง แล้วค่อยๆ จางหาย
 local WHITE=Color3.new(1,1,1)
+
 local function bolt(par,x0,y0,x1,y1,o)
  o=o or {}
  local segs,jit,th=o.segs or 9,o.jit or 26,o.th or 2
  local z=o.z or 6
  local list={}
+
  local function line(ax,ay,bx,by,t)
   local dx,dy=bx-ax,by-ay
   local len=math.sqrt(dx*dx+dy*dy)
   local ang=math.deg(math.atan2(dy,dx))
+
   for _,l in ipairs({{t*4,.82},{t,0}}) do
-   local f=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromOffset((ax+bx)/2,(ay+by)/2),Size=UDim2.fromOffset(len+l[1]*.5,l[1]),Rotation=ang,BackgroundColor3=WHITE,BackgroundTransparency=l[2],BorderSizePixel=0,ZIndex=z},par)
+   local f=make("Frame",{
+    AnchorPoint=Vector2.new(.5,.5),
+    Position=UDim2.fromOffset((ax+bx)/2,(ay+by)/2),
+    Size=UDim2.fromOffset(len+l[1]*.5,l[1]),
+    Rotation=ang,
+    BackgroundColor3=WHITE,
+    BackgroundTransparency=l[2],
+    BorderSizePixel=0,
+    ZIndex=z
+   },par)
    list[#list+1]={f,l[2]}
   end
  end
+
  local px,py=x0,y0
+
  for i=1,segs do
   local t=i/segs
   local nx=x0+(x1-x0)*t
   local ny=y0+(y1-y0)*t
-  if i<segs then nx+=math.random(-jit,jit) ny+=math.random(-jit,jit)*.25 end
-  line(px,py,nx,ny,th)
-  if (o.branch~=false) and i>1 and i<segs and math.random()<.35 then
-   line(nx,ny,nx+math.random(-jit*2,jit*2),ny+math.random(jit,jit*3)*((y1>=y0) and 1 or -1),math.max(th*.6,1))
+
+  if i<segs then
+   nx+=math.random(-jit,jit)
+   ny+=math.random(-jit,jit)*.25
   end
+
+  line(px,py,nx,ny,th)
+
+  if (o.branch~=false) and i>1 and i<segs and math.random()<.35 then
+   line(nx,ny,
+    nx+math.random(-jit*2,jit*2),
+    ny+math.random(jit,jit*3)*((y1>=y0) and 1 or -1),
+    math.max(th*.6,1))
+  end
+
   px,py=nx,ny
  end
+
  task.delay(o.hold or .08,function()
   local fade=o.fade or .35
+
   for _,v in ipairs(list) do
-   if v[1].Parent then TS:Create(v[1],TweenInfo.new(fade),{BackgroundTransparency=1}):Play() end
+   if v[1].Parent then
+    TS:Create(v[1],TweenInfo.new(fade),{
+     BackgroundTransparency=1
+    }):Play()
+   end
   end
-  task.delay(fade+.05,function() for _,v in ipairs(list) do v[1]:Destroy() end end)
+
+  task.delay(fade+.05,function()
+   for _,v in ipairs(list) do
+    v[1]:Destroy()
+   end
+  end)
  end)
 end
 
 local parent=(gethui and gethui()) or game:GetService("CoreGui")
-if parent:FindFirstChild("NexoraHubUI") then parent.NexoraHubUI:Destroy() end
-if parent:FindFirstChild("NexoraLoading") then parent.NexoraLoading:Destroy() end
 
--- อ่านภาษาที่บันทึกไว้ (ไว้ใช้กับหน้าโหลด)
+if parent:FindFirstChild("NexoraHubUI") then
+ parent.NexoraHubUI:Destroy()
+end
+
+if parent:FindFirstChild("NexoraLoading") then
+ parent.NexoraLoading:Destroy()
+end
+
 local savedLang="TH"
+
 pcall(function()
  if isfile and isfile(CFG.SETTINGS_FILE) then
   local d=game:GetService("HttpService"):JSONDecode(readfile(CFG.SETTINGS_FILE))
-  if d.lang=="EN" or d.lang=="TH" then savedLang=d.lang end
-  if type(d.accent)=="number" and PRESETS[d.accent] then COL.Purple=PRESETS[d.accent][1] COL.Pink=PRESETS[d.accent][2] end
+
+  if d.lang=="EN" or d.lang=="TH" then
+   savedLang=d.lang
+  end
+
+  if type(d.accent)=="number" and PRESETS[d.accent] then
+   COL.Purple=PRESETS[d.accent][1]
+   COL.Pink=PRESETS[d.accent][2]
+  end
  end
 end)
 
-------------------------------------------------------------------
--- หน้าโหลด
-------------------------------------------------------------------
 local Loader={ready=false,done=false}
-function Loader.finish(cb) Loader.cb=cb Loader.ready=true end
+
+function Loader.finish(cb)
+ Loader.cb=cb
+ Loader.ready=true
+end
+
 do
  local TH=(savedLang=="TH")
  local cam=workspace.CurrentCamera
  local vp=cam and cam.ViewportSize or Vector2.new(800,500)
  local kk=math.clamp(math.min(vp.X/820,vp.Y/520),.6,1.15)
  local CY=.42
- local ld=make("ScreenGui",{Name="NexoraLoading",ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=999999,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parent)
- pcall(function() ld.ScreenInsets=Enum.ScreenInsets.None end)
- local root=make("CanvasGroup",{Position=UDim2.fromScale(0,0),Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0},ld)
- local bgl=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,Active=true},root)
- make("UIGradient",{Color=ColorSequence.new(COL.Purple:Lerp(Color3.new(),.76),Color3.new(0,0,0)),Rotation=90},bgl)
 
- -- เนบิวลา
+ local ld=make("ScreenGui",{
+  Name="NexoraLoading",
+  ResetOnSpawn=false,
+  IgnoreGuiInset=true,
+  DisplayOrder=999999,
+  ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+ },parent)
+
+ pcall(function()
+  ld.ScreenInsets=Enum.ScreenInsets.None
+ end)
+
+ local root=make("CanvasGroup",{
+  Position=UDim2.fromScale(0,0),
+  Size=UDim2.fromScale(1,1),
+  BackgroundTransparency=1,
+  BorderSizePixel=0
+ },ld)
+
+ local bgl=make("Frame",{
+  Size=UDim2.fromScale(1,1),
+  BackgroundColor3=Color3.new(1,1,1),
+  BorderSizePixel=0,
+  Active=true
+ },root)
+
+ make("UIGradient",{
+  Color=ColorSequence.new(COL.Purple:Lerp(Color3.new(),.76),Color3.new(0,0,0)),
+  Rotation=90
+ },bgl)
+
  local function neb(x,y,s,col,dx,dy,t)
-  local h=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(x,y),Size=UDim2.fromOffset(s,s),BackgroundTransparency=1},root)
+  local h=make("Frame",{
+   AnchorPoint=Vector2.new(.5,.5),
+   Position=UDim2.fromScale(x,y),
+   Size=UDim2.fromOffset(s,s),
+   BackgroundTransparency=1
+  },root)
+
   for i=1,4 do
    local k=1-(i-1)*.2
-   local f=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromScale(k,k),BackgroundColor3=col,BackgroundTransparency=.93,BorderSizePixel=0},h)
+   local f=make("Frame",{
+    AnchorPoint=Vector2.new(.5,.5),
+    Position=UDim2.fromScale(.5,.5),
+    Size=UDim2.fromScale(k,k),
+    BackgroundColor3=col,
+    BackgroundTransparency=.93,
+    BorderSizePixel=0
+   },h)
+
    make("UICorner",{CornerRadius=UDim.new(.5,0)},f)
   end
-  TS:Create(h,TweenInfo.new(t,SINE,IO,-1,true),{Position=UDim2.fromScale(x+dx,y+dy)}):Play()
+
+  TS:Create(h,TweenInfo.new(t,SINE,IO,-1,true),{
+   Position=UDim2.fromScale(x+dx,y+dy)
+  }):Play()
  end
+
  neb(.2,.25,520,COL.Pink:Lerp(Color3.new(),.38),.06,.08,8)
  neb(.8,.75,560,COL.Purple:Lerp(Color3.new(),.18),-.07,-.06,10)
  neb(.75,.15,380,COL.Pink:Lerp(Color3.new(),.14),-.05,.08,7)
 
- -- ดาว
  for i=1,90 do
   local sz=math.random(1,3)
-  local s=make("Frame",{Position=UDim2.fromScale(math.random(),math.random()),Size=UDim2.fromOffset(sz,sz),BackgroundColor3=(math.random()<.3) and COL.Pink or Color3.new(1,1,1),BackgroundTransparency=math.random(30,70)/100,BorderSizePixel=0},root)
+
+  local s=make("Frame",{
+   Position=UDim2.fromScale(math.random(),math.random()),
+   Size=UDim2.fromOffset(sz,sz),
+   BackgroundColor3=(math.random()<.3) and COL.Pink or Color3.new(1,1,1),
+   BackgroundTransparency=math.random(30,70)/100,
+   BorderSizePixel=0
+  },root)
+
   make("UICorner",{CornerRadius=UDim.new(.5,0)},s)
-  TS:Create(s,TweenInfo.new(math.random(8,25)/10,SINE,IO,-1,true),{BackgroundTransparency=.95}):Play()
+
+  TS:Create(s,TweenInfo.new(math.random(8,25)/10,SINE,IO,-1,true),{
+   BackgroundTransparency=.95
+  }):Play()
  end
 
- -- ลำแสงหมุนด้านหลัง
- local rayHold=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,CY),Size=UDim2.fromOffset(10,10),BackgroundTransparency=1},root)
+ local rayHold=make("Frame",{
+  AnchorPoint=Vector2.new(.5,.5),
+  Position=UDim2.fromScale(.5,CY),
+  Size=UDim2.fromOffset(10,10),
+  BackgroundTransparency=1
+ },root)
+
  for i=1,12 do
-  local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset((i%2==0) and 3 or 2,1800),BackgroundColor3=(i%2==0) and COL.Pink or COL.Purple,BorderSizePixel=0,Rotation=i*15},rayHold)
-  make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(.5,.8),NumberSequenceKeypoint.new(1,1)})},r)
- end
- TS:Create(rayHold,TweenInfo.new(20,LIN,Enum.EasingDirection.In,-1),{Rotation=360}):Play()
+  local r=make("Frame",{
+   AnchorPoint=Vector2.new(.5,.5),
+   Position=UDim2.fromScale(.5,.5),
+   Size=UDim2.fromOffset((i%2==0) and 3 or 2,1800),
+   BackgroundColor3=(i%2==0) and COL.Pink or COL.Purple,
+   BorderSizePixel=0,
+   Rotation=i*15
+  },rayHold)
 
- -- อนุภาคลอยขึ้น
+  make("UIGradient",{
+   Rotation=90,
+   Transparency=NumberSequence.new({
+    NumberSequenceKeypoint.new(0,1),
+    NumberSequenceKeypoint.new(.5,.8),
+    NumberSequenceKeypoint.new(1,1)
+   })
+  },r)
+ end
+
+ TS:Create(rayHold,TweenInfo.new(20,LIN,Enum.EasingDirection.In,-1),{
+  Rotation=360
+ }):Play()
+
  task.spawn(function()
   while ld.Parent do
    local sz=math.random(2,4)
    local x=math.random()
-   local p=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(x,0,1,10),Size=UDim2.fromOffset(sz,sz),BackgroundColor3=(math.random()<.5) and COL.Pink or Color3.new(1,1,1),BackgroundTransparency=.3,BorderSizePixel=0},root)
+
+   local p=make("Frame",{
+    AnchorPoint=Vector2.new(.5,.5),
+    Position=UDim2.new(x,0,1,10),
+    Size=UDim2.fromOffset(sz,sz),
+    BackgroundColor3=(math.random()<.5) and COL.Pink or Color3.new(1,1,1),
+    BackgroundTransparency=.3,
+    BorderSizePixel=0
+   },root)
+
    make("UICorner",{CornerRadius=UDim.new(.5,0)},p)
+
    local dur=math.random(30,60)/10
-   TS:Create(p,TweenInfo.new(dur,LIN),{Position=UDim2.new(math.clamp(x+(math.random()-.5)*.1,0,1),0,-.05,0),BackgroundTransparency=1}):Play()
-   task.delay(dur+.1,function() p:Destroy() end)
+
+   TS:Create(p,TweenInfo.new(dur,LIN),{
+    Position=UDim2.new(math.clamp(x+(math.random()-.5)*.1,0,1),0,-.05,0),
+    BackgroundTransparency=1
+   }):Play()
+
+   task.delay(dur+.1,function()
+    p:Destroy()
+   end)
+
    task.wait(.1)
   end
  end)
 
- -- สายฟ้าขาวฟาดทั้งหน้าจอ + แฟลช
- local lflash=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=WHITE,BackgroundTransparency=1,BorderSizePixel=0,ZIndex=2},root)
+ local lflash=make("Frame",{
+  Size=UDim2.fromScale(1,1),
+  BackgroundColor3=WHITE,
+  BackgroundTransparency=1,
+  BorderSizePixel=0,
+  ZIndex=2
+ },root)
+
  task.spawn(function()
   task.wait(.4)
+
   while ld.Parent do
    local W,H=vp.X,vp.Y
    local x=math.random(math.floor(W*.1),math.floor(W*.9))
-   bolt(root,x,-10,x+math.random(-120,120),H*math.random(45,85)/100,{segs=11,jit=34,th=2.5,z=4,hold=.1,fade=.4})
+
+   bolt(root,x,-10,
+    x+math.random(-120,120),
+    H*math.random(45,85)/100,
+    {segs=11,jit=34,th=2.5,z=4,hold=.1,fade=.4})
+
    lflash.BackgroundTransparency=.9
-   TS:Create(lflash,TweenInfo.new(.35),{BackgroundTransparency=1}):Play()
+
+   TS:Create(lflash,TweenInfo.new(.35),{
+    BackgroundTransparency=1
+   }):Play()
+
    task.wait(math.random(6,15)/10)
   end
  end)
-
- -- มุมกรอบ HUD
- local function bracket(ax,ay)
-  local f=make("Frame",{AnchorPoint=Vector2.new(ax,ay),Position=UDim2.new(ax,(ax==0) and 20 or -20,ay,(ay==0) and 20 or -20),Size=UDim2.fromOffset(34,34),BackgroundTransparency=1,ZIndex=3},root)
-  make("Frame",{AnchorPoint=Vector2.new(ax,ay),Position=UDim2.fromScale(ax,ay),Size=UDim2.new(1,0,0,2),BackgroundColor3=COL.Pink,BorderSizePixel=0},f)
-  make("Frame",{AnchorPoint=Vector2.new(ax,ay),Position=UDim2.fromScale(ax,ay),Size=UDim2.new(0,2,1,0),BackgroundColor3=COL.Pink,BorderSizePixel=0},f)
-  TS:Create(f,TweenInfo.new(1.2,SINE,IO,-1,true),{BackgroundTransparency=1}):Play()
- end
- bracket(0,0) bracket(1,0) bracket(0,1) bracket(1,1)
-
- -- กลุ่มกลาง
- local ctr=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,CY),Size=UDim2.fromOffset(340,340),BackgroundTransparency=1,ZIndex=5},root)
- local csc=make("UIScale",{Scale=kk},ctr)
- for i=1,4 do
-  local sz=150+i*38
-  local h=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(sz,sz),BackgroundColor3=(i%2==0) and COL.Pink or COL.Purple,BackgroundTransparency=.9},ctr)
-  make("UICorner",{CornerRadius=UDim.new(.5,0)},h)
-  TS:Create(h,TweenInfo.new(1.4+i*.25,SINE,IO,-1,true),{Size=UDim2.fromOffset(sz+30,sz+30),BackgroundTransparency=.96}):Play()
- end
- local function ring(sz,th,c1,c2,speed,rev)
-  local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(sz,sz),BackgroundTransparency=1},ctr)
-  make("UICorner",{CornerRadius=UDim.new(.5,0)},r)
-  local s=make("UIStroke",{Thickness=th,Color=Color3.new(1,1,1)},r)
-  local g=make("UIGradient",{Color=ColorSequence.new(c1,c2),Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(.5,.15),NumberSequenceKeypoint.new(.62,1),NumberSequenceKeypoint.new(1,1)})},s)
-  TS:Create(g,TweenInfo.new(speed,LIN,Enum.EasingDirection.In,-1),{Rotation=rev and -360 or 360}):Play()
- end
- ring(170,4,COL.Pink,COL.Purple,1.5,false)
- ring(208,2.5,COL.Pink,COL.Purple,2.4,true)
- ring(250,1.5,COL.Purple,COL.Pink,4,false)
-
- -- จุดโคจร
- local dots={}
- for i=1,8 do
-  local sz=(i%2==0) and 6 or 4
-  local d=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(sz,sz),BackgroundColor3=(i%2==0) and COL.Pink or Color3.new(1,1,1),BorderSizePixel=0},ctr)
-  make("UICorner",{CornerRadius=UDim.new(.5,0)},d)
-  dots[i]=d
- end
- local orb=RS.RenderStepped:Connect(function()
-  local t=os.clock()
-  for i,d in ipairs(dots) do
-   local a=t*(.9+(i%3)*.35)*((i%2==0) and 1 or -1)+i*(math.pi*2/8)
-   local r=130+math.sin(t*1.5+i)*8
-   d.Position=UDim2.new(.5,math.cos(a)*r,.5,math.sin(a)*r)
-  end
- end)
-
- -- โลโก้กลาง
- local lgo=make("ImageLabel",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(128,128),BackgroundColor3=COL.Side},ctr)
- round(lgo,64)
- make("UIStroke",{Color=Color3.new(1,1,1),Thickness=2,Transparency=.5},lgo)
- setImg(lgo,CFG.LOGO_ID)
- lgo.ImageColor3=CFG.LOGO_DARK
- local ls=make("UIScale",{Scale=0},lgo)
- TS:Create(ls,TweenInfo.new(.8,Enum.EasingStyle.Back),{Scale=1}):Play()
- task.delay(.9,function()
-  if ld.Parent then TS:Create(ls,TweenInfo.new(1.1,SINE,IO,-1,true),{Scale=1.07}):Play() end
- end)
-
- -- ระลอกคลื่น
- task.spawn(function()
-  task.wait(.5)
-  while ld.Parent do
-   local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(128,128),BackgroundTransparency=1},ctr)
-   make("UICorner",{CornerRadius=UDim.new(.5,0)},r)
-   local s=make("UIStroke",{Color=COL.Pink,Thickness=2,Transparency=.2},r)
-   TS:Create(r,TweenInfo.new(1.8,Enum.EasingStyle.Quint),{Size=UDim2.fromOffset(330,330)}):Play()
-   TS:Create(s,TweenInfo.new(1.8),{Transparency=1}):Play()
-   task.delay(1.9,function() r:Destroy() end)
-   task.wait(.9)
-  end
- end)
- local function shock()
-  local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(128,128),BackgroundTransparency=1},ctr)
-  make("UICorner",{CornerRadius=UDim.new(.5,0)},r)
-  local s=make("UIStroke",{Color=Color3.new(1,1,1),Thickness=4},r)
-  TS:Create(r,TweenInfo.new(.7,Enum.EasingStyle.Quint),{Size=UDim2.fromOffset(1800,1800)}):Play()
-  TS:Create(s,TweenInfo.new(.7),{Transparency=1}):Play()
- end
-
- -- ชื่อ + แถบโหลด
- local bot=make("Frame",{AnchorPoint=Vector2.new(.5,0),Position=UDim2.new(.5,0,CY,math.floor(168*kk)),Size=UDim2.fromOffset(340,90),BackgroundTransparency=1,ZIndex=5},root)
- make("UIScale",{Scale=kk},bot)
- local spaced=(CFG.NAME:gsub("(.)","%1 "))
- local ttl=make("TextLabel",{Size=UDim2.new(1,0,0,30),BackgroundTransparency=1,Text=spaced,MaxVisibleGraphemes=0,Font=Enum.Font.GothamBlack,TextSize=26,TextColor3=Color3.new(1,1,1)},bot)
- local tg=make("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,COL.Purple),ColorSequenceKeypoint.new(.5,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,COL.Pink)}),Offset=Vector2.new(-1,0)},ttl)
- TS:Create(tg,TweenInfo.new(1.6,LIN,Enum.EasingDirection.In,-1),{Offset=Vector2.new(1,0)}):Play()
- task.spawn(function()
-  for i=0,#spaced do
-   if not ld.Parent then return end
-   ttl.MaxVisibleGraphemes=i
-   task.wait(.07)
-  end
- end)
- local barBg=make("Frame",{Position=UDim2.fromOffset(0,42),Size=UDim2.new(1,0,0,8),BackgroundColor3=COL.Chip,BorderSizePixel=0},bot)
- round(barBg,4)
- make("UIStroke",{Color=COL.Pink,Thickness=1,Transparency=.6},barBg)
- local barFill=make("Frame",{Size=UDim2.fromScale(0,1),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ClipsDescendants=true},barBg)
- round(barFill,4)
- make("UIGradient",{Color=ColorSequence.new(COL.Purple,COL.Pink)},barFill)
- local bsh=make("Frame",{Size=UDim2.fromScale(.3,1),Position=UDim2.fromScale(-.4,0),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.55,BorderSizePixel=0},barFill)
- TS:Create(bsh,TweenInfo.new(1,Enum.EasingStyle.Quad,IO,-1),{Position=UDim2.fromScale(1.2,0)}):Play()
- local st=make("TextLabel",{Position=UDim2.fromOffset(0,56),Size=UDim2.new(1,-60,0,14),BackgroundTransparency=1,Text="",Font=Enum.Font.Gotham,TextSize=11,TextColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Left},bot)
- local pc=make("TextLabel",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,56),Size=UDim2.fromOffset(56,14),BackgroundTransparency=1,Text="0%",Font=Enum.Font.GothamBold,TextSize=12,TextColor3=COL.Pink,TextXAlignment=Enum.TextXAlignment.Right},bot)
-
- local flash=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=20},root)
-
- local texts=TH and {"กำลังเริ่มระบบ...","กำลังโหลดทรัพยากร...","กำลังสร้างหน้าต่าง...","กำลังเชื่อมต่อ...","ใกล้เสร็จแล้ว..."} or {"Initializing...","Loading assets...","Building interface...","Connecting services...","Almost ready..."}
- task.spawn(function()
-  local t0=os.clock()
-  local cur=0
-  while ld.Parent do
-   local dt=RS.RenderStepped:Wait()
-   local el=os.clock()-t0
-   local goal=math.min(el/3,1)*92
-   if (Loader.ready and el>=3) or el>25 then goal=100 end
-   cur+=(goal-cur)*math.min(dt*5,1)
-   if goal==100 and cur>99.5 then cur=100 end
-   barFill.Size=UDim2.fromScale(cur/100,1)
-   pc.Text=math.floor(cur).."%"
-   st.Text=texts[math.clamp(math.floor(cur/20)+1,1,5)]
-   if cur>=100 then break end
-  end
-  st.Text=TH and "พร้อมแล้ว ✔" or "Ready ✔"
-  task.wait(.35)
-  Loader.done=true
-  shock()
-  TS:Create(flash,TweenInfo.new(.15),{BackgroundTransparency=.6}):Play()
-  TS:Create(csc,TweenInfo.new(.7,Enum.EasingStyle.Back,Enum.EasingDirection.In),{Scale=kk*1.6}):Play()
-  task.wait(.15)
-  TS:Create(flash,TweenInfo.new(.5),{BackgroundTransparency=1}):Play()
-  TS:Create(root,TweenInfo.new(.6,Enum.EasingStyle.Quad),{GroupTransparency=1}):Play()
-  task.wait(.7)
-  orb:Disconnect()
-  ld:Destroy()
-  if Loader.cb then task.spawn(Loader.cb) end
- end)
-end
-
-------------------------------------------------------------------
--- หน้าต่างหลัก
-------------------------------------------------------------------
-local state={scale=.9,alpha=0,key=true,lang=savedLang,fx=true}
-
-local gui=make("ScreenGui",{Name="NexoraHubUI",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parent)
-
-local win=make("CanvasGroup",{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(540,376),Position=UDim2.new(.5,0,.5,0),BackgroundTransparency=1,GroupTransparency=1,Visible=false},gui)
-round(win,26)
-local bgf=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(1,1,1)},win)
-round(bgf,26) glow(bgf,1.5)
-local bgg=make("UIGradient",{Rotation=90},bgf)
+ local bgg=make("UIGradient",{Rotation=90},bgf)
 onAccent(function(a) bgg.Color=ColorSequence.new(a:Lerp(Color3.new(),.8),a:Lerp(Color3.new(),.97)) end)
 local sc=make("UIScale",{Scale=.05},win)
 
@@ -540,6 +581,13 @@ addPage("mm_hunter","✂","HUNTER","โหมดล่า")
 addPage("mm_player","♟","PLAYER","ตัวละคร")
 addPage("mm_farm","✪","COIN FARM","ฟาร์ม")
 addPage("mm_event","✿","EVENT","อีเวนท์")
+section("CUSTOM","ปรับแต่ง")
+addPage("music","♫","Music","เพลง")
+addPage("identidad","☻","Identidad","ตัวตน")
+addPage("invisible","◌","Invisible","ล่องหน")
+addPage("animaciones","☺","Animaciones","แอนิเมชัน")
+addPage("items","♛","Items","ไอเทม")
+addPage("lighting","✦","Lighting","แสงฉาก")
 section("SYSTEM","ระบบ")
 addPage("settings","☼","SETTINGS","SETTINGS")
 selectPage("home")
@@ -715,7 +763,7 @@ local function tag(p,props)
  round(t,8)
  make("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8)},t)
  return t
- end
+end
 
 -- แถวหัวข้อ + แท็ก
 local th=make("Frame",{Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},c)
@@ -723,7 +771,7 @@ local tl=L(txt(th,{Position=UDim2.fromOffset(2,0),Size=UDim2.fromOffset(110,20),
 local tlg=make("UIGradient",{},tl)
 NX.onAccent(function(a,b) tlg.Color=ColorSequence.new(a,b) end)
 local tr=make("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,2),Size=UDim2.new(.7,0,0,16),BackgroundTransparency=1},th)
-make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},tr)
+  make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},tr)
 L(tag(tr,{LayoutOrder=1}),"🎂 "..lp.AccountAge.." days","🎂 "..lp.AccountAge.." วัน")
 tag(tr,{LayoutOrder=2,Text="🆔 "..lp.UserId})
 
@@ -1089,7 +1137,7 @@ local function slider(key,en,th,min,max,fmt,onRelease,cb)
  local fill=make("Frame",{Size=UDim2.fromScale(0,1),BackgroundColor3=COL.Purple},track)
  round(fill,3)
  local knob=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(0,.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=Color3.new(1,1,1)},track)
- round(knob,7)
+    round(knob,7)
  NX.onAccent(function(a) fill.BackgroundColor3=a end)
  local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,14,0,22),Size=UDim2.new(1,-28,0,26)},r)
  local function show(v)
@@ -1455,10 +1503,7 @@ button("Reset character","รีเซ็ตตัวละคร","Respawn your
  local ch=lp.Character
  local h=ch and ch:FindFirstChildOfClass("Humanoid")
  if h then h.Health=0 end
-end)
-
-header("COMMUNITY","ชุมชน")
-button("Discord","ดิสคอส","Copy the Discord invite link","คัดลอกลิงก์เชิญดิสคอส","Copy","คัดลอก",function(d,bl)
+    button("Discord","ดิสคอส","Copy the Discord invite link","คัดลอกลิงก์เชิญดิสคอส","Copy","คัดลอก",function(d,bl)
  local ok=pcall(function() setclipboard(NX.CFG.DISCORD_LINK) end)
  local o=bl.Text bl.Text=ok and "✔" or "✖"
  task.delay(1,function() bl.Text=o end)
@@ -1674,7 +1719,65 @@ local Tabs={
  MPlayer=newTab("mm_player"),
  MFarm=newTab("mm_farm"),
  MEvent=newTab("mm_event"),
+ Music=newTab("music"),
+ Identidad=newTab("identidad"),
+ Invisible=newTab("invisible"),
+ Animaciones=newTab("animaciones"),
+ Items=newTab("items"),
+ Lighting=newTab("lighting"),
 }
+
+
+-- ====================================================================
+-- NEXORA | CUSTOM CATEGORIES
+-- หมวดหมู่เพิ่มเติมตามที่ร้องขอ โดยไม่ย้ายโค้ด exploit จากไฟล์อื่น
+-- ====================================================================
+do
+ local function info(tab, title, desc)
+  tab:Section({Title=title})
+  tab:Paragraph({Title=desc})
+ end
+
+ info(Tabs.Music, "♫ MUSIC", "พื้นที่รวมเครื่องเล่นเพลงและรายการเพลงส่วนตัว")
+ info(Tabs.Identidad, "☻ IDENTIDAD", "พื้นที่ตั้งค่าข้อมูลแสดงผลและตัวเลือกโปรไฟล์")
+ info(Tabs.Invisible, "◌ INVISIBLE", "หมวดการแสดงผลตัวละคร — การตั้งค่าที่มีผลเฉพาะหน้าจอผู้เล่น")
+ info(Tabs.Animaciones, "☺ ANIMACIONES", "พื้นที่รวมตัวเลือกท่าทางและแอนิเมชัน")
+ info(Tabs.Items, "♛ ITEMS", "พื้นที่รวมการตั้งค่าและการแสดงผลไอเทม")
+ info(Tabs.Lighting, "✦ LIGHTING", "ปรับแสงและบรรยากาศเฉพาะฝั่งเครื่องของผู้เล่น")
+
+ -- Local-only lighting preset with restore.
+ local Lighting = game:GetService("Lighting")
+ local lightBackup
+ Tabs.Lighting:Toggle({
+  Title = "เปิดแสงสว่าง (Local)",
+  Value = false,
+  Callback = function(enabled)
+   if enabled then
+    if not lightBackup then
+     lightBackup = {
+      Brightness=Lighting.Brightness,
+      ClockTime=Lighting.ClockTime,
+      FogEnd=Lighting.FogEnd,
+      GlobalShadows=Lighting.GlobalShadows,
+      Ambient=Lighting.Ambient,
+      OutdoorAmbient=Lighting.OutdoorAmbient,
+     }
+    end
+    Lighting.Brightness = 2
+    Lighting.ClockTime = 14
+    Lighting.FogEnd = 1000000
+    Lighting.GlobalShadows = false
+    Lighting.Ambient = Color3.fromRGB(180,180,180)
+    Lighting.OutdoorAmbient = Color3.fromRGB(180,180,180)
+   elseif lightBackup then
+    for k,v in pairs(lightBackup) do
+     pcall(function() Lighting[k] = v end)
+    end
+    lightBackup = nil
+   end
+  end
+ })
+end
 
 -- ====================================================================
 -- NEXORA | MM2 : ฟังก์ชันที่ย้ายมาจาก MM2 V8.1 (ยกเว้นหน้าหลัก/ตั้งค่า)
@@ -1765,8 +1868,7 @@ end
 local playerData = {}
 local pEsp, gEsp, known, roleCache, vis = {}, {}, {}, {}, {}
 local ev, fn
-
-local function setData(d)
+       local function setData(d)
     if type(d) == "table" then playerData = d end
 end
 
@@ -2132,7 +2234,7 @@ task.spawn(function()
             end
             if ESP.gun then
                 if not gunWas or os.clock() - lastScan > 3 then
-                    scanDrops()
+                                  scanDrops()
                     lastScan = os.clock()
                 end
                 updateGuns()
@@ -2498,80 +2600,150 @@ do
             end
         end
         return nil
-    end
-
-    local function nearest(rangeMax, needVisible)
-        local _, hrp = myParts()
-        if not hrp then return nil end
-        local best, bch, bd
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player then
-                local ch, r = alive(plr)
-                if ch then
-                    local d = (r.Position - hrp.Position).Magnitude
-                    if (not rangeMax or d <= rangeMax) and (not bd or d < bd) then
-                        if not needVisible or canSee(ch, r) then
-                            best, bch, bd = r, ch, d
-          end
-                    end
-                end
-            end
-        end
-        return best, bch
-    end
-
-    local function stab(knife, targetRoot)
-        pcall(function() knife:Activate() end)
-        local handle = knife:FindFirstChild("Handle")
-        if firetouchinterest and handle then
-            pcall(firetouchinterest, targetRoot, handle, 0)
-            pcall(firetouchinterest, targetRoot, handle, 1)
-        end
-    end
-
-    -- ออโต้ฆ่า
-    task.spawn(function()
-        while not MM.dead do
-            task.wait(0.15)
-            if K.auto then
-                local ok, err = pcall(function()
-                    for _, plr in ipairs(Players:GetPlayers()) do
-                        if not K.auto then break end
-                        if plr ~= player then
-                            local ch, r = alive(plr)
-                            local _, hrp = myParts()
-                            if ch and hrp then
-                                local knife = equipKnife()
-                                if not knife then toast("No knife found", "ไม่พบมีดในตัว") task.wait(1) break end
-                                local pos = (r.CFrame * CFrame.new(0, 0, 3)).Position
-                                hrp.CFrame = CFrame.lookAt(pos, r.Position)
-                                task.wait(0.12)
-                                stab(knife, r)
-                                task.wait(0.35)
-                            end
-                        end
-                    end
-                end)
-                if not ok then warn("[NXMM2 KILL]", err) end
-            end
+                     hum.JumpPower = JUMP_BASE + JUMP_ADD
         end
     end)
 
-    -- ฆ่าทั้งแมพ (ลากมาข้างหน้าเฉพาะฝั่งเรา)
-    bind(RunService.Heartbeat, function()
-        if not K.all then return end
+    local flyConn, flyVel, flyGyro
+    local function stopFly()
+        if flyConn then flyConn:Disconnect() flyConn = nil end
+        if flyVel then flyVel:Destroy() flyVel = nil end
+        if flyGyro then flyGyro:Destroy() flyGyro = nil end
+        local _, _, hum = myParts()
+        if hum then hum.PlatformStand = false end
+    end
+
+    local function startFly()
+        stopFly()
+        local c, hrp, hum = myParts()
+        if not (c and hrp and hum) then return end
+        flyVel = Instance.new("BodyVelocity")
+        flyVel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+        flyVel.Velocity = Vector3.zero
+        flyVel.Parent = hrp
+        flyGyro = Instance.new("BodyGyro")
+        flyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+        flyGyro.P = 1e4
+        flyGyro.CFrame = hrp.CFrame
+        flyGyro.Parent = hrp
+        hum.PlatformStand = true
+
+        flyConn = RunService.RenderStepped:Connect(function()
+            if not P.fly or not hrp.Parent then stopFly() return end
+            local cam = workspace.CurrentCamera
+            if not cam then return end
+            local move = hum.MoveDirection
+            local vertical = 0
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vertical = 1 end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then vertical = -1 end
+            flyVel.Velocity = move * FLY_SPEED + Vector3.new(0, vertical * FLY_SPEED, 0)
+            flyGyro.CFrame = cam.CFrame
+        end)
+    end
+
+    tab:Section({ Title = "mm2_secPlayer" })
+    tab:Toggle({ Title = "mm2_pNoclip", Value = false, Callback = function(v) P.noclip = v end })
+    tab:Toggle({ Title = "mm2_pSpeed", Value = false, Callback = function(v) P.speed = v end })
+    tab:Toggle({ Title = "mm2_pJump", Value = false, Callback = function(v) P.jump = v end })
+    tab:Toggle({ Title = "mm2_pFly", Value = false, Callback = function(v)
+        P.fly = v
+        if v then startFly() else stopFly() end
+    end })
+
+    tab:Toggle({ Title = "mm2_pTp", Value = false, Callback = function(v)
+        P.tp = v
+        if v then
+            toast("Click a location to teleport", "แตะตำแหน่งที่ต้องการวาร์ป")
+        end
+    end })
+
+    local mouse = player:GetMouse()
+    bind(mouse.Button1Down, function()
+        if not P.tp then return end
+        local hit = mouse.Hit
+        local c = player.Character
+        if hit and c then
+            c:PivotTo(CFrame.new(hit.Position + Vector3.new(0, 3, 0)))
+        end
+    end)
+
+    tab:Toggle({ Title = "mm2_pAnti", Value = false, Callback = function(v)
+        P.anti = v
+        if v then
+            toast("Anti-fling enabled", "เปิดระบบกันฟลิ้งแล้ว")
+        end
+    end })
+
+    local antiConn
+    antiConn = RunService.Heartbeat:Connect(function()
+        if not P.anti then return end
+        local c, hrp = myParts()
+        if not (c and hrp) then return end
+        if hrp.AssemblyLinearVelocity.Magnitude > 120 then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+    end)
+
+    onUnload(function()
+        for k in pairs(P) do P[k] = false end
+        stopFly()
+        if antiConn then antiConn:Disconnect() end
+    end)
+end
+
+---------------------------------------------------------------- หมวด FARM
+do
+    local tab = Tabs.MFarm
+    local farm = { coin = false, candy = false }
+    local farmSpeed = 20
+    local maxCoins = 40
+
+    local function getCoins()
+        local folder = workspace:FindFirstChild("CoinContainer")
+            or workspace:FindFirstChild("Coins")
+        if not folder then return {} end
+        local out = {}
+        for _, d in ipairs(folder:GetDescendants()) do
+            if d:IsA("BasePart") and (d.Name:lower():find("coin") or d.Name:lower():find("candy")) then
+                out[#out + 1] = d
+            end
+        end
+        return out
+    end
+
+    local function getNearestCoin()
         local _, hrp = myParts()
-        if not hrp then return end
-        local n = 0
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player then
-                local ch, r = alive(plr)
-                if ch then
-                    n += 1
-                    local col = (n - 1) % 5 - 2
-                    local row = math.floor((n - 1) / 5)
-                    r.CFrame = hrp.CFrame * CFrame.new(col * 2, 0, -4 - row * 2)
-                    r.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        if not hrp then return nil end
+        local best, dist
+        for _, coin in ipairs(getCoins()) do
+            if coin.Parent then
+                local d = (coin.Position - hrp.Position).Magnitude
+                if not dist or d < dist then
+                    best, dist = coin, d
+                end
+            end
+        end
+        return best
+    end
+
+    local function collectCoin(coin)
+        local c, hrp = myParts()
+        if not (c and hrp and coin and coin.Parent) then return end
+        local old = hrp.CFrame
+        c:PivotTo(CFrame.new(coin.Position + Vector3.new(0, 2, 0)))
+        task.wait(0.15)
+        if hrp.Parent then c:PivotTo(old) end
+    end
+
+    task.spawn(function()
+        while not MM.dead do
+            task.wait(0.25)
+            if farm.coin then
+                local coin = getNearestCoin()
+                if coin then
+                    pcall(collectCoin, coin)
+                    task.wait(1 / math.max(farmSpeed, 1))
                 end
             end
         end
@@ -2580,291 +2752,131 @@ do
     task.spawn(function()
         while not MM.dead do
             task.wait(0.3)
-            if K.all then
-                pcall(function()
-                    local knife = equipKnife()
-                    if not knife then return end
-                    pcall(function() knife:Activate() end)
-                    for _, plr in ipairs(Players:GetPlayers()) do
-                        if plr ~= player then
-                            local ch, r = alive(plr)
-                            if ch then stab(knife, r) end
-                        end
-                    end
-                end)
+            if farm.candy then
+                local coin = getNearestCoin()
+                if coin and coin.Name:lower():find("candy") then
+                    pcall(collectCoin, coin)
+                    task.wait(0.5)
+                end
             end
         end
     end)
 
-    -- ปุ่มปามีด / ปุ่มยิง ข้างขวาจอ
-    local function sideButton(y, textEn, textTh, color, bg)
-        local b = mk("TextButton", {
-            AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.45, y),
-            Size = UDim2.fromOffset(70, 70), BackgroundColor3 = bg, TextColor3 = Color3.new(1, 1, 1),
-            Font = Enum.Font.GothamBold, TextSize = 13, Text = "", AutoButtonColor = false,
-            Visible = false, ZIndex = 20,
-        }, overlay)
-        corner(b, 16)
-        mk("UIStroke", { ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Color = color, Thickness = 2.5 }, b)
-        local function setText() b.Text = T(textEn, textTh) end
-        setText()
-        pcall(function() NXH.onLang(setText) end)
-        return b
-    end
-
-    local throwBtn = sideButton(0, "🔪\nTHROW", "🔪\nปามีด", Color3.fromRGB(255, 70, 85), Color3.fromRGB(70, 16, 30))
-    local shootBtn = sideButton(84, "🔫\nSHOOT", "🔫\nยิง", Color3.fromRGB(60, 140, 255), Color3.fromRGB(16, 40, 90))
-
-    local busyT = false
-    throwBtn.Activated:Connect(function()
-        if busyT then return end
-        busyT = true
-        local ok, err = pcall(function()
-            local r = nearest(nil, true)
-            if not r then r = nearest(nil, false) end
-            if not r then toast("No target found", "ไม่พบเป้าหมาย") return end
-            if throwAt(r, false) then toast("🔪 Thrown", "🔪 ปาแล้ว") end
-        end)
-        if not ok then warn("[NXMM2 THROW]", err) end
-        busyT = false
-    end)
-
-    local busyS = false
-    shootBtn.Activated:Connect(function()
-        if busyS then return end
-        busyS = true
-        local ok, err = pcall(function()
-            local r = murdererTarget(true)
-            if not r then toast("Murderer not found", "ไม่พบฆาตกร") return end
-            if shootAt(r, false) then toast("🔫 Shot", "🔫 ยิงแล้ว") end
-        end)
-        if not ok then warn("[NXMM2 SHOOT]", err) end
-        busyS = false
-    end)
-
-    -- ปามีด/ยิง อัตโนมัติ: ทำงานเฉพาะตอนมองเห็นเป้าจริง
-    local lastFetch = 0
-    task.spawn(function()
-        local lastS, lastT = 0, 0
-        while not MM.dead do
-            task.wait(0.1)
-            if (K.aShoot or K.aThrow) and not FLAGS.flinging then
-                pcall(function()
-                    local c, hrp, hum = myParts()
-                    if not (c and hrp and hum and hum.Health > 0) then return end
-
-                    if K.aShoot and os.clock() - lastS > 0.4 and findTool(isGun) then
-                        if os.clock() - lastFetch > 1.5 then
-                            lastFetch = os.clock()
-                            fetchNow()
-                        end
-                        local r, ch = murdererTarget(false)
-                        if r and (r.Position - hrp.Position).Magnitude <= RANGE_GUN and canSee(ch, r) then
-                            if shootAt(r, true) then lastS = os.clock() else lastS = os.clock() + 2 end
-                        end
-                    end
-
-                    if K.aThrow and os.clock() - lastT > 0.8 and findTool(isKnife) then
-                        local r = nearest(RANGE_KNIFE, true)
-                        if r then
-                            if throwAt(r, true) then lastT = os.clock() else lastT = os.clock() + 2 end
-                        end
-                    end
-                end)
-            end
+    tab:Section({ Title = "mm2_secFarm" })
+    tab:Toggle({ Title = "mm2_cfCoin", Value = false, Callback = function(v)
+        farm.coin = v
+    end })
+    tab:Toggle({ Title = "mm2_candy", Value = false, Callback = function(v)
+        farm.candy = v
+    end })
+    tab:Toggle({ Title = "mm2_afk", Value = false, Callback = function(v)
+        if v then
+            local conn
+            conn = player.Idled:Connect(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end)
+            onUnload(function() conn:Disconnect() end)
         end
-    end)
-
-    tab:Section({ Title = "mm2_secHunter" })
-    tab:Toggle({ Title = "mm2_mAuto", Value = false, Callback = function(v) K.auto = v end })
-    tab:Toggle({ Title = "mm2_mAll", Value = false, Callback = function(v) K.all = v end })
-    tab:Toggle({ Title = "mm2_mThrow", Value = false, Callback = function(v) K.throw = v throwBtn.Visible = v end })
-    tab:Toggle({ Title = "mm2_sShoot", Value = false, Callback = function(v) K.shoot = v shootBtn.Visible = v end })
-    tab:Toggle({ Title = "mm2_aThrow", Value = false, Callback = function(v) K.aThrow = v end })
-    tab:Toggle({ Title = "mm2_aShoot", Value = false, Callback = function(v) K.aShoot = v end })
+    end })
 
     onUnload(function()
-        for k in pairs(K) do K[k] = false end
+        farm.coin = false
+        farm.candy = false
     end)
 end
 
----------------------------------------------------------------- หมวด FLING
+---------------------------------------------------------------- หมวด EVENT
 do
-    local tab = Tabs.MFling
-    local busy = false
-    local TIMEOUT, ROUNDS = 2.5, 3
+    local tab = Tabs.MEvent
+    tab:Section({ Title = "mm2_secAuto" })
+    tab:Paragraph({ Title = "mm2_evHint" })
 
-    local function hb() RunService.Heartbeat:Wait() end
+    local event = {
+        claim = false,
+        buy = false,
+        box = false,
+    }
 
-    local function zeroAll(c)
-        for _, d in ipairs(c:GetChildren()) do
-            if d:IsA("BasePart") then
-                d.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                d.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    local function findEventRemote(keywords)
+        for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
+            if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                local n = d.Name:lower()
+                for _, word in ipairs(keywords) do
+                    if n:find(word, 1, true) then return d end
+                end
             end
         end
     end
 
-    local function flingPlayer(plr)
-        if busy then toast("Already flinging", "กำลังฟลิ้งอยู่") return end
-        local c = player.Character
-        local hrp = c and c:FindFirstChild("HumanoidRootPart")
-        local hum = c and c:FindFirstChildOfClass("Humanoid")
-        local tch = plr and plr.Character
-        local troot = tch and tch:FindFirstChild("HumanoidRootPart")
-        local thum = tch and tch:FindFirstChildOfClass("Humanoid")
-        if not (hrp and hum and hum.Health > 0 and troot and thum and thum.Health > 0) then
-            toast("Failed (no character)", "ทำไม่ได้ (ไม่พบตัวละคร)")
-            return
+    local function invokeRemote(remote, ...)
+        if not remote then return false end
+        local args = table.pack(...)
+        if remote:IsA("RemoteFunction") then
+            local ok = pcall(function()
+                remote:InvokeServer(table.unpack(args, 1, args.n))
+            end)
+            return ok
         end
-
-        busy = true
-        FLAGS.flinging = true
-        local homeCF = hrp.CFrame
-        local startPos = troot.Position
-        local cam = workspace.CurrentCamera
-        local oldSubject = cam and cam.CameraSubject
-        local oldFall = workspace.FallenPartsDestroyHeight
-        pcall(function() workspace.FallenPartsDestroyHeight = 0 / 0 end)
-        pcall(function() cam.CameraSubject = thum end)
-
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bv.Velocity = Vector3.new(9e8, 9e8, 9e8)
-        bv.Parent = hrp
-
-        local function pose(offset, ang)
-            local cf = CFrame.new(troot.Position) * offset * ang
-            pcall(function() c:PivotTo(cf) end)
-            hrp.AssemblyLinearVelocity = Vector3.new(9e7, 9e8, 9e7)
-            hrp.AssemblyAngularVelocity = Vector3.new(9e8, 9e8, 9e8)
-            hb()
-        end
-
-        local function targetGone()
-            return not (plr.Parent and plr.Character == tch and troot.Parent) or thum.Health <= 0
-        end
-
-        local flung = false
-        local ok, err = pcall(function()
-            for _ = 1, ROUNDS do
-                local t0 = os.clock()
-                local angle = 0
-                while true do
-                    if targetGone() or hum.Health <= 0 or not hrp.Parent then break end
-                    local spd = troot.AssemblyLinearVelocity.Magnitude
-                    if spd > 500 or (troot.Position - startPos).Magnitude > 300 then
-                        flung = true
-                        break
-                    end
-                    if os.clock() - t0 > TIMEOUT then break end
-                    if spd < 50 then
-                        angle += 100
-                        local lead = CFrame.new(thum.MoveDirection * spd / 10)
-                        local a = CFrame.Angles(math.rad(angle), 0, 0)
-                        pose(CFrame.new(0, 1.5, 0) * lead, a)
-                        pose(CFrame.new(0, -1.5, 0) * lead, a)
-                        pose(CFrame.new(2.25, 1.5, -2.25) * lead, a)
-                        pose(CFrame.new(-2.25, -1.5, 2.25) * lead, a)
-                        pose(CFrame.new(0, 1.5, 0) * CFrame.new(thum.MoveDirection), a)
-                        pose(CFrame.new(0, -1.5, 0) * CFrame.new(thum.MoveDirection), a)
-                    else
-                        local ws = thum.WalkSpeed
-                        pose(CFrame.new(0, 1.5, ws), CFrame.Angles(math.rad(90), 0, 0))
-                        pose(CFrame.new(0, -1.5, -ws), CFrame.Angles(0, 0, 0))
-                        pose(CFrame.new(0, 1.5, ws), CFrame.Angles(math.rad(90), 0, 0))
-                        pose(CFrame.new(0, 1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
-                        pose(CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(-90), 0, 0))
-                        pose(CFrame.new(0, 1.5, 0), CFrame.Angles(0, 0, 0))
-                    end
-                end
-                if flung or targetGone() or hum.Health <= 0 then break end
-            end
+        return pcall(function()
+            remote:FireServer(table.unpack(args, 1, args.n))
         end)
-        if not ok then warn("[NXMM2 FLING]", err) end
-
-        bv:Destroy()
-        pcall(function() cam.CameraSubject = oldSubject or hum end)
-        for i = 1, 90 do
-            if not (hrp.Parent and c.Parent) then break end
-            pcall(function() c:PivotTo(homeCF * CFrame.new(0, 0.5, 0)) end)
-            zeroAll(c)
-            pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
-            hb()
-            if i >= 12 and (hrp.Position - homeCF.Position).Magnitude < 15 then break end
-        end
-        pcall(function() workspace.FallenPartsDestroyHeight = oldFall end)
-        FLAGS.flinging = false
-        busy = false
-        toast("Fling finished ✓", "ฟลิ้งเสร็จแล้ว ✓")
     end
 
-    local function flingRole(role, missEn, missTh)
-        fetchNow()
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player and getRole(plr) == role then
-                task.spawn(flingPlayer, plr)
-                return
+    task.spawn(function()
+        while not MM.dead do
+            task.wait(2)
+            if event.claim then
+                local remote = findEventRemote({ "claim", "reward" })
+                if remote then invokeRemote(remote) end
             end
-        end
-        toast(missEn, missTh)
-    end
-
-    tab:Section({ Title = "mm2_secFling" })
-    tab:Button({ Title = "mm2_fSheriff", Variant = "Secondary", Callback = function()
-        flingRole("Sheriff", "Sheriff not found", "ไม่พบนายอำเภอ")
-    end })
-    tab:Button({ Title = "mm2_fMurder", Variant = "Danger", Callback = function()
-        flingRole("Murderer", "Murderer not found", "ไม่พบฆาตกร")
-    end })
-
-    local sel
-    dropdowns[#dropdowns + 1] = tab:Dropdown({ Title = "mm2_wList", Values = playerNames(), Callback = function(v) sel = v end })
-    tab:Button({ Title = "mm2_fGo", Callback = function()
-        local plr = sel and Players:FindFirstChild(sel)
-        if not plr then toast("No player selected", "ยังไม่ได้เลือกผู้เล่น") return end
-        task.spawn(flingPlayer, plr)
-    end })
-
-    onUnload(function() FLAGS.flinging = false end)
-end
-
----------------------------------------------------------------- หมวด PLAYER
-do
-    local tab = Tabs.MPlayer
-    local WALK_BASE, WALK_ADD = 16, 100
-    local JUMP_BASE, JUMP_ADD = 50, 100
-    local FLY_SPEED = 66
-
-    local orig = setmetatable({}, { __mode = "k" })
-    local noclipWas = false
-    bind(RunService.Stepped, function()
-        local c = player.Character
-        if not c then return end
-        if P.noclip and not FLAGS.flinging then
-            noclipWas = true
-            for _, d in ipairs(c:GetDescendants()) do
-                if d:IsA("BasePart") then
-                    if orig[d] == nil then orig[d] = d.CanCollide end
-                    d.CanCollide = false
-                end
+            if event.buy then
+                local remote = findEventRemote({ "buy", "purchase" })
+                if remote then invokeRemote(remote) end
             end
-        elseif noclipWas then
-            noclipWas = false
-            for part, v in pairs(orig) do
-                if part.Parent then part.CanCollide = v end
-                orig[part] = nil
+            if event.box then
+                local remote = findEventRemote({ "openbox", "mysterybox" })
+                if remote then invokeRemote(remote) end
             end
         end
     end)
 
-    bind(RunService.Heartbeat, function()
-        local _, _, hum = myParts()
-        if not hum then return end
-        if P.speed then hum.WalkSpeed = WALK_BASE + WALK_ADD end
-        if P.jump then
-            hum.UseJumpPower = true
-            hum.JumpPower = JUMP_BASE + JUMP_ADD
+    tab:Toggle({ Title = "mm2_claim", Value = false, Callback = function(v)
+        event.claim = v
+    end })
+    tab:Toggle({ Title = "mm2_buy", Value = false, Callback = function(v)
+        event.buy = v
+    end })
+    tab:Toggle({ Title = "mm2_box", Value = false, Callback = function(v)
+        event.box = v
+    end })
+
+    onUnload(function()
+        event.claim = false
+        event.buy = false
+        event.box = false
+    end)
+end
+
+---------------------------------------------------------------- ปิดระบบเมื่อ GUI ถูกปิด
+onUnload(function()
+    for _, c in ipairs(conns) do
+        pcall(function() c:Disconnect() end)
+    end
+    for plr in pairs(pEsp) do clearPlayer(plr) end
+    for inst in pairs(gEsp) do clearGun(inst) end
+    for plr in pairs(vis) do clearVis(plr) end
+end)
+
+end)
+
+if not okM then
+    warn("[NEXORA MM2 MODULE ERROR]", errM)
+end
+end
+
+-- END OF NEXORA MM2 MODULE
+              hum.JumpPower = JUMP_BASE + JUMP_ADD
         end
     end)
 
@@ -3359,7 +3371,7 @@ do
             if floating then release() end
             return
         end
-        if FLAGS.floating and not floating then return end -- ฟาร์มเหรียญกำลังลอยอยู่
+        if FLAGS.floating and not floating then return end
 
         local c, hrp, hum = myParts()
         if not (c and hrp and hum and hum.Health > 0) then release() return end
@@ -3429,13 +3441,11 @@ do
     end)
 end
 
-
----------------------------------------------------------------- EVENT : ออโต้รับรางวัล / ซื้อของ / เปิดกล่อง (ผ่านปุ่มใน UI ของเกม)
+---------------------------------------------------------------- EVENT : ออโต้รับรางวัล / ซื้อของ / เปิดกล่อง
 do
     local tab = Tabs.MEvent
     local AUTO = { claim = false, buy = false, box = false }
 
-    -- กดปุ่มใน UI ของเกมโดยเรียกการเชื่อมต่อของปุ่มตรงๆ (ต้องใช้ตัวรันที่รองรับ getconnections หรือ firesignal)
     local function clickBtn(b)
         local fired = false
         if getconnections then
@@ -3456,15 +3466,19 @@ do
         return fired
     end
 
-    local function isBtn(o) return o:IsA("TextButton") or o:IsA("ImageButton") end
+    local function isBtn(o)
+        return o:IsA("TextButton") or o:IsA("ImageButton")
+    end
 
-    local function cross() return playerGui:FindFirstChild("CrossPlatform") end
+    local function cross()
+        return playerGui:FindFirstChild("CrossPlatform")
+    end
+
     local function evRoot()
         local c = cross()
         return c and c:FindFirstChild("Halloween2026")
     end
 
-    -- แถวที่เป็นของแลกด้วย Robux จะไม่กด (กันเด้งหน้าต่างซื้อ)
     local function robuxRow(btn)
         local a = btn.Parent
         for _ = 1, 4 do
@@ -3484,7 +3498,6 @@ do
         return o
     end
 
-    -- ออโต้รับรางวัล: เพลงบัตรผ่าน (Battle Pass) + เควสอีเวนท์
     local function claimAll()
         local ev = evRoot()
         if not ev then return end
@@ -3495,17 +3508,18 @@ do
             path(ev, "Event", "Main", "Rewards"),
         }
         for _, root in pairs(spots) do
-            for _, d in ipairs(root:GetDescendants()) do
-                if not (AUTO.claim and not MM.dead) then return end
-                if isBtn(d) and d.Name == "ActionButton" and d.Visible and not robuxRow(d) then
-                    clickBtn(d)
-                    task.wait(0.15)
+            if root then
+                for _, d in ipairs(root:GetDescendants()) do
+                    if not (AUTO.claim and not MM.dead) then return end
+                    if isBtn(d) and d.Name == "ActionButton" and d.Visible and not robuxRow(d) then
+                        clickBtn(d)
+                        task.wait(0.15)
+                    end
                 end
             end
         end
     end
 
-    -- ออโต้ซื้อของอีเวนท์ในร้าน (เฉพาะแถวที่เป็นของอีเวนท์ ไม่เอาแถว Robux)
     local function buyAll()
         local c = cross()
         local shop = c and c:FindFirstChild("Shop")
@@ -3523,7 +3537,6 @@ do
         end
     end
 
-    -- ออโต้เปิดกล่องสุ่มอีเวนท์ (ปุ่มจ่ายด้วยเหรียญอีเวนท์)
     local function openBox()
         local ev = evRoot()
         local btn = path(ev, "MainEvent", "Main", "MysteryBox", "BuyFrame", "Currency", "Button")
@@ -3537,6 +3550,7 @@ do
             if AUTO.buy then pcall(buyAll) end
         end
     end)
+
     task.spawn(function()
         while not MM.dead do
             task.wait(1.5)
@@ -3549,19 +3563,25 @@ do
     tab:Toggle({ Title = "mm2_buy", Value = false, Callback = function(v) AUTO.buy = v end })
     tab:Toggle({ Title = "mm2_box", Value = false, Callback = function(v) AUTO.box = v end })
 
-    onUnload(function() for k in pairs(AUTO) do AUTO[k] = false end end)
+    onUnload(function()
+        for k in pairs(AUTO) do AUTO[k] = false end
+    end)
 
-    -- ปุ่มลัดจุดร้านค้าในล็อบบี้ (ใช้พร็อมต์ของเกมโดยตรง)
     local function usePrompt(partName)
         local part = workspace:FindFirstChild(partName, true)
         local pp = part and part:FindFirstChildWhichIsA("ProximityPrompt", true)
-        if not pp then toast("Spot not found (go to lobby)", "ไม่พบจุดนี้ (ต้องอยู่ล็อบบี้)") return end
+        if not pp then
+            toast("Spot not found (go to lobby)", "ไม่พบจุดนี้ (ต้องอยู่ล็อบบี้)")
+            return
+        end
         if fireproximityprompt then
             pcall(function() pp.HoldDuration = 0 end)
             pcall(fireproximityprompt, pp)
         else
             local c = player.Character
-            if c and part:IsA("BasePart") then c:PivotTo(part.CFrame * CFrame.new(0, 0, 4)) end
+            if c and part:IsA("BasePart") then
+                c:PivotTo(part.CFrame * CFrame.new(0, 0, 4))
+            end
         end
     end
 
@@ -3574,7 +3594,9 @@ do
 end
 
 end) -- pcall MM2
-if not okM then warn("[Nexora] MM2 module error: " .. tostring(errM)) end
+if not okM then
+    warn("[Nexora] MM2 module error: " .. tostring(errM))
+end
 end
 
 end
@@ -3583,21 +3605,15 @@ end
 -- เริ่มทำงาน: รอหน้าโหลดจบ แล้วเด้งโลโก้ + เปิดหน้าต่าง
 ------------------------------------------------------------------
 do
- local NX=getgenv().NX
- NX.setLang(NX.state.lang or "TH")
- Loader.finish(function()
-  if not NX.gui.Parent then return end
-  TS:Create(logo,TweenInfo.new(.5,Enum.EasingStyle.Back),{Size=UDim2.fromOffset(LS,LS)}):Play()
-  task.delay(.6,function() NX.setOpen(true) end)
- end)
+    local NX = getgenv().NX
+    NX.setLang(NX.state.lang or "TH")
+    Loader.finish(function()
+        if not NX.gui.Parent then return end
+        TS:Create(logo, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
+            Size = UDim2.fromOffset(LS, LS)
+        }):Play()
+        task.delay(0.6, function()
+            NX.setOpen(true)
+        end)
+    end)
 end
-
-
-
-
-
-
-
-
-
-
