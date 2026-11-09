@@ -1586,45 +1586,124 @@ chip("Auto Join Queue","ออโต้เข้าคิว",
   end)
  end)
 
-hdr("⚡ AUTO ANSWER","⚡ ออโต้ตอบ")
-local autoAnsConn
-chip("Auto Answer (Random)","ออโต้ตอบ (สุ่ม)",
- "Randomly clicks answer tiles","สุ่มกดคำตอบในแมทช์",
- function(v)
-  if autoAnsConn then autoAnsConn:Disconnect() autoAnsConn=nil end
-  if not v then return end
-  autoAnsConn=RS.Heartbeat:Connect(function()
-   pcall(function()
-    local tiles={}
-    for _,obj in ipairs(lp.PlayerGui:GetDescendants()) do
-     if obj:IsA("TextButton") and obj.Name=="Tile" and obj.Visible then
-      tiles[#tiles+1]=obj
-     end
-    end
-    if #tiles>0 then
-     local pick=tiles[math.random(1,#tiles)]
-     task.delay(.3,function()
-      for i,t in ipairs(tiles) do
-       if t==pick then
-        pcall(function() if MatchInput then MatchInput:FireServer(i-1) end end)
-        break
+-- ===== ระบบดักฟังคำตอบจาก Match Remote =====
+-- เกมส่ง event มาพร้อม payload ที่มีคำตอบที่ถูก
+-- รูปแบบที่พบจาก dump: Match:FireClient(player, type, data)
+-- type = "question" → data มี .answer หรือดูจาก Reel > Strip > TextLabel
+local currentAnswer = nil
+local answerConn
+
+local function readAnswerFromReel()
+ -- อ่านคำตอบจาก Strip ใน Reel frame (ม้วนฟิล์มที่โชว์ตัวอักษร)
+ pcall(function()
+  local pg = lp.PlayerGui
+  for _, sg in ipairs(pg:GetDescendants()) do
+   if sg.Name == "Reel" and sg:IsA("Frame") then
+    local strip = sg:FindFirstChild("Strip")
+    if strip then
+     -- Strip มีลูกเป็น Frame แต่ละตัวแทนตัวอักษร
+     -- อ่าน TextLabel ใน Pick frame (ตำแหน่งที่เลือกอยู่)
+     local pick = sg:FindFirstChild("Pick")
+     if pick then
+      -- นับ position ของ Pick เทียบกับ Strip children
+      local stripChildren = strip:GetChildren()
+      for i, child in ipairs(stripChildren) do
+       if child:IsA("Frame") then
+        local lbl = child:FindFirstChildOfClass("TextLabel")
+        if lbl and math.abs(child.Position.Y.Offset - pick.Position.Y.Offset) < 20 then
+         return lbl.Text
+        end
        end
       end
-     end)
+     end
+    end
+   end
+  end
+ end)
+ return nil
+end
+
+local function typeAnswer(answer)
+ -- พิมพ์ตัวอักษรทีละตัวผ่าน MatchInput
+ -- เกมรับ: MatchInput:FireServer(char) สำหรับแต่ละตัวอักษร
+ -- และ MatchInput:FireServer("submit") หรือ keyAction เพื่อยืนยัน
+ if not answer or answer == "" then return end
+ task.spawn(function()
+  for i = 1, #answer do
+   local ch = answer:sub(i, i)
+   pcall(function()
+    if MatchInput then MatchInput:FireServer(ch) end
+   end)
+   task.wait(0.05) -- พิมพ์เร็ว ไม่ให้หมดเวลา
+  end
+  task.wait(0.1)
+  -- กด submit / keyAction
+  pcall(function()
+   if MatchInput then MatchInput:FireServer("submit") end
+  end)
+  -- ลอง fire Action button บน GUI ด้วย
+  pcall(function()
+   for _, obj in ipairs(lp.PlayerGui:GetDescendants()) do
+    if obj:IsA("TextButton") and obj:GetAttribute("Kind") == "keyAction" then
+     obj:GetPropertyChangedSignal("Active")
+     -- fire MatchInput ด้วย action signal
+     if MatchInput then MatchInput:FireServer("action") end
+    end
+   end
+  end)
+ end)
+end
+
+hdr("⚡ AUTO ANSWER","⚡ ออโต้ตอบ")
+
+-- ดักฟัง Match Remote → รับคำตอบที่ถูกจาก server
+local matchListenConn
+chip("Auto Answer (Real)","ออโต้ตอบจริง",
+ "Listens to Match event, types correct answer","ดักฟัง Remote แล้วพิมพ์คำตอบที่ถูกอัตโนมัติ",
+ function(v)
+  if matchListenConn then matchListenConn:Disconnect() matchListenConn=nil end
+  currentAnswer = nil
+  if not v then return end
+  -- ดักฟัง Match OnClientEvent
+  matchListenConn = Match.OnClientEvent:Connect(function(eventType, data)
+   pcall(function()
+    -- เกมส่งมาหลายรูปแบบ รองรับทั้งหมด
+    if eventType == "question" or eventType == "round" then
+     -- data อาจเป็น table มี .answer / .correct / .ans
+     if type(data) == "table" then
+      currentAnswer = data.answer or data.correct or data.ans or data[2]
+     elseif type(data) == "string" then
+      currentAnswer = data
+     end
+     -- ถ้าได้คำตอบแล้ว พิมพ์เลย
+     if currentAnswer then
+      task.delay(0.3, function() typeAnswer(tostring(currentAnswer)) end)
+     end
+    elseif eventType == "answer" or eventType == "reveal" then
+     -- server เฉลยคำตอบ → อ่านแล้วพิมพ์ถ้ายังไม่ได้ส่ง
+     local ans = (type(data)=="table") and (data.answer or data.correct or data[1]) or data
+     if ans then typeAnswer(tostring(ans)) end
     end
    end)
-   task.wait(1.5)
   end)
  end)
 
-chip("Auto Answer (First)","ออโต้ตอบ (ตัวแรก)",
- "Always picks the first tile","กดคำตอบตัวแรกเสมอ",
+chip("Auto Type from Reel","ออโต้พิมพ์จาก Reel",
+ "Reads answer from Reel strip UI and types it","อ่านคำตอบจาก UI ม้วนฟิล์มแล้วพิมพ์",
  function(v)
   if not v then return end
   task.spawn(function()
+   local lastAns = ""
    while v do
-    pcall(function() if MatchInput then MatchInput:FireServer(0) end end)
-    task.wait(1.2)
+    pcall(function()
+     -- อ่านคำตอบที่โชว์ใน Reel > Window > Strip ทุก 0.2s
+     local ans = readAnswerFromReel()
+     if ans and ans ~= "" and ans ~= lastAns then
+      lastAns = ans
+      task.delay(0.2, function() typeAnswer(ans) end)
+     end
+    end)
+    task.wait(0.2)
    end
   end)
  end)
@@ -1643,13 +1722,30 @@ chip("Auto Solo Play","ออโต้เล่นเดี่ยว",
  end)
 
 chip("Auto Match Play","ออโต้เล่นแมทช์",
- "Auto-joins and answers multiplayer matches","เข้าและตอบโหมดหลายคนอัตโนมัติ",
+ "Auto-joins, listens for question and types answer","เข้าแมทช์ ดักคำตอบ พิมพ์อัตโนมัติ",
  function(v)
   if not v then return end
   task.spawn(function()
    while v do
+    -- เข้าแมทช์
     pcall(function() if Match then Match:FireServer("ready") end end)
-    task.wait(4)
+    -- ดักคำตอบจาก event ครั้งถัดไป
+    local conn
+    conn = Match.OnClientEvent:Connect(function(evType, data)
+     pcall(function()
+      local ans
+      if type(data)=="table" then
+       ans = data.answer or data.correct or data.ans or data[2]
+      elseif type(data)=="string" and evType~="result" then
+       ans = data
+      end
+      if ans then
+       task.delay(0.25, function() typeAnswer(tostring(ans)) end)
+      end
+     end)
+    end)
+    task.wait(8)
+    if conn then conn:Disconnect() end
    end
   end)
  end)
