@@ -539,6 +539,7 @@ addPage("quest","!","QUEST","เควส")
 addPage("dungeon","♜","DUNGEON","ดันเจี้ยน")
 addPage("pvp","⚔","PVP","PVP")
 addPage("race","✧","RACE","เผ่า")
+addPage("wear","♛","WEAR","ของแต่งตัว")
 addPage("esp","◉","ESP","ESP")
 addPage("teleport","➤","TELEPORT","วาร์ป")
 section("SYSTEM","ระบบ")
@@ -1549,6 +1550,15 @@ NX.Features=NX.Features or {}
 local Features=NX.Features
 local UI={}      -- UI[key](value,fire) ตั้งค่าสวิตช์จากโค้ด
 local function save() if NX.save then NX.save() end end
+local drag={}
+conns[#conns+1]=UIS.InputChanged:Connect(function(i)
+ local d=drag.cur
+ if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then d.move(i.Position.X) end
+end)
+conns[#conns+1]=UIS.InputEnded:Connect(function(i)
+ local d=drag.cur
+ if d and (i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch) then drag.cur=nil d.done() end
+end)
 local function fire(key,v)
  local f=Features[key]
  if f then
@@ -1580,8 +1590,6 @@ local function build(pageName)
   ord+=1
   local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4,ClipsDescendants=true},sf)
   round(r,14)
-  local st=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
-  NX.onAccent(function(a,b) st.Color=b end)
   return r
  end
  local function titles(r,en,th,dEn,dTh,w)
@@ -1638,7 +1646,6 @@ local function build(pageName)
    fill.Size=UDim2.fromScale(t,1) knob.Position=UDim2.fromScale(t,.5)
    vl.Text=fmt and fmt(v) or tostring(v)
   end
-  local dragging=false
   local function isPtr(i) return i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch end
   local function fromX(x)
    local t=math.clamp((x-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
@@ -1647,12 +1654,11 @@ local function build(pageName)
    S[key]=v show(v)
    fire(key,v)
   end
-  hit.InputBegan:Connect(function(i) if isPtr(i) then dragging=true fromX(i.Position.X) end end)
-  UIS.InputChanged:Connect(function(i)
-   if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromX(i.Position.X) end
-  end)
-  UIS.InputEnded:Connect(function(i)
-   if dragging and isPtr(i) then dragging=false save() end
+  hit.InputBegan:Connect(function(i)
+   if isPtr(i) then
+    drag.cur={move=fromX,done=save}
+    fromX(i.Position.X)
+   end
   end)
   show(S[key])
  end
@@ -1715,10 +1721,12 @@ local function build(pageName)
    TS:Create(r,TI,{Size=UDim2.new(1,0,0,v and 184 or 42)}):Play()
    ob.Text=v and "▲" or "▼"
   end
-  function O.setOptions(newOpts)
-   for _,b in pairs(btns) do b:Destroy() end
+  local optList,built=opts,false
+  local function buildBtns()
+   built=true
+   for _,b2 in pairs(btns) do b2:Destroy() end
    btns={}
-   for i,name in ipairs(newOpts) do
+   for i,name in ipairs(optList) do
     local bt=make("TextButton",{LayoutOrder=i,Size=UDim2.new(1,-6,0,24),BackgroundColor3=COL.Bg,Text=name,Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Text,AutoButtonColor=false},list)
     round(bt,10)
     btns[name]=bt
@@ -1728,10 +1736,21 @@ local function build(pageName)
      mark() summary() fire(key,S[key]) save()
     end)
    end
-   mark() summary()
+   mark()
   end
-  ob.MouseButton1Click:Connect(function() setOpen(not opened) end)
-  O.setOptions(opts)
+  function O.setOptions(newOpts)
+   optList=newOpts
+   for _,b2 in pairs(btns) do b2:Destroy() end
+   btns={}
+   built=false
+   if opened then buildBtns() end
+   summary()
+  end
+  ob.MouseButton1Click:Connect(function()
+   if not opened and not built then buildBtns() end
+   setOpen(not opened)
+  end)
+  summary()
   return O
  end
 
@@ -1781,6 +1800,10 @@ local BOSS_QUEST={}
 local STAT_ROWS={"Health","Melee","Power","Sword"}   -- แถวในหน้า Stats ของเกม
 local ISLANDS={"Spawn","Floppa Island","Sand Island","Snow Island","Moai Island","Pumpkin Island","Gorilla Island","Sus Island","Sus Mountain","MrBeast Island","Forgotten Island","Noob Arena","Pvp Arena","Heaven"}
 local KEYS={"Z","X","C","V","F","G","B"}
+local WEAR_LIST={"Egg Doge","Floppa Hat","Obamid","Sus Face","Giant Banana","Popcat Pet","Rick Buddy","Moai Face","MrBeast","Noob Friend","Sus Pals","Pumpkin Head"}
+local WEAR_LABEL={MrBeast="Mr Beast"}
+local function accKey(n) return "acc_"..(n:lower():gsub("[^%w]+","_")) end
+local STYLES={"Baller"}
 local DEFAULT_SKILL={Z=true,X=true,C=true,V=true}   -- ไม่รวม F (บินของ Dog Power)
 -- บอสที่ต้องเสกที่แท่น (ข้อมูลจากแท่น Summon ในเกม)
 local SUMMON_BOSS={
@@ -1897,17 +1920,21 @@ local function loop(key,interval,fn)
  end
 end
 -- โหมดฟาร์ม: เปิดอันหนึ่ง อันอื่นปิดเอง
-local MODES={"farm_level","farm_near","farm_boss","farm_sea","farm_drop","farm_summon","farm_item","race_quest","race_orb","race_reroll","quest_sel","pvp_hunt"}
+local MODES={"aura","farm_level","farm_near","farm_boss","farm_sea","farm_summon","farm_item","race_quest","race_orb","race_reroll","roll_power","quest_sel","pvp_hunt"}
+for _,a in ipairs(WEAR_LIST) do MODES[#MODES+1]=accKey(a) end
 local function only(key)
  for _,k in ipairs(MODES) do
-  if k~=key and S[k] and UI[k] then UI[k](false,true) end
+  if k~=key and S[k] then
+   if UI[k] then UI[k](false,true) else S[k]=false fire(k,false) end
+  end
  end
 end
+local releaseTarget=function() end
 local function modeLoop(key,interval,fn)
  loop(key,interval,fn)
  local base=Features[key]
  Features[key]=function(v)
-  if v then only(key) end
+  if v then only(key) else releaseTarget() end
   base(v)
  end
 end
@@ -1928,23 +1955,6 @@ local function equipSelected(kind)
  local tool=lp.Backpack:FindFirstChild(name)
  local h=hum()
  if tool and h then pcall(function() h:EquipTool(tool) end) end
-end
-local lastClick=0
-local function click()
- local now=os.clock()
- if now-lastClick<.1 then return end
- lastClick=now
- local c=lp.Character
- local t=c and c:FindFirstChildOfClass("Tool")
- if t then pcall(function() t:Activate() end) end
- -- คลิกจำลอง: ทำงานเฉพาะตอนปิดเมนู Nexora เพื่อไม่ให้ไปกดโดน GUI
- if S.atk_click and not NX.isOpen() then
-  pcall(function()
-   local vp=WS.CurrentCamera.ViewportSize
-   VIM:SendMouseButtonEvent(vp.X*.5,vp.Y*.5,0,true,game,1)
-   VIM:SendMouseButtonEvent(vp.X*.5,vp.Y*.5,0,false,game,1)
-  end)
- end
 end
 local function tapKey(k)
  local kc=Enum.KeyCode[k]
@@ -2022,32 +2032,71 @@ local function closest(list)
  return best,bd
 end
 -- ล็อกกล้องไปที่เป้าหมาย ให้สกิลที่เล็งตามกล้อง/เมาส์โดนตัวจริง
-local aimModel,aimStamp=nil,0
+local Ctl={target=nil,kind=nil,stamp=0}
+local offCache=setmetatable({},{__mode="k"})
+local HOVER_GAP=4   -- ลอยเหนือหัวกี่ studs (ปรับที่นี่)
+local lastHit,lastEq=0,0
+local function ctlActive()
+ local t=Ctl.target
+ return t~=nil and t.Parent~=nil and os.clock()-Ctl.stamp<.45
+end
+releaseTarget=function() Ctl.target=nil end
+-- โหมดต่างๆ เรียก engage ทุกรอบเพื่อ "ต่ออายุ" เป้าหมาย: ปิดโหมดเมื่อไหร่ ตัวควบคุมหยุดตีภายใน 0.45 วิ
+local function engage(m,kind)
+ Ctl.target=m Ctl.kind=kind Ctl.stamp=os.clock()
+end
+-- เลือกเป้าหมายแบบล็อก: ถ้าเป้าเดิมยังไม่ตายและตรงเงื่อนไข ก็ตีตัวเดิมต่อ (ไม่เที่ยวเปลี่ยนตัว)
+local function sticky(filter)
+ local t=Ctl.target
+ if t and t.Parent then
+  local h=t:FindFirstChildOfClass("Humanoid")
+  if h and h.Health>0 and ((not filter) or filter(t)) then return t end
+ end
+ return (closest(aliveMobs(filter)))
+end
+local function hoverOn(model)
+ local mr=model:FindFirstChild("HumanoidRootPart")
+ if not mr then return end
+ local off=offCache[model]
+ if not off then
+  local ok,cf,size=pcall(function() return model:GetBoundingBox() end)
+  off=ok and math.max(1.5,(cf.Position.Y+size.Y/2)-mr.Position.Y) or 3
+  offCache[model]=off
+ end
+ local p=mr.Position
+ setCF(CFrame.lookAt(Vector3.new(p.X,p.Y+off+HOVER_GAP,p.Z),p+Vector3.new(0,0,.3)))
+end
+conns[#conns+1]=RunS.Heartbeat:Connect(function()
+ if not ctlActive() then return end
+ local m=Ctl.target
+ local h=m:FindFirstChildOfClass("Humanoid")
+ if not h or h.Health<=0 then Ctl.target=nil return end
+ if not alive() then return end
+ hoverOn(m)
+ local now=os.clock()
+ local c=lp.Character
+ local t=c and c:FindFirstChildOfClass("Tool")
+ local cd=math.clamp((t and t:GetAttribute("Attack_Cooldown")) or .2,.1,1)
+ if now-lastHit>=cd then
+  lastHit=now
+  if now-lastEq>.5 then lastEq=now equipSelected(Ctl.kind) end
+  if t then pcall(function() t:Activate() end) end
+  if S.atk_click and not NX.isOpen() then
+   pcall(function()
+    local vp=WS.CurrentCamera.ViewportSize
+    VIM:SendMouseButtonEvent(vp.X*.5,vp.Y*.5,0,true,game,1)
+    VIM:SendMouseButtonEvent(vp.X*.5,vp.Y*.5,0,false,game,1)
+   end)
+  end
+ end
+end)
+-- ล็อกกล้องไปที่เป้าหมาย ให้สกิลที่เล็งตามกล้องโดนตัวจริง
 RunS:BindToRenderStep("NexoraAim",Enum.RenderPriority.Camera.Value+1,function()
- if S.aim_cam==false or not aimModel or not aimModel.Parent or os.clock()-aimStamp>.5 then return end
+ if S.aim_cam==false or not ctlActive() then return end
  local cam=WS.CurrentCamera
- local p=aimModel:FindFirstChild("HumanoidRootPart")
+ local p=Ctl.target:FindFirstChild("HumanoidRootPart")
  if cam and p then cam.CFrame=CFrame.lookAt(cam.CFrame.Position,p.Position) end
 end)
-local HOVER_GAP=4   -- ลอยเหนือหัวกี่ studs (ปรับที่นี่)
-local function hoverOn(model)
- local mr=model and model:FindFirstChild("HumanoidRootPart")
- if not mr then return end
- aimModel=model aimStamp=os.clock()
- local ok,cf,size=pcall(function() return model:GetBoundingBox() end)
- local top=ok and (cf.Position.Y+size.Y/2) or (mr.Position.Y+3)
- local pos=Vector3.new(mr.Position.X,top+HOVER_GAP,mr.Position.Z)
- setCF(CFrame.lookAt(pos,mr.Position+Vector3.new(0,0,.3)))
-end
-local function engage(m,kind)
- hoverOn(m)
- equipSelected(kind)
- click()
-end
-local function modeActive()
- for _,k in ipairs(MODES) do if S[k] then return true end end
- return false
-end
 local function goSpawn(name)
  local f=path(WS,"Location","Enemy_Location")
  local loc=f and f:FindFirstChild(name)
@@ -2062,7 +2111,7 @@ local function goSpawn(name)
 end
 local function farmNames(names)
  if not alive() then return false end
- local m=closest(aliveMobs(function(x) return names[x.Name] end))
+ local m=sticky(function(x) return names[x.Name] end)
  if m then engage(m) return true end
  for n in pairs(names) do if goSpawn(n) then break end end
  return false
@@ -2192,7 +2241,7 @@ local function questStep(npcName,status)
   if os.clock()<blockedUntil then
    -- เลเวลยังไม่ถึง: ตีมอนใกล้ตัวระหว่างรอ แล้วลองรับเควสใหม่
    if not npcName then
-    local m=closest(aliveMobs(function(x) return not BOSSSET[x.Name] end))
+    local m=sticky(function(x) return not BOSSSET[x.Name] end)
     if m then engage(m) end
    end
    return
@@ -2228,10 +2277,10 @@ local function questStep(npcName,status)
   return
  end
  if status then status("Lv "..tostring(pd("Level") or "?").."  "..pick.target.."  "..pick.amount.."/"..pick.need) end
- local m=closest(aliveMobs(function(x) return nameMatches(x.Name,pick.target) end))
+ local m=sticky(function(x) return nameMatches(x.Name,pick.target) end)
  if m then engage(m) else
   if not goSpawn(pick.target) then
-   local any=closest(aliveMobs(function(x) return not BOSSSET[x.Name] end))
+   local any=sticky(function(x) return not BOSSSET[x.Name] end)
    if any then engage(any) end
   end
  end
@@ -2301,9 +2350,10 @@ local ESPS={
   if f then for _,c in ipairs(f:GetChildren()) do o[#o+1]={inst=c,label="⚡ "..c.Name} end end
   return o end},
  esp_chest={Color3.fromRGB(255,170,40),function()
-  if os.clock()-chestAt>15 then
+  if os.clock()-chestAt>60 then
    chestAt=os.clock() chestCache={}
-   for _,d in ipairs(WS:GetDescendants()) do
+   local isl=WS:FindFirstChild("Island")
+   for _,d in ipairs(isl and isl:GetDescendants() or {}) do
     if (d:IsA("Model") or d:IsA("BasePart")) and d.Name:lower():find("chest",1,true) then chestCache[#chestCache+1]={inst=d,label="📦 "..d.Name} end
    end
   end
@@ -2366,13 +2416,12 @@ do
  P.picker("item_pick","Item to find","เลือกไอเทมที่ต้องการ",ITEMS,ITEMS[1],false)
  P.slider("item_want","Amount wanted","จำนวนที่ต้องการ",1,50,1,function(v) return math.floor(v).."" end)
  P.toggle("farm_item","Auto find item","หาไอเทมอัตโนมัติ","Buys it, or farms the monster that drops it","ซื้อ หรือไปตีมอนที่ดรอปของนั้น")
- P.header("WEARABLES","ของสวมใส่")
- P.picker("drop_pick","Wearable drops","ของสวมใส่ที่ต้องการ",ACCESSORIES,nil,true)
- P.toggle("farm_drop","Farm for drops","ตีบอสเพื่อของสวมใส่","Fight the monsters that drop the selected items","ไปตีมอน/บอสที่ดรอปของที่เลือก")
 
  P.header("SKILLS","สกิล")
  P.toggle("skill_auto","Auto skill","ใช้สกิลอัตโนมัติ","Press skill keys repeatedly","กดปุ่มสกิลต่อเนื่อง")
  P.picker("skill_keys","Skill keys","ปุ่มสกิล",KEYS,nil,true)
+ P.toggle("auto_haki","Auto Aura haki","ออโต้เปิดฮาคิออร่า","Keeps Aura haki on while you own it","เปิดฮาคิออร่าค้างไว้ถ้ามีฮาคินี้แล้ว")
+ P.toggle("pickup_near","Auto pickup drops","เก็บของดรอปอัตโนมัติ","Picks up drops within 30 studs","เก็บของที่ตกใกล้ๆ (ภายใน 30 studs)")
 
  P.header("BOSS & RAID","บอสและเรด")
  P.toggle("esp_boss","Boss ESP","Boss ESP","Show boss position","แสดงตำแหน่งบอส")
@@ -2392,11 +2441,21 @@ do
 end
 
 -- ======================= ซื้อ =======================
-local setBuyStatus
+local setBuyStatus,setRollStatus
 do
  local P=build("buy") pageList[#pageList+1]=P
  P.header("BUY","ซื้อ",true)
  setBuyStatus=P.status("Buy status","สถานะการซื้อ")
+ P.header("ROLL POWER","สุ่มผล (Gacha)")
+ setRollStatus=P.status("Roll status","สถานะการสุ่ม")
+ P.picker("roll_npc","Gacha NPC","เลือกตู้สุ่ม",{"Floppa Gacha","Doge Gacha"},"Floppa Gacha",false)
+ P.picker("roll_want","Stop when you get","หยุดเมื่อได้",POWERS,nil,true)
+ P.slider("roll_delay","Delay between rolls","หน่วงเวลาระหว่างสุ่ม",1,10,2,function(v) return v.."s" end)
+ P.slider("roll_max","Max rolls","สุ่มสูงสุดกี่ครั้ง",1,1000,100,function(v) return math.floor(v).."" end)
+ P.toggle("roll_power","Auto roll power","ออโต้สุ่มผล","Rolls until you get a wanted power (costs in-game currency)","สุ่มจนได้ผลที่เลือก (เสียเงินในเกม)")
+ P.header("FIGHTING STYLE","สไตล์การต่อสู้")
+ P.picker("buy_style_pick","Styles","เลือกสไตล์",STYLES,nil,true)
+ P.toggle("buy_style","Auto learn fighting style","เรียนสไตล์อัตโนมัติ","Talks to Maxwell for the selected style","คุยกับ Maxwell เพื่อเรียนสไตล์ที่เลือก")
  P.header("AUTO BUY","ซื้ออัตโนมัติ")
  P.picker("buy_item_pick","Items","เลือกไอเทม",ITEMS,nil,true)
  P.toggle("buy_items","Auto Buy Items","Auto Buy Items","Buy the selected items","ซื้อไอเทมที่เลือกอัตโนมัติ")
@@ -2494,6 +2553,19 @@ do
  P.toggle("race_skill","Auto race skill","ใช้สกิลเผ่าอัตโนมัติ","Presses the race skill button when enemies are near","กดปุ่มสกิลเผ่าเมื่อมีศัตรูใกล้ๆ")
 end
 
+-- ======================= ของแต่งตัว =======================
+local setWearStatus
+do
+ local P=build("wear") pageList[#pageList+1]=P
+ P.header("WEARABLES","ของแต่งตัว",true)
+ setWearStatus=P.status("Wearable status","สถานะ")
+ for _,a in ipairs(WEAR_LIST) do
+  local src=DROP_MAP[a]
+  local name=WEAR_LABEL[a] or a
+  P.toggle(accKey(a),name,name,"Farms until you own it  ·  from: "..(src or "?"),"ฟาร์มจนได้ของนี้  ·  จาก: "..(src or "?"))
+ end
+end
+
 -- ======================= ESP =======================
 do
  local P=build("esp") pageList[#pageList+1]=P
@@ -2538,17 +2610,23 @@ do
  P.slider("speed_val","Walk speed","ความเร็วเดิน",16,250,50,function(v) return math.floor(v).."" end)
  P.toggle("jump_on","Jump Control","Jump Control","Apply the jump power below","ใช้พลังกระโดดตามค่าด้านล่าง")
  P.slider("jump_val","Jump power","พลังกระโดด",50,300,100,function(v) return math.floor(v).."" end)
+ P.header("CHEATS","ฟังก์ชันโกง")
+ P.toggle("noclip","Noclip","ทะลุสิ่งกีดขวาง","Walk through walls","เดินทะลุกำแพง")
+ P.toggle("inf_jump","Infinite jump","กระโดดไม่จำกัด","Jump again in the air","กระโดดซ้ำกลางอากาศได้")
+ P.toggle("float_on","Walk on air / water","เดินบนอากาศ / ผิวน้ำ","Keeps a platform at your current height","สร้างแท่นใต้เท้าที่ความสูงตอนเปิด")
+ P.button("spawn_boat","Spawn boat","เรียกเรือ","Uses the nearest boat spawner NPC","ใช้ NPC เรียกเรือที่ใกล้ที่สุด","Spawn","เรียก")
+ P.button("set_spawn","Set spawn point","ตั้งจุดเกิด","Uses the nearest bed NPC","ใช้ NPC ตั้งจุดเกิดที่ใกล้ที่สุด","Set","ตั้ง")
 end
 
 ------------------------------------------------------------------
 -- ฟีเจอร์: ฟาร์ม
 ------------------------------------------------------------------
-modeLoop("farm_level",.05,function()
+modeLoop("farm_level",.15,function()
  questStep(nil,setFarmStatus)
 end)
-modeLoop("farm_near",.05,function()
+modeLoop("farm_near",.15,function()
  if not alive() then return end
- local m=closest(aliveMobs(function(x) return not BOSSSET[x.Name] end))
+ local m=sticky(function(x) return not BOSSSET[x.Name] end)
  if m then setFarmStatus(m.Name) engage(m) else setFarmStatus(T("No mobs nearby","ไม่มีมอนสเตอร์")) end
 end)
 local function findSeaBoss()
@@ -2567,7 +2645,7 @@ local function findSeaBoss()
  return best
 end
 local seenSea=false
-modeLoop("farm_sea",.05,function()
+modeLoop("farm_sea",.15,function()
  if not alive() then return end
  local m=findSeaBoss()
  if m then
@@ -2589,7 +2667,7 @@ modeLoop("farm_sea",.05,function()
   setFarmStatus(txt)
  end
 end)
-modeLoop("farm_boss",.05,function()
+modeLoop("farm_boss",.15,function()
  if not alive() then return end
  local boss=S.boss_pick
  if S.farm_boss_quest then
@@ -2600,17 +2678,6 @@ modeLoop("farm_boss",.05,function()
  local ok=farmNames({[boss]=true})
  setFarmStatus(boss..(ok and "" or T(" (waiting for spawn)"," (รอเกิด)")))
 end)
-modeLoop("farm_drop",.05,function()
- local names={}
- local any=false
- for acc,on in pairs(S.drop_pick or {}) do
-  if on and DROP_MAP[acc] then names[DROP_MAP[acc]]=true any=true end
- end
- if not any then setFarmStatus(T("Pick wearable drops first","เลือกของสวมใส่ก่อน")) return end
- local ok=farmNames(names)
- setFarmStatus(ok and T("Farming drops","กำลังฟาร์มของดรอป") or T("Waiting for spawn","รอมอนเกิด"))
-end)
-
 local function itemCount(name)
  local v=path(lp,"Items","ItemStorage",name)
  return v and v.Value or 0
@@ -2678,26 +2745,24 @@ local function altarFor(boss)
  end
 end
 local lastSummon=0
-modeLoop("farm_summon",.1,function()
- if not alive() then return end
- local boss=S.summon_pick or SUMMON_LIST[1]
+local function summonStep(boss,status)
  local info=SUMMON_BOSS[boss]
  if not info then return end
- local m=closest(aliveMobs(function(x) return x.Name==boss end))
+ local m=sticky(function(x) return x.Name==boss end)
  if m then
   local h=m:FindFirstChildOfClass("Humanoid")
-  setFarmStatus(boss.."  "..math.floor(h.Health).."/"..math.floor(h.MaxHealth))
+  status(boss.."  "..math.floor(h.Health).."/"..math.floor(h.MaxHealth))
   engage(m)
   return
  end
- if os.clock()-lastSummon<25 then setFarmStatus(T("Waiting for ","รอ ")..boss..T(" to appear"," เกิด")) return end
+ if os.clock()-lastSummon<25 then status(T("Waiting for ","รอ ")..boss..T(" to appear"," เกิด")) return end
  if itemCount(info.item)<=0 then
-  findItem(info.item,setFarmStatus)
+  findItem(info.item,status)
   return
  end
  local pp=altarFor(boss)
  if not pp then
-  setFarmStatus(T("Going to altar: ","ไปที่แท่น: ")..info.island)
+  status(T("Going to altar: ","ไปที่แท่น: ")..info.island)
   local sp=path(WS,"Location","Teleport",info.island)
   if sp then setCF(sp.CFrame+Vector3.new(0,5,0)) end
   task.wait(2)
@@ -2706,9 +2771,13 @@ modeLoop("farm_summon",.1,function()
  local part=pp.Parent:IsA("BasePart") and pp.Parent or partOf(pp.Parent)
  if part then setCF(part.CFrame+Vector3.new(0,4,0)) end
  task.wait(.4)
- setFarmStatus(T("Summoning ","กำลังเสก ")..boss)
+ status(T("Summoning ","กำลังเสก ")..boss)
  pressProx(pp)
  lastSummon=os.clock()
+end
+modeLoop("farm_summon",.15,function()
+ if not alive() then return end
+ summonStep(S.summon_pick or SUMMON_LIST[1],setFarmStatus)
 end)
 modeLoop("farm_item",.1,function()
  if not alive() then return end
@@ -2719,6 +2788,94 @@ modeLoop("farm_item",.1,function()
   return
  end
  findItem(item,setFarmStatus)
+end)
+
+-- ===== ของแต่งตัว: ทุกชิ้นเป็นฟังก์ชันแยกกัน =====
+local function owns(cat,name)
+ local v=path(lp,"Items",cat,name)
+ return v~=nil and v.Value>0
+end
+for _,a in ipairs(WEAR_LIST) do
+ local key=accKey(a)
+ local label=WEAR_LABEL[a] or a
+ modeLoop(key,.15,function()
+  if not alive() then return end
+  if owns("Accessory",a) then
+   setWearStatus(label.." ✔ "..T("owned","มีแล้ว"))
+   notify(T("Got it","ได้แล้ว"),label)
+   if UI[key] then UI[key](false,true) end
+   return
+  end
+  local src=dropSource(a) or DROP_MAP[a]
+  if not src then setWearStatus(T("Unknown source: ","ไม่รู้แหล่งดรอป: ")..label) return end
+  setWearStatus(label.."  ←  "..src)
+  if SUMMON_BOSS[src] then summonStep(src,setWearStatus) else farmNames({[src]=true}) end
+ end)
+end
+
+-- ===== สุ่มผล (Gacha) =====
+do
+ local rolls,lastRoll,animating,lastText=0,0,false,""
+ modeLoop("roll_power",.3,function()
+  if not alive() then return end
+  local gf=path(pgui(),"GachaGui","GachaFrame")
+  local ci=gf and gf:FindFirstChild("CurrenItem")
+  if gf and shown(gf) then
+   animating=true
+   if ci and ci.Text~="" then lastText=ci.Text end
+   setRollStatus(T("Rolling... ","กำลังสุ่ม... ")..lastText)
+   return
+  end
+  if animating then
+   animating=false
+   setRollStatus(T("Got: ","ได้: ")..lastText.."  (#"..rolls..")")
+   for p,on in pairs(S.roll_want or {}) do
+    local base=(p:lower():gsub(" power$",""))
+    if on and lastText:lower():find(base,1,true) then
+     notify(T("Got the power","ได้ผลที่ต้องการ"),lastText)
+     if UI.roll_power then UI.roll_power(false,true) end
+     return
+    end
+   end
+  end
+  if rolls>=(S.roll_max or 100) then
+   setRollStatus(T("Reached max rolls","สุ่มครบจำนวนสูงสุดแล้ว"))
+   if UI.roll_power then UI.roll_power(false,true) end
+   return
+  end
+  if os.clock()-lastRoll<(S.roll_delay or 2) then return end
+  local npc=path(WS,"NPCs","Shop_Npc",S.roll_npc or "Floppa Gacha")
+  local pp=npc and npc:FindFirstChild("Random_Power",true)
+  if not pp then
+   -- NPC ยังไม่โหลด: ไปที่จุดเกิดหลักก่อนให้ NPC โหลด
+   local sp=path(WS,"Location","Teleport","Spawn")
+   if sp then setCF(sp.CFrame+Vector3.new(0,5,0)) end
+   setRollStatus(T("Loading gacha NPC...","กำลังโหลดตู้สุ่ม..."))
+   task.wait(2)
+   return
+  end
+  local part=pp.Parent:IsA("BasePart") and pp.Parent or partOf(npc)
+  if part and dist(part)>10 then setCF(part.CFrame+Vector3.new(0,3,0)) task.wait(.3) end
+  pressProx(pp)
+  rolls+=1
+  lastRoll=os.clock()
+  setRollStatus(T("Roll #","สุ่มครั้งที่ ")..rolls)
+ end)
+ local baseRoll=Features.roll_power
+ Features.roll_power=function(v)
+  if v then rolls=0 animating=false end
+  baseRoll(v)
+ end
+end
+loop("buy_style",1,function()
+ for name,on in pairs(S.buy_style_pick or {}) do
+  if on and alive() and not owns("FightingStyle",name) then
+   setBuyStatus(T("Trying: ","กำลังลองซื้อ: ")..name)
+   if G.tryBuy and G.tryBuy(name,"FightingStyle_Npc") and S.buy_alert then notify(T("Purchase","ซื้อ"),name) end
+   task.wait(2)
+  end
+ end
+ task.wait(S.buy_interval or 20)
 end)
 
 -- ===== เผ่า =====
@@ -2827,15 +2984,14 @@ do
   end
  end)
  -- เควสเผ่า
- modeLoop("race_quest",.05,function()
+ modeLoop("race_quest",.15,function()
   questStep("Floppa Quest [Race]",setRaceStatus)
  end)
  -- สกิลเผ่า
  local lastRace=0
  loop("race_skill",1,function()
   if not alive() or os.clock()-lastRace<3 then return end
-  local m,d=closest(aliveMobs())
-  if os.clock()-aimStamp<1.5 or (m and d<60) then
+  if ctlActive() then
    local btn=path(pgui(),"Mobile","RaceSkill","Button")
    if btn and press(btn) then lastRace=os.clock() end
   end
@@ -2848,21 +3004,15 @@ do
 end
 
 loop("skill_auto",.35,function()
- if not alive() then return end
- local m,d=closest(aliveMobs())
- if os.clock()-aimStamp<1.5 or (m and d<60) then
-  equipSelected()
-  castSkills(S.skill_keys)
- end
+ if not alive() or not ctlActive() then return end
+ castSkills(S.skill_keys)
 end)
-loop("aura",.1,function()
- if not alive() or S.pvp_hunt then return end
- local m,d=closest(aliveMobs())
- if m and d<=(S.aura_range or 40) then
-  if not modeActive() then hoverOn(m) end
-  equipSelected()
-  click()
- end
+-- ตีออร่า: ล็อกมอนใกล้สุดในระยะ ลอยเหนือหัวแล้วตีจนตาย แล้วค่อยเลือกตัวถัดไปในระยะ
+modeLoop("aura",.15,function()
+ if not alive() then return end
+ local m=sticky()
+ local p=m and m:FindFirstChild("HumanoidRootPart")
+ if p and dist(p)<=(S.aura_range or 40) then engage(m) end
 end)
 
 -- ตีระยะไกล: ขยายฮิตบ็อกซ์อาวุธที่ถืออยู่
@@ -3142,7 +3292,7 @@ end
 ------------------------------------------------------------------
 -- ฟีเจอร์: เควส
 ------------------------------------------------------------------
-modeLoop("quest_sel",.05,function()
+modeLoop("quest_sel",.15,function()
  questStep(S.quest_pick,setQuestStatus)
 end)
 loop("quest_accept",2,function()
@@ -3324,9 +3474,8 @@ do
  loop("dg_clear",.05,function()
   if not alive() or not inRaid() then return end
   local want=S.dg_boss
-  local list=aliveMobs(function(x) return x.Name==want end)
-  local m=closest(list)
-  if not m then m=closest(aliveMobs()) end
+  local m=sticky(function(x) return x.Name==want end)
+  if not m then m=sticky() end
   if m then setDgStatus(T("Fighting ","กำลังสู้ ")..m.Name) engage(m) end
  end)
  loop("dg_reward",1.5,function()
@@ -3388,7 +3537,7 @@ do
   end
  end)
  local retreatUntil=0
- modeLoop("pvp_hunt",.05,function()
+ modeLoop("pvp_hunt",.15,function()
   if not alive() then return end
   local h=hum()
   if h and h.MaxHealth>0 and (h.Health/h.MaxHealth*100)<(S.pvp_hp or 20) then
@@ -3397,7 +3546,11 @@ do
    if sp then setCF(sp.CFrame+Vector3.new(0,4,0)) end
   end
   if os.clock()<retreatUntil then setPvpStatus(T("Retreating...","กำลังถอย...")) return end
-  local p=pickTarget()
+  local p
+  local cur=Ctl.target
+  local curP=cur and Players:GetPlayerFromCharacter(cur)
+  local want=S.pvp_name
+  if curP and candidate(curP) and (not want or want=="Nearest" or want==curP.Name) then p=curP else p=pickTarget() end
   if not p then setPvpStatus(T("No target","ไม่มีเป้าหมาย")) return end
   local th=p.Character:FindFirstChildOfClass("Humanoid")
   setPvpStatus(p.Name.."  "..math.floor(th and th.Health or 0))
@@ -3417,6 +3570,95 @@ end
 ------------------------------------------------------------------
 -- ฟีเจอร์: วาร์ป / ความเร็ว / กระโดด
 ------------------------------------------------------------------
+do
+ local ncConn
+ Features.noclip=function(v)
+  if ncConn then ncConn:Disconnect() ncConn=nil end
+  if not v then return end
+  ncConn=RunS.Stepped:Connect(function()
+   if not S.noclip then return end
+   local c=lp.Character
+   if c then
+    for _,p in ipairs(c:GetChildren()) do
+     if p:IsA("BasePart") and p.CanCollide then p.CanCollide=false end
+    end
+   end
+  end)
+  conns[#conns+1]=ncConn
+ end
+ conns[#conns+1]=UIS.JumpRequest:Connect(function()
+  if S.inf_jump then
+   local h=hum()
+   if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+  end
+ end)
+ local plat,fConn,fY
+ local function stopFloat()
+  if fConn then fConn:Disconnect() fConn=nil end
+  if plat then plat:Destroy() plat=nil end
+ end
+ Features.float_on=function(v)
+  stopFloat()
+  if not v then return end
+  local r=root()
+  if not r then return end
+  fY=r.Position.Y-3.2
+  plat=Instance.new("Part")
+  plat.Name="NexoraFloat" plat.Anchored=true plat.CanCollide=true plat.Transparency=1
+  plat.Size=Vector3.new(14,1,14)
+  plat.Parent=WS
+  fConn=RunS.Heartbeat:Connect(function()
+   local rr=root()
+   if not S.float_on or not rr or not plat then return end
+   plat.CFrame=CFrame.new(rr.Position.X,fY,rr.Position.Z)
+  end)
+  conns[#conns+1]=fConn
+ end
+ NX.gui.Destroying:Connect(function() pcall(stopFloat) end)
+ loop("auto_haki",3,function()
+  if not alive() then return end
+  local ab=path(lp,"Ability","Aura")
+  if not (ab and ab.Value==true) then return end
+  local c=lp.Character
+  local t=c and c:FindFirstChildOfClass("Tool")
+  if t and t:GetAttribute("Aura")==false then
+   local btn=path(pgui(),"Mobile","Aura","Button")
+   if btn then press(btn) end
+  end
+ end)
+ loop("pickup_near",.7,function()
+  local f=WS:FindFirstChild("Dropped_Items")
+  if not f or not alive() then return end
+  for _,c in ipairs(f:GetChildren()) do
+   local p=partOf(c)
+   if p and dist(p)<30 then
+    local pp=c:FindFirstChildWhichIsA("ProximityPrompt",true)
+    if pp then pressProx(pp) end
+   end
+  end
+ end)
+ local function useNpcPrompt(folder,promptName)
+  local f=path(WS,"NPCs",folder)
+  local best,bd
+  if f then
+   for _,n in ipairs(f:GetChildren()) do
+    local pp=n:FindFirstChild(promptName,true)
+    local p=pp and partOf(n)
+    if p then
+     local d=dist(p)
+     if not bd or d<bd then best,bd=pp,d end
+    end
+   end
+  end
+  if not best then notify("Nexora",T("NPC not loaded - walk near it","ยังไม่โหลด NPC - เดินเข้าใกล้ก่อน")) return end
+  local part=best.Parent:IsA("BasePart") and best.Parent or partOf(best.Parent)
+  if part then setCF(part.CFrame+Vector3.new(0,3,0)) end
+  task.wait(.4)
+  pressProx(best)
+ end
+ Features.spawn_boat=function() useNpcPrompt("BoatSpawner_Npc","Spawn_Boat") end
+ Features.set_spawn=function() useNpcPrompt("SetSpawn_Npc","Set_BedPoint") end
+end
 Features.tp_island_go=function()
  local sp=path(WS,"Location","Teleport",S.tp_island or "Spawn")
  if sp and root() then setCF(sp.CFrame+Vector3.new(0,5,0)) end
