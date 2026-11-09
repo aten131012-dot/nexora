@@ -1586,33 +1586,160 @@ chip("Auto Join Queue","ออโต้เข้าคิว",
   end)
  end)
 
--- ===== ระบบดักฟังคำตอบจาก Match Remote =====
--- เกมส่ง event มาพร้อม payload ที่มีคำตอบที่ถูก
--- รูปแบบที่พบจาก dump: Match:FireClient(player, type, data)
--- type = "question" → data มี .answer หรือดูจาก Reel > Strip > TextLabel
-local currentAnswer = nil
-local answerConn
+-- ===== ฐานข้อมูลคำไทย แยกหมวดหมู่ =====
+-- keyword ที่เกมใช้: กีฬา ผัก ดอกไม้ คำบอกลักษณะ ของกินเล่น สัตว์
+-- ประเทศ จังหวัด อาหาร สี ชื่อคน อาชีพ ผลไม้ ต้นไม้ ของใช้ ยานพาหนะ
+local WORDBANK = {
+ ["กีฬา"]         = {"กอล์ฟ","กาบัดดี้","กายกรรม","กระบี่","กรีฑา","กระโดดน้ำ","ขี่ม้า","ขี่จักรยาน","ครอสคันทรี","คาราเต้","คาราเต้","จักรยาน","จูโด","ชกมวย","ซอฟต์บอล","ซูโม่","ดาบ","ตะกร้อ","ตีกอล์ฟ","ถีบจักรยาน","ทบวง","ทอดแห","ทางน้ำ","น้ำหนัก","บาสเกตบอล","บิลเลียด","บิลเลียด","ปั่นจักรยาน","ปีนเขา","ผจญภัย","พุ่งแหลน","ฟันดาบ","ฟุตบอล","ฟุตซอล","ภูเขา","มวยไทย","มวยปล้ำ","มวยสากล","ยกน้ำหนัก","ยิงปืน","ยิมนาสติก","ยูโด","รักบี้","ว่ายน้ำ","วิ่ง","วิ่งเร็ว","วิ่งมาราธอน","วอลเลย์บอล","ศิลปะการต่อสู้","สนุกเกอร์","สเก็ต","เทนนิส","เทควันโด","เบสบอล","เปตอง","เรือใบ","แฮนด์บอล","โปโล","โบว์ลิ่ง","โยคะ","ไอโค","ไตรกีฬา","ไทเก็ก"},
+ ["ผัก"]          = {"กระเจี๊ยบ","กระเทียม","กระหล่ำปลี","กระหล่ำดอก","กวางตุ้ง","กะเพรา","กะหล่ำ","ขิง","ข้าวโพด","คะน้า","คื่นฉ่าย","ชะอม","ซอง","ดอกแค","ต้นหอม","ตำลึง","ถั่วฝักยาว","ถั่วลันเตา","ถั่วงอก","บวบ","บวบเหลี่ยม","บัวบก","ใบกระเพรา","ใบโหระพา","ผักกาด","ผักกาดหอม","ผักโขม","ผักชี","ผักบุ้ง","ผักกระเฉด","ผักหวาน","ฟักทอง","ฟักเขียว","มะเขือ","มะเขือเทศ","มะระ","มะรุม","ยอดมะพร้าว","หน่อไม้","หอมแดง","หอมหัวใหญ่","แครอท","แฟง","โหระพา","ไชเท้า","ไชโป๊"},
+ ["ดอกไม้"]       = {"กล้วยไม้","กหลาบ","กุหลาบ","กุหลาบแดง","กรรณิการ์","กัลปพฤกษ์","ข้าวสาร","ชบา","ช้างน้าว","ซ่อนกลิ่น","ดอกจัน","ดาวเรือง","ดอกแก้ว","ดอกพุด","ดอกลิลลี่","ดอกบัว","ดอกฝ้าย","ตะแบก","ทานตะวัน","นางแย้ม","บานชื่น","บัว","บัวหลวง","บานบุรี","ประดู่","ปทุมมา","พุด","พยับหมอก","พิกุล","ฝ้าย","มะลิ","ยี่หุบ","ยี่โถ","ราชพฤกษ์","ลั่นทม","ลีลาวดี","วาสนา","สุพรรณิการ์","เบญจมาศ","เบญจมาศ","เอื้องผึ้ง","แก้ว","โกสน","โมก","ไม้ดัด","ไอริส"},
+ ["สัตว์"]        = {"กบ","กระต่าย","กระทิง","กระรอก","กระแต","กวาง","กาน้ำ","กุ้ง","ไก่","ข้าง","ควาย","คางคก","คาง","จระเข้","จิ้งจก","จิ้งเหลน","ช้าง","ชะนี","ซีลตะพาบ","ดาวทะเล","ตะพาบ","ตะโขง","ตุ่น","ถั่ว","นก","นาก","เนื้อทราย","บึ้ง","ปลา","ปลาหมึก","แปดขา","พังพอน","ม้า","มังกร","มังกร","มังกรโคโมโด","มดแดง","ยุง","ลิง","วัว","วาฬ","สิงโต","สุนัข","เสือ","หมา","หมี","หมูป่า","หอยทาก","อีเห็น","อีกา","แมว","แมลง","โลมา","โค","ไส้เดือน"},
+ ["ผลไม้"]        = {"กล้วย","กีวี","กระท้อน","ขนุน","ของหวาน","ชมพู่","ซ่าหริ่ม","ดอกไม้","ทับทิม","น้อยหน่า","บ้าหมาก","ฝรั่ง","พุทรา","มะขาม","มะนาว","มะพร้าว","มะม่วง","มะม่วงหาวมะนาวโห่","มะยม","ระกำ","ลองกอง","ลำไย","ลิ้นจี่","วาวี","สตรอว์เบอร์รี","สับปะรด","ส้ม","เงาะ","เชอร์รี","เต้าหู้","เมล่อน","เสาวรส","แก้วมังกร","แตงกวา","แตงโม","แอปเปิ้ล","โมงกา","ไทย"},
+ ["อาหาร"]        = {"กระเพาะปลา","กล้วยบวชชี","กวยจั๊บ","กุ้งอบวุ้นเส้น","ข้าวต้ม","ข้าวผัด","ข้าวมันไก่","ข้าวหมูแดง","ข้าวสวย","ขนมจีน","ขนมครก","ขนมถ้วย","คั่วกลิ้ง","แกง","แกงเขียวหวาน","แกงมัสมั่น","จิ้มจุ่ม","ซุป","ตำมะม่วง","ตำส้มโอ","ตำไทย","ต้มยำกุ้ง","ต้มข่า","ผัดกะเพรา","ผัดไทย","ผัดซีอิ๊ว","ผัดหมี่","พะโล้","ฟักทองแกง","ยำ","ยำวุ้นเส้น","ลาบ","หมูสะเต๊ะ","หมูย่าง","เกี๊ยวน้ำ","เป็ดพะโล้","แหนม","โจ๊ก","ไข่เจียว","ไข่ดาว"},
+ ["สี"]           = {"กรมท่า","กากี","กุหลาบ","ขาว","ขาวนวล","ครีม","คราม","คำ","งาช้าง","จำปา","ชมพู","ซีด","ดำ","ทอง","ทองแดง","ทะเล","น้ำตาล","น้ำเงิน","บรอนซ์","บานเย็น","ฟ้า","ม่วง","ม่วงอมชมพู","แดง","แดงเลือดหมู","แสด","โอลีฟ","เขียว","เขียวมะกอก","เงิน","เทา","เบจ","เลือดหมู","แดง","เหลือง","เหลืองทอง"},
+ ["จังหวัด"]      = {"กระบี่","กาญจนบุรี","กาฬสินธุ์","กำแพงเพชร","ขอนแก่น","จันทบุรี","ฉะเชิงเทรา","ชลบุรี","ชัยนาท","ชัยภูมิ","ชุมพร","เชียงราย","เชียงใหม่","ตรัง","ตราด","ตาก","นครนายก","นครปฐม","นครพนม","นครราชสีมา","นครศรีธรรมราช","นครสวรรค์","นนทบุรี","นราธิวาส","น่าน","บึงกาฬ","บุรีรัมย์","ปทุมธานี","ประจวบคีรีขันธ์","ปราจีนบุรี","ปัตตานี","พระนครศรีอยุธยา","พะเยา","พังงา","พัทลุง","พิจิตร","พิษณุโลก","เพชรบุรี","เพชรบูรณ์","แพร่","พระนครศรีอยุธยา","ภูเก็ต","มหาสารคาม","มุกดาหาร","แม่ฮ่องสอน","ยโสธร","ยะลา","ร้อยเอ็ด","ระนอง","ระยอง","ราชบุรี","ลพบุรี","ลำปาง","ลำพูน","เลย","ศรีสะเกษ","สกลนคร","สงขลา","สตูล","สมุทรปราการ","สมุทรสงคราม","สมุทรสาคร","สระแก้ว","สระบุรี","สิงห์บุรี","สุโขทัย","สุพรรณบุรี","สุราษฎร์ธานี","สุรินทร์","หนองคาย","หนองบัวลำภู","อ่างทอง","อำนาจเจริญ","อุดรธานี","อุตรดิตถ์","อุทัยธานี","อุบลราชธานี"},
+ ["ประเทศ"]       = {"กรีซ","กัมพูชา","กาน่า","กานา","เกาหลี","เกาหลีใต้","เกาหลีเหนือ","ไทย","จีน","ญี่ปุ่น","ซีเรีย","ตุรกี","ไนจีเรีย","บราซิล","บรูไน","พม่า","ฝรั่งเศส","ฟิลิปปินส์","มาเลเซีย","เม็กซิโก","ลาว","เวียดนาม","สหรัฐ","สเปน","อังกฤษ","อินเดีย","อินโดนีเซีย","อิตาลี","อียิปต์","เยอรมนี"},
+ ["อาชีพ"]        = {"กรรมกร","กวี","การบัญชี","ครู","คนขับรถ","คนสวน","ตำรวจ","ทหาร","ทนายความ","นักกีฬา","นักดนตรี","นักบิน","นักแสดง","นักเขียน","นักโภชนาการ","นักออกแบบ","บรรณารักษ์","แพทย์","พยาบาล","วิศวกร","สถาปนิก","เภสัชกร","หมอ","อาจารย์","เกษตรกร","ชาวนา","ช่างไฟ","ช่างภาพ","เชฟ","ดีเจ"},
+ ["ของกินเล่น"]   = {"กล้วยทอด","กล้วยปิ้ง","กล้วยแขก","ขนมปัง","ข้าวเกรียบ","ข้าวโพดคั่ว","คุกกี้","จิ้มจุ่ม","ช็อกโกแลต","ซาลาเปา","ถั่วตัด","ทองหยิบ","น้ำแข็งใส","บ้าหมาก","ปาท่องโก๋","ผลไม้","ฝอยทอง","พุดดิ้ง","มันทอด","ลูกอม","วาฟเฟิล","สาคู","เค้ก","เจลลี่","เต้าทึง","เนยแข็ง","เปาะเปี๊ยะ","แพนเค้ก","โดนัท","ไอศกรีม","ไอติม"},
+ ["คำบอกลักษณะ"] = {"กลม","กว้าง","กลวง","กลาง","ขาว","ขนาด","ขรุขระ","ขุ่น","คม","คับ","ง่าย","จำนวน","ใจดี","ใจกล้า","ชั้น","ซื่อสัตย์","ดำ","ดี","ตรง","ต่ำ","ถูก","น่ารัก","น้อย","บาง","บาง","ประณีต","ป้อม","ผอม","ฝืด","พอง","ใหญ่","มาก","มัน","ยาว","แยก","ร้าย","ระยิบ","ริน","รูปร่าง","ลักษณะ","วาว","สวย","สูง","เก่า","เก่ง","เงียบ","เด็ก","เรียบ","เล็ก","เหลือง","แข็ง","แบน","แย่","โต","ใหม่","ไว"},
+ ["ยานพาหนะ"]     = {"กระเช้า","กระสวย","กระสวยอวกาศ","กัมปนาท","เครื่องบิน","จักรยาน","จักรยานยนต์","เรือ","เรือดำน้ำ","เรือใบ","เรือเร็ว","รถไฟ","รถบัส","รถเมล์","รถยนต์","รถตู้","รถกระบะ","ตุ๊กตุ๊ก","แท็กซี่","เฮลิคอปเตอร์","สกูตเตอร์","สองแถว","มอเตอร์ไซค์","โดรน","โฮเวอร์บอร์ด"},
+ ["ของใช้"]       = {"กรรไกร","กระจก","กระดาษ","กล่อง","กาน้ำ","เก้าอี้","ขวด","ของใช้","คีม","คีย์บอร์ด","จาน","จักร","ชาม","ซอง","ดินสอ","ตู้","ถ้วย","ถุง","ทีวี","นาฬิกา","ปากกา","ผ้า","พัดลม","มีด","แว่นตา","ร่ม","เตา","เตียง","เข็ม","โต๊ะ","ไม้กวาด","ไม้บรรทัด"},
+ ["ต้นไม้"]       = {"กระบอก","กระถิน","กระทิง","กระบือ","กาสะลอง","ขนุน","จามจุรี","ชมพูพันธุ์ทิพย์","ชะอม","ซากุระ","ตาล","ตะแบก","ทองกวาว","ทุเรียน","ธูปฤาษี","นนทรี","บรรยาย","ประดู่","ปาล์ม","ฝ้าย","พะยอม","พุทรา","มะขาม","มะพร้าว","มะม่วง","ยางนา","ยูคาลิปตัส","ราชพฤกษ์","ลำพู","สัก","สน","หว้า","อินทนิล","เต็ง","เสม็ด","เสือดาว","แค","โกงกาง","ไผ่","ไทร","ไม้สัก"},
+ ["ชื่อคน"]       = {"กนก","กมล","กรณ์","กอบกาญจน์","กัลยา","กาญจนา","กิ่งกาญจน์","กุลนาถ","ขวัญ","คมกริช","จันทร์","จิรายุ","จุฑา","ชนม์","ชลธิชา","ชัยวัฒน์","ณัฐ","ณัฐพล","ดวงใจ","ดารา","ดำรง","ทักษิณ","ธนา","ธีรยุทธ","นภา","นริศ","นัท","นันทวัน","บุณย์","ประภา","ปวีณา","ผกา","พรทิพย์","พัชรา","ภัทร","มณี","ยุพา","รวิ","รัชนี","วรา","วิภา","ศิริ","สมชาย","สาวิตรี","สุชาติ","สุนิสา","อนงค์","อนัญ","อรนุช","อัมพร"},
+}
 
-local function readAnswerFromReel()
- -- อ่านคำตอบจาก Strip ใน Reel frame (ม้วนฟิล์มที่โชว์ตัวอักษร)
+-- หา keyword หมวดหมู่จากข้อความ
+local function findCategory(text)
+ if not text then return nil end
+ local t = text:lower()
+ local cats = {
+  "กีฬา","ผัก","ดอกไม้","สัตว์","ผลไม้","อาหาร","สี","จังหวัด",
+  "ประเทศ","อาชีพ","ของกินเล่น","คำบอกลักษณะ","ยานพาหนะ","ของใช้","ต้นไม้","ชื่อคน"
+ }
+ for _, cat in ipairs(cats) do
+  if text:find(cat, 1, true) then return cat end
+ end
+ return nil
+end
+
+-- หาตัวอักษรนำจากข้อความโจทย์
+local function findLetter(text)
+ if not text then return nil end
+ -- pattern: "ขึ้นต้นด้วย X" หรือ "นำด้วย X" หรือ "เริ่มด้วย X"
+ local ch = text:match("ด้วย%s*([ก-ฮ])")
+  or text:match("นำด้วย%s*([ก-ฮ])")
+  or text:match("เริ่มด้วย%s*([ก-ฮ])")
+  or text:match("ต้นด้วย%s*([ก-ฮ])")
+ return ch
+end
+
+-- หาคำในฐานข้อมูลที่ตรงหมวด+ตัวอักษร
+local usedWords = {}
+local function pickWord(cat, letter)
+ local list = WORDBANK[cat]
+ if not list then return nil end
+ local matches = {}
+ for _, w in ipairs(list) do
+  if w:sub(1,3) == letter and not usedWords[w] then
+   matches[#matches+1] = w
+  end
+ end
+ if #matches == 0 then
+  -- reset ถ้าใช้หมดแล้ว
+  for _, w in ipairs(list) do
+   if w:sub(1,3) == letter then matches[#matches+1] = w end
+  end
+ end
+ if #matches == 0 then return nil end
+ local pick = matches[math.random(1,#matches)]
+ usedWords[pick] = true
+ return pick
+end
+
+-- พิมพ์คำทีละตัวผ่าน key button ใน ThaiKeyboard
+local function typeWordViaKeyboard(word)
+ if not word or word == "" then return end
+ task.spawn(function()
+  -- หา ThaiKeyboard frame
+  local kb
+  for _, obj in ipairs(lp.PlayerGui:GetDescendants()) do
+   if obj.Name == "ThaiKeyboard" and obj:IsA("Frame") then
+    kb = obj break
+   end
+  end
+  -- พิมพ์ตัวอักษรทีละตัว
+  for i = 1, #word do
+   -- utf8 safe: ภาษาไทย 1 ตัวอักษร = 3 bytes
+   local byte_start = (i-1)*3 + 1
+   local ch = word:sub(byte_start, byte_start+2)
+   if ch == "" then break end
+   -- กด key button ที่มี Label.Text ตรงกับตัวอักษร
+   local pressed = false
+   if kb then
+    for _, btn in ipairs(kb:GetDescendants()) do
+     if btn:IsA("TextButton") and btn:GetAttribute("Kind") == "key" then
+      local lbl = btn:FindFirstChild("Body") and btn.Body:FindFirstChild("Inner")
+       and btn.Body.Inner:FindFirstChild("Face")
+       and btn.Body.Inner.Face:FindFirstChild("Label")
+      if lbl and lbl.Text == ch then
+       btn:GetPropertyChangedSignal("Active")
+       -- ยิง MatchInput ด้วยตัวอักษรนี้
+       pcall(function() if MatchInput then MatchInput:FireServer(ch) end end)
+       pressed = true
+       break
+      end
+     end
+    end
+   end
+   -- fallback: ยิง Remote โดยตรง
+   if not pressed then
+    pcall(function() if MatchInput then MatchInput:FireServer(ch) end end)
+   end
+   task.wait(0.06)
+  end
+  task.wait(0.12)
+  -- กด keyAction (ปุ่ม submit/ยืนยัน)
+  local submitted = false
+  if kb then
+   for _, btn in ipairs(kb:GetDescendants()) do
+    if btn:IsA("TextButton") and btn:GetAttribute("Kind") == "keyAction" then
+     pcall(function() if MatchInput then MatchInput:FireServer("submit") end end)
+     submitted = true
+     break
+    end
+   end
+  end
+  if not submitted then
+   pcall(function() if MatchInput then MatchInput:FireServer("submit") end end)
+  end
+ end)
+end
+
+-- อ่านโจทย์จาก GUI: หา TopBar > TextLabel หรือ Reel > TextLabel
+local function readQuestion()
+ local result = {letter=nil, category=nil, raw=""}
  pcall(function()
-  local pg = lp.PlayerGui
-  for _, sg in ipairs(pg:GetDescendants()) do
-   if sg.Name == "Reel" and sg:IsA("Frame") then
-    local strip = sg:FindFirstChild("Strip")
-    if strip then
-     -- Strip มีลูกเป็น Frame แต่ละตัวแทนตัวอักษร
-     -- อ่าน TextLabel ใน Pick frame (ตำแหน่งที่เลือกอยู่)
-     local pick = sg:FindFirstChild("Pick")
-     if pick then
-      -- นับ position ของ Pick เทียบกับ Strip children
-      local stripChildren = strip:GetChildren()
-      for i, child in ipairs(stripChildren) do
-       if child:IsA("Frame") then
-        local lbl = child:FindFirstChildOfClass("TextLabel")
-        if lbl and math.abs(child.Position.Y.Offset - pick.Position.Y.Offset) < 20 then
-         return lbl.Text
-        end
+  for _, obj in ipairs(lp.PlayerGui:GetDescendants()) do
+   if obj:IsA("TextLabel") and obj.Text ~= "" then
+    local t = obj.Text
+    local letter = findLetter(t)
+    local cat    = findCategory(t)
+    if letter and not result.letter then result.letter = letter end
+    if cat    and not result.category then result.category = cat end
+    if result.letter and result.category then break end
+   end
+  end
+  -- อ่านตัวอักษรนำจากกล่อง "ขึ้นต้นด้วย" ใน Reel (กล่องซ้ายมือในรูป)
+  if not result.letter then
+   for _, obj in ipairs(lp.PlayerGui:GetDescendants()) do
+    if obj.Name == "Reel" or obj.Name == "Window" then
+     local strip = obj:FindFirstChild("Strip")
+     if strip then
+      for _, child in ipairs(strip:GetChildren()) do
+       local lbl = child:FindFirstChildOfClass("TextLabel")
+       if lbl and lbl.Text ~= "" and #lbl.Text <= 3 then
+        result.letter = lbl.Text
+        break
        end
       end
      end
@@ -1620,90 +1747,92 @@ local function readAnswerFromReel()
    end
   end
  end)
- return nil
+ return result
 end
 
-local function typeAnswer(answer)
- -- พิมพ์ตัวอักษรทีละตัวผ่าน MatchInput
- -- เกมรับ: MatchInput:FireServer(char) สำหรับแต่ละตัวอักษร
- -- และ MatchInput:FireServer("submit") หรือ keyAction เพื่อยืนยัน
- if not answer or answer == "" then return end
- task.spawn(function()
-  for i = 1, #answer do
-   local ch = answer:sub(i, i)
-   pcall(function()
-    if MatchInput then MatchInput:FireServer(ch) end
-   end)
-   task.wait(0.05) -- พิมพ์เร็ว ไม่ให้หมดเวลา
+-- กดการ์ด Tile ที่ยังไม่มีคำ (แตะเพื่อพิมพ์)
+local function tapNextTile()
+ local tapped = nil
+ pcall(function()
+  local tiles = {}
+  for _, obj in ipairs(lp.PlayerGui:GetDescendants()) do
+   if obj:IsA("TextButton") and obj.Name == "Tile" and obj.Visible then
+    -- Tile ที่ยังไม่ได้พิมพ์มีข้อความ "แตะเพื่อพิมพ์" ใน Label ลูก
+    local hasPrompt = false
+    for _, lbl in ipairs(obj:GetDescendants()) do
+     if lbl:IsA("TextLabel") and lbl.Text:find("แตะเพื่อพิมพ์") then
+      hasPrompt = true break
+     end
+    end
+    if hasPrompt then tiles[#tiles+1] = obj end
+   end
   end
-  task.wait(0.1)
-  -- กด submit / keyAction
-  pcall(function()
-   if MatchInput then MatchInput:FireServer("submit") end
-  end)
-  -- ลอง fire Action button บน GUI ด้วย
-  pcall(function()
-   for _, obj in ipairs(lp.PlayerGui:GetDescendants()) do
-    if obj:IsA("TextButton") and obj:GetAttribute("Kind") == "keyAction" then
-     obj:GetPropertyChangedSignal("Active")
-     -- fire MatchInput ด้วย action signal
-     if MatchInput then MatchInput:FireServer("action") end
+  if #tiles > 0 then
+   local tile = tiles[1]
+   -- ยิง MatchInput FireServer ด้วย index ของ tile
+   for i, t in ipairs(tiles) do
+    if t == tile then
+     pcall(function() if MatchInput then MatchInput:FireServer("tap", i-1) end end)
+     break
     end
    end
-  end)
+   -- กด MouseButton1Click จริงๆ ด้วย
+   tile:GetPropertyChangedSignal("Active")
+   tapped = tile
+  end
  end)
+ return tapped
 end
 
 hdr("⚡ AUTO ANSWER","⚡ ออโต้ตอบ")
 
--- ดักฟัง Match Remote → รับคำตอบที่ถูกจาก server
-local matchListenConn
-chip("Auto Answer (Real)","ออโต้ตอบจริง",
- "Listens to Match event, types correct answer","ดักฟัง Remote แล้วพิมพ์คำตอบที่ถูกอัตโนมัติ",
+local autoPlayConn
+chip("Auto Fill Cards","ออโต้เติมการ์ด",
+ "Reads question, picks word, taps card & types","อ่านโจทย์ เลือกคำ กดการ์ด พิมพ์อัตโนมัติ",
  function(v)
-  if matchListenConn then matchListenConn:Disconnect() matchListenConn=nil end
-  currentAnswer = nil
-  if not v then return end
-  -- ดักฟัง Match OnClientEvent
-  matchListenConn = Match.OnClientEvent:Connect(function(eventType, data)
-   pcall(function()
-    -- เกมส่งมาหลายรูปแบบ รองรับทั้งหมด
-    if eventType == "question" or eventType == "round" then
-     -- data อาจเป็น table มี .answer / .correct / .ans
-     if type(data) == "table" then
-      currentAnswer = data.answer or data.correct or data.ans or data[2]
-     elseif type(data) == "string" then
-      currentAnswer = data
-     end
-     -- ถ้าได้คำตอบแล้ว พิมพ์เลย
-     if currentAnswer then
-      task.delay(0.3, function() typeAnswer(tostring(currentAnswer)) end)
-     end
-    elseif eventType == "answer" or eventType == "reveal" then
-     -- server เฉลยคำตอบ → อ่านแล้วพิมพ์ถ้ายังไม่ได้ส่ง
-     local ans = (type(data)=="table") and (data.answer or data.correct or data[1]) or data
-     if ans then typeAnswer(tostring(ans)) end
-    end
-   end)
-  end)
- end)
-
-chip("Auto Type from Reel","ออโต้พิมพ์จาก Reel",
- "Reads answer from Reel strip UI and types it","อ่านคำตอบจาก UI ม้วนฟิล์มแล้วพิมพ์",
- function(v)
+  if autoPlayConn then autoPlayConn:Disconnect() autoPlayConn=nil end
+  usedWords = {}
   if not v then return end
   task.spawn(function()
-   local lastAns = ""
+   local lastLetter = ""
    while v do
     pcall(function()
-     -- อ่านคำตอบที่โชว์ใน Reel > Window > Strip ทุก 0.2s
-     local ans = readAnswerFromReel()
-     if ans and ans ~= "" and ans ~= lastAns then
-      lastAns = ans
-      task.delay(0.2, function() typeAnswer(ans) end)
+     local q = readQuestion()
+     if q.letter and q.category then
+      -- reset usedWords เมื่อโจทย์ใหม่มา
+      if q.letter ~= lastLetter then
+       usedWords = {}
+       lastLetter = q.letter
+      end
+      -- หาการ์ดที่ยังว่าง แล้วกรอกคำ
+      for _, obj in ipairs(lp.PlayerGui:GetDescendants()) do
+       if obj:IsA("TextButton") and obj.Name == "Tile" and obj.Visible then
+        local hasPrompt = false
+        local tileCategory = nil
+        for _, lbl in ipairs(obj:GetDescendants()) do
+         if lbl:IsA("TextLabel") then
+          if lbl.Text:find("แตะเพื่อพิมพ์") then hasPrompt = true end
+          -- หา label ชื่อหมวดในการ์ด
+          local c = findCategory(lbl.Text)
+          if c then tileCategory = c end
+         end
+        end
+        if hasPrompt and tileCategory then
+         local word = pickWord(tileCategory, q.letter)
+         if word then
+          -- กดการ์ด
+          pcall(function() if MatchInput then MatchInput:FireServer("tap",0) end end)
+          task.wait(0.3)
+          -- พิมพ์คำ
+          typeWordViaKeyboard(word)
+          task.wait(0.8)
+         end
+        end
+       end
+      end
      end
     end)
-    task.wait(0.2)
+    task.wait(1)
    end
   end)
  end)
@@ -1722,30 +1851,13 @@ chip("Auto Solo Play","ออโต้เล่นเดี่ยว",
  end)
 
 chip("Auto Match Play","ออโต้เล่นแมทช์",
- "Auto-joins, listens for question and types answer","เข้าแมทช์ ดักคำตอบ พิมพ์อัตโนมัติ",
+ "Auto-joins ranked and fills all cards","เข้าแมทช์และเติมการ์ดทุกใบอัตโนมัติ",
  function(v)
   if not v then return end
   task.spawn(function()
    while v do
-    -- เข้าแมทช์
     pcall(function() if Match then Match:FireServer("ready") end end)
-    -- ดักคำตอบจาก event ครั้งถัดไป
-    local conn
-    conn = Match.OnClientEvent:Connect(function(evType, data)
-     pcall(function()
-      local ans
-      if type(data)=="table" then
-       ans = data.answer or data.correct or data.ans or data[2]
-      elseif type(data)=="string" and evType~="result" then
-       ans = data
-      end
-      if ans then
-       task.delay(0.25, function() typeAnswer(tostring(ans)) end)
-      end
-     end)
-    end)
-    task.wait(8)
-    if conn then conn:Disconnect() end
+    task.wait(4)
    end
   end)
  end)
