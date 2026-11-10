@@ -1538,6 +1538,8 @@ local TR={
  ["mm2_sShoot"]={"🔫 Shoot button (right side)","🔫 ปุ่มยิงฆาตกร (ขวาจอ)"},
  ["mm2_aThrow"]={"🔪 Auto throw (visible only)","🔪 ปามีดอัตโนมัติ (เห็นตัวเท่านั้น)"},
  ["mm2_aShoot"]={"🎯 Auto shoot (visible only)","🎯 ยิงอัตโนมัติ (เห็นตัวเท่านั้น)"},
+ ["mm2_aThrowWall"]={"🔪 Knife through walls","🔪 ปามีดทะลุกำแพง"},
+ ["mm2_aShootWall"]={"🔫 Shoot through walls","🔫 ยิงทะลุกำแพง"},
  ["mm2_secPlayer"]={"Player","ตัวละคร"},
  ["mm2_pNoclip"]={"👻 Ghost mode (noclip)","👻 โหมดผี (ทะลุ)"},
  ["mm2_pSpeed"]={"⚡ Speed +100","⚡ สปีด +100"},
@@ -1762,7 +1764,7 @@ local function toast(en, th)
 end
 
 local ESP = { roles = false, gun = false, lines = false, boxes = false }
-local K = { auto = false, all = false, throw = false, shoot = false, aThrow = false, aShoot = false }
+local K = { auto=false, all=false, throw=false, shoot=false, aThrow=false, aShoot=false, aThrowWall=false, aShootWall=false }
 local P = { noclip = false, speed = false, jump = false, fly = false, tp = false, anti = false }
 local FLAGS = { flinging = false, floating = false, warpGun = false }
 
@@ -2245,7 +2247,7 @@ do
     onUnload(xrOff)
 end
 
----------------------------------------------------------------- หมวด WARP
+---------------------------------------------------------------- หมวด WARP (+ player card picker)
 do
     local tab = Tabs.MWarp
 
@@ -2264,7 +2266,7 @@ do
         fetchNow()
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player and getRole(plr) == role then
-                if not warpTo(plr) then toast("Failed (no character)", "ทำไม่ได้ (ไม่พบตัวละคร)") end
+                if not warpTo(plr) then toast("Failed (no character)","ทำไม่ได้ (ไม่พบตัวละคร)") end
                 return
             end
         end
@@ -2274,21 +2276,197 @@ do
     tab:Section({ Title = "mm2_secWarp" })
     tab:Toggle({ Title = "mm2_wGun", Value = false, Callback = function(v) FLAGS.warpGun = v end })
     tab:Button({ Title = "mm2_wMurder", Callback = function()
-        warpToRole("Murderer", "Murderer not found", "ไม่พบฆาตกร")
+        warpToRole("Murderer","Murderer not found","ไม่พบฆาตกร")
     end })
     tab:Button({ Title = "mm2_wSheriff", Callback = function()
-        warpToRole("Sheriff", "Sheriff not found", "ไม่พบนายอำเภอ")
+        warpToRole("Sheriff","Sheriff not found","ไม่พบนายอำเภอ")
     end })
 
-    local sel
-    dropdowns[#dropdowns + 1] = tab:Dropdown({ Title = "mm2_wList", Avatars = true, Values = playerNames(), Callback = function(v) sel = v end })
-    tab:Button({ Title = "mm2_wGo", Callback = function()
-        local plr = sel and Players:FindFirstChild(sel)
-        if not plr then toast("No player selected", "ยังไม่ได้เลือกผู้เล่น") return end
-        if not warpTo(plr) then toast("Failed (no character)", "ทำไม่ได้ (ไม่พบตัวละคร)") end
-    end })
+    -- === Player Card Picker (Warp) ===
+    local NX3 = getgenv().NX
+    local warpPage = NX3.pages["mm_warp"]
+    local lp3 = Players.LocalPlayer
 
-    -- ดูดปืนอัตโนมัติ (ตอนเป็นคนธรรมดา)
+    local warpPickLabel = Instance.new("TextLabel")
+    warpPickLabel.Size = UDim2.new(1,-16,0,20)
+    warpPickLabel.Position = UDim2.fromOffset(8,8)
+    warpPickLabel.BackgroundTransparency = 1
+    warpPickLabel.Text = "🌀 เลือกผู้เล่นที่จะวาร์ป / Select Player"
+    warpPickLabel.Font = Enum.Font.GothamBold
+    warpPickLabel.TextSize = 11
+    warpPickLabel.TextColor3 = NX3.COL.Pink
+    warpPickLabel.TextXAlignment = Enum.TextXAlignment.Left
+    warpPickLabel.Parent = warpPage
+    NX3.onAccent(function(_,b) warpPickLabel.TextColor3=b end)
+
+    local divW = Instance.new("Frame")
+    divW.Size = UDim2.new(1,-16,0,1)
+    divW.Position = UDim2.fromOffset(8,30)
+    divW.BackgroundColor3 = NX3.COL.Purple
+    divW.BorderSizePixel = 0
+    divW.Parent = warpPage
+    NX3.onAccent(function(a) divW.BackgroundColor3=a end)
+
+    local gridW = Instance.new("Frame")
+    gridW.Size = UDim2.new(1,0,0,0)
+    gridW.Position = UDim2.fromOffset(0,36)
+    gridW.AutomaticSize = Enum.AutomaticSize.Y
+    gridW.BackgroundTransparency = 1
+    gridW.Parent = warpPage
+
+    local gridLayoutW = Instance.new("UIGridLayout")
+    gridLayoutW.CellSize = UDim2.fromOffset(116,54)
+    gridLayoutW.CellPadding = UDim2.fromOffset(5,5)
+    gridLayoutW.SortOrder = Enum.SortOrder.LayoutOrder
+    gridLayoutW.Parent = gridW
+    Instance.new("UIPadding",gridW).PaddingLeft = UDim.new(0,4)
+
+    local warpCards = {}
+    local warpSelected = nil
+
+    local function clearWarpCards()
+        for _,c2 in ipairs(warpCards) do pcall(function() c2:Destroy() end) end
+        warpCards = {}
+        warpSelected = nil
+    end
+
+    local function makeWarpCard(plr)
+        local card = Instance.new("TextButton")
+        card.Size = UDim2.fromOffset(116,54)
+        card.BackgroundColor3 = Color3.fromRGB(18,22,32)
+        card.AutoButtonColor = false
+        card.Text = ""
+        card.BorderSizePixel = 0
+        card.Parent = gridW
+        Instance.new("UICorner",card).CornerRadius = UDim.new(0,12)
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 1.5
+        stroke.Color = NX3.COL.Purple
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = card
+        NX3.onAccent(function(a) if card.Parent then stroke.Color=a end end)
+
+        local av = Instance.new("ImageLabel")
+        av.Size = UDim2.fromOffset(38,38)
+        av.Position = UDim2.fromOffset(7,8)
+        av.BackgroundColor3 = Color3.fromRGB(32,38,52)
+        av.BorderSizePixel = 0
+        av.Parent = card
+        Instance.new("UICorner",av).CornerRadius = UDim.new(0,8)
+        task.spawn(function()
+            local ok,img = pcall(function()
+                return Players:GetUserThumbnailAsync(plr.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48)
+            end)
+            if ok and av.Parent then av.Image=img end
+        end)
+
+        -- role badge
+        local roleBadge = Instance.new("TextLabel")
+        roleBadge.Size = UDim2.fromOffset(36,12)
+        roleBadge.Position = UDim2.fromOffset(7,42)
+        roleBadge.BackgroundColor3 = Color3.fromRGB(40,40,55)
+        roleBadge.Text = "..."
+        roleBadge.Font = Enum.Font.GothamBold
+        roleBadge.TextSize = 8
+        roleBadge.TextColor3 = Color3.new(1,1,1)
+        roleBadge.TextXAlignment = Enum.TextXAlignment.Center
+        roleBadge.BorderSizePixel = 0
+        roleBadge.Parent = card
+        Instance.new("UICorner",roleBadge).CornerRadius = UDim.new(0,4)
+        task.spawn(function()
+            while card.Parent do
+                task.wait(1)
+                local r = getRole(plr)
+                if r=="Murderer" then roleBadge.Text="🔪" roleBadge.BackgroundColor3=Color3.fromRGB(120,20,20)
+                elseif r=="Sheriff" then roleBadge.Text="🔫" roleBadge.BackgroundColor3=Color3.fromRGB(20,80,140)
+                else roleBadge.Text="●" roleBadge.BackgroundColor3=Color3.fromRGB(40,40,55) end
+            end
+        end)
+
+        local nm = Instance.new("TextLabel")
+        nm.Size = UDim2.new(1,-52,0,18)
+        nm.Position = UDim2.fromOffset(50,8)
+        nm.BackgroundTransparency = 1
+        nm.Text = plr.DisplayName
+        nm.Font = Enum.Font.GothamBold
+        nm.TextSize = 11
+        nm.TextColor3 = Color3.new(1,1,1)
+        nm.TextTruncate = Enum.TextTruncate.AtEnd
+        nm.TextXAlignment = Enum.TextXAlignment.Left
+        nm.Parent = card
+
+        local un = Instance.new("TextLabel")
+        un.Size = UDim2.new(1,-52,0,13)
+        un.Position = UDim2.fromOffset(50,27)
+        un.BackgroundTransparency = 1
+        un.Text = "@"..plr.Name
+        un.Font = Enum.Font.Gotham
+        un.TextSize = 9
+        un.TextColor3 = NX3.COL.Sub
+        un.TextTruncate = Enum.TextTruncate.AtEnd
+        un.TextXAlignment = Enum.TextXAlignment.Left
+        un.Parent = card
+
+        card.MouseButton1Click:Connect(function()
+            warpSelected = plr
+            for _,c2 in ipairs(warpCards) do
+                local s2 = c2:FindFirstChildOfClass("UIStroke")
+                if s2 then s2.Color=NX3.COL.Purple s2.Thickness=1.5 end
+                c2.BackgroundColor3 = Color3.fromRGB(18,22,32)
+            end
+            stroke.Color = NX3.COL.Pink
+            stroke.Thickness = 2.5
+            card.BackgroundColor3 = Color3.fromRGB(20,45,80)
+        end)
+
+        warpCards[#warpCards+1] = card
+    end
+
+    local function refreshWarpCards()
+        clearWarpCards()
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if plr ~= lp3 then makeWarpCard(plr) end
+        end
+    end
+    refreshWarpCards()
+    Players.PlayerAdded:Connect(refreshWarpCards)
+    Players.PlayerRemoving:Connect(function() task.wait(0.1) refreshWarpCards() end)
+
+    -- ปุ่ม Warp
+    local btnRowW = Instance.new("Frame")
+    btnRowW.Size = UDim2.new(1,0,0,32)
+    btnRowW.BackgroundTransparency = 1
+    btnRowW.Parent = warpPage
+    local llW = Instance.new("UIListLayout")
+    llW.FillDirection = Enum.FillDirection.Horizontal
+    llW.Padding = UDim.new(0,8)
+    llW.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    llW.VerticalAlignment = Enum.VerticalAlignment.Center
+    llW.Parent = btnRowW
+
+    local function mkWBtn(txt2, col, cb)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.fromOffset(118,26)
+        b.BackgroundColor3 = col
+        b.Text = txt2
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 11
+        b.TextColor3 = Color3.new(1,1,1)
+        b.AutoButtonColor = false
+        b.Parent = btnRowW
+        Instance.new("UICorner",b).CornerRadius = UDim.new(0,10)
+        b.MouseButton1Click:Connect(cb)
+    end
+
+    mkWBtn("🌀 WARP!", Color3.fromRGB(30,80,180), function()
+        local plr = warpSelected
+        if not plr then toast("No player selected","ยังไม่ได้เลือกผู้เล่น") return end
+        if not warpTo(plr) then toast("Failed (no character)","ไม่พบตัวละครเป้าหมาย") end
+        toast("🌀 Warped!","🌀 วาร์ปแล้ว!")
+    end)
+
+    -- ดูดปืนอัตโนมัติ
     task.spawn(function()
         local busy = false
         while not MM.dead do
@@ -2697,42 +2875,71 @@ do
     tab:Toggle({ Title = "mm2_sShoot", Value = false, Callback = function(v) K.shoot = v shootBtn.Visible = v end })
     tab:Toggle({ Title = "mm2_aThrow", Value = false, Callback = function(v) K.aThrow = v end })
     tab:Toggle({ Title = "mm2_aShoot", Value = false, Callback = function(v) K.aShoot = v end })
+    tab:Toggle({ Title = "mm2_aThrowWall", Value = false, Callback = function(v) K.aThrowWall = v end })
+    tab:Toggle({ Title = "mm2_aShootWall", Value = false, Callback = function(v) K.aShootWall = v end })
+
+    -- ปามีดทะลุกำแพง / ยิงทะลุกำแพง (ไม่ต้อง canSee)
+    task.spawn(function()
+        local lastSW, lastTW = 0, 0
+        while not MM.dead do
+            task.wait(0.1)
+            if (K.aShootWall or K.aThrowWall) and not FLAGS.flinging then
+                pcall(function()
+                    local c, hrp, hum = myParts()
+                    if not (c and hrp and hum and hum.Health > 0) then return end
+                    if K.aShootWall and os.clock() - lastSW > 0.5 and findTool(isGun) then
+                        if os.clock() - lastFetch > 1.5 then lastFetch = os.clock() fetchNow() end
+                        local r = murdererTarget(false)
+                        if r then
+                            if shootAt(r, true) then lastSW = os.clock() else lastSW = os.clock() + 2 end
+                        end
+                    end
+                    if K.aThrowWall and os.clock() - lastTW > 0.9 and findTool(isKnife) then
+                        local r = nearest(nil, false) -- false = ไม่เช็ค canSee
+                        if r then
+                            if throwAt(r, true) then lastTW = os.clock() else lastTW = os.clock() + 2 end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
 
     onUnload(function()
         for k in pairs(K) do K[k] = false end
+        throwBtn.Visible  = false
+        shootBtn.Visible  = false
     end)
 end
 
----------------------------------------------------------------- หมวด FLING
+---------------------------------------------------------------- หมวด FLING (fixed + player card picker)
 do
     local tab = Tabs.MFling
     local busy = false
-    local TIMEOUT, ROUNDS = 2.5, 3
+    local TIMEOUT, ROUNDS = 3, 4
 
     local function hb() RunService.Heartbeat:Wait() end
 
     local function zeroAll(c)
         for _, d in ipairs(c:GetChildren()) do
             if d:IsA("BasePart") then
-                d.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                d.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                d.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                d.AssemblyAngularVelocity = Vector3.new(0,0,0)
             end
         end
     end
 
     local function flingPlayer(plr)
-        if busy then toast("Already flinging", "กำลังฟลิ้งอยู่") return end
+        if busy then toast("Already flinging","กำลังฟลิ้งอยู่") return end
         local c = player.Character
         local hrp = c and c:FindFirstChild("HumanoidRootPart")
         local hum = c and c:FindFirstChildOfClass("Humanoid")
         local tch = plr and plr.Character
         local troot = tch and tch:FindFirstChild("HumanoidRootPart")
         local thum = tch and tch:FindFirstChildOfClass("Humanoid")
-        if not (hrp and hum and hum.Health > 0 and troot and thum and thum.Health > 0) then
-            toast("Failed (no character)", "ทำไม่ได้ (ไม่พบตัวละคร)")
-            return
+        if not (hrp and hum and hum.Health>0 and troot and thum and thum.Health>0) then
+            toast("Failed (no character)","ทำไม่ได้ (ไม่พบตัวละคร)") return
         end
-
         busy = true
         FLAGS.flinging = true
         local homeCF = hrp.CFrame
@@ -2740,24 +2947,18 @@ do
         local cam = workspace.CurrentCamera
         local oldSubject = cam and cam.CameraSubject
         local oldFall = workspace.FallenPartsDestroyHeight
-        pcall(function() workspace.FallenPartsDestroyHeight = 0 / 0 end)
+        -- ปิดกันตก: ให้เป้ากระเด็นออกนอกแมพได้
+        pcall(function() workspace.FallenPartsDestroyHeight = -math.huge end)
         pcall(function() cam.CameraSubject = thum end)
 
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bv.Velocity = Vector3.new(9e8, 9e8, 9e8)
-        bv.Parent = hrp
-
-        local function pose(offset, ang)
-            local cf = CFrame.new(troot.Position) * offset * ang
-            pcall(function() c:PivotTo(cf) end)
-            hrp.AssemblyLinearVelocity = Vector3.new(9e7, 9e8, 9e7)
-            hrp.AssemblyAngularVelocity = Vector3.new(9e8, 9e8, 9e8)
-            hb()
-        end
+        -- BodyVelocity ผลักตัวเป้าโดยตรง
+        local bvTarget = Instance.new("BodyVelocity")
+        bvTarget.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bvTarget.Velocity = Vector3.new(0,0,0)
+        bvTarget.Parent = troot
 
         local function targetGone()
-            return not (plr.Parent and plr.Character == tch and troot.Parent) or thum.Health <= 0
+            return not (plr.Parent and plr.Character==tch and troot.Parent) or thum.Health<=0
         end
 
         local flung = false
@@ -2766,60 +2967,55 @@ do
                 local t0 = os.clock()
                 local angle = 0
                 while true do
-                    if targetGone() or hum.Health <= 0 or not hrp.Parent then break end
+                    if targetGone() or hum.Health<=0 or not hrp.Parent then break end
                     local spd = troot.AssemblyLinearVelocity.Magnitude
-                    if spd > 500 or (troot.Position - startPos).Magnitude > 300 then
-                        flung = true
-                        break
-                    end
-                    if os.clock() - t0 > TIMEOUT then break end
-                    if spd < 50 then
-                        angle += 100
-                        local lead = CFrame.new(thum.MoveDirection * spd / 10)
-                        local a = CFrame.Angles(math.rad(angle), 0, 0)
-                        pose(CFrame.new(0, 1.5, 0) * lead, a)
-                        pose(CFrame.new(0, -1.5, 0) * lead, a)
-                        pose(CFrame.new(2.25, 1.5, -2.25) * lead, a)
-                        pose(CFrame.new(-2.25, -1.5, 2.25) * lead, a)
-                        pose(CFrame.new(0, 1.5, 0) * CFrame.new(thum.MoveDirection), a)
-                        pose(CFrame.new(0, -1.5, 0) * CFrame.new(thum.MoveDirection), a)
-                    else
-                        local ws = thum.WalkSpeed
-                        pose(CFrame.new(0, 1.5, ws), CFrame.Angles(math.rad(90), 0, 0))
-                        pose(CFrame.new(0, -1.5, -ws), CFrame.Angles(0, 0, 0))
-                        pose(CFrame.new(0, 1.5, ws), CFrame.Angles(math.rad(90), 0, 0))
-                        pose(CFrame.new(0, 1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
-                        pose(CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(-90), 0, 0))
-                        pose(CFrame.new(0, 1.5, 0), CFrame.Angles(0, 0, 0))
+                    local dist = (troot.Position - startPos).Magnitude
+                    if spd > 800 or dist > 500 then flung = true break end
+                    if os.clock()-t0 > TIMEOUT then break end
+                    angle += 120
+                    local ang = CFrame.Angles(math.rad(angle), math.rad(angle*0.5), 0)
+                    local offsets = {
+                        CFrame.new(0, 1.2, 0.5),
+                        CFrame.new(0, -1.2, 0.5),
+                        CFrame.new(0.5, 1.2, 0),
+                        CFrame.new(-0.5, -1.2, 0),
+                        CFrame.new(0, 0.5, 1.2),
+                    }
+                    for _, off in ipairs(offsets) do
+                        pcall(function() c:PivotTo(CFrame.new(troot.Position) * off * ang) end)
+                        hrp.AssemblyLinearVelocity = Vector3.new(9e5, 9e5, 9e5)
+                        bvTarget.Velocity = Vector3.new(9e5, 9e5, 9e5)
+                        hb()
+                        if flung then break end
                     end
                 end
-                if flung or targetGone() or hum.Health <= 0 then break end
+                if flung then break end
             end
         end)
         if not ok then warn("[NXMM2 FLING]", err) end
 
-        bv:Destroy()
+        bvTarget:Destroy()
         pcall(function() cam.CameraSubject = oldSubject or hum end)
-        for i = 1, 90 do
+        for i = 1, 60 do
             if not (hrp.Parent and c.Parent) then break end
-            pcall(function() c:PivotTo(homeCF * CFrame.new(0, 0.5, 0)) end)
+            pcall(function() c:PivotTo(homeCF) end)
             zeroAll(c)
             pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
             hb()
-            if i >= 12 and (hrp.Position - homeCF.Position).Magnitude < 15 then break end
+            if (hrp.Position - homeCF.Position).Magnitude < 8 then break end
         end
         pcall(function() workspace.FallenPartsDestroyHeight = oldFall end)
         FLAGS.flinging = false
         busy = false
-        toast("Fling finished ✓", "ฟลิ้งเสร็จแล้ว ✓")
+        if flung then toast("💥 Flung out!","💥 กระเด็นออกแมพแล้ว!")
+        else toast("Fling done","ฟลิ้งเสร็จ") end
     end
 
     local function flingRole(role, missEn, missTh)
         fetchNow()
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player and getRole(plr) == role then
-                task.spawn(flingPlayer, plr)
-                return
+                task.spawn(flingPlayer, plr) return
             end
         end
         toast(missEn, missTh)
@@ -2827,19 +3023,171 @@ do
 
     tab:Section({ Title = "mm2_secFling" })
     tab:Button({ Title = "mm2_fSheriff", Variant = "Secondary", Callback = function()
-        flingRole("Sheriff", "Sheriff not found", "ไม่พบนายอำเภอ")
+        flingRole("Sheriff","Sheriff not found","ไม่พบนายอำเภอ")
     end })
     tab:Button({ Title = "mm2_fMurder", Variant = "Danger", Callback = function()
-        flingRole("Murderer", "Murderer not found", "ไม่พบฆาตกร")
+        flingRole("Murderer","Murderer not found","ไม่พบฆาตกร")
     end })
 
-    local sel
-    dropdowns[#dropdowns + 1] = tab:Dropdown({ Title = "mm2_wList", Values = playerNames(), Callback = function(v) sel = v end })
-    tab:Button({ Title = "mm2_fGo", Callback = function()
-        local plr = sel and Players:FindFirstChild(sel)
-        if not plr then toast("No player selected", "ยังไม่ได้เลือกผู้เล่น") return end
+    -- === Player Card Picker (Fling) ===
+    local NX2 = getgenv().NX
+    local flingPage = NX2.pages["mm_fling"]
+    local lp2 = Players.LocalPlayer
+
+    local pickerLabel = Instance.new("TextLabel")
+    pickerLabel.Size = UDim2.new(1,-16,0,20)
+    pickerLabel.Position = UDim2.fromOffset(8,8)
+    pickerLabel.BackgroundTransparency = 1
+    pickerLabel.Text = "⚡ เลือกผู้เล่น / Select Player"
+    pickerLabel.Font = Enum.Font.GothamBold
+    pickerLabel.TextSize = 11
+    pickerLabel.TextColor3 = NX2.COL.Pink
+    pickerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    pickerLabel.Parent = flingPage
+    NX2.onAccent(function(_,b) pickerLabel.TextColor3=b end)
+
+    local divF = Instance.new("Frame")
+    divF.Size = UDim2.new(1,-16,0,1)
+    divF.Position = UDim2.fromOffset(8,30)
+    divF.BackgroundColor3 = NX2.COL.Purple
+    divF.BorderSizePixel = 0
+    divF.Parent = flingPage
+    NX2.onAccent(function(a) divF.BackgroundColor3=a end)
+
+    local gridF = Instance.new("Frame")
+    gridF.Size = UDim2.new(1,0,0,0)
+    gridF.Position = UDim2.fromOffset(0,36)
+    gridF.AutomaticSize = Enum.AutomaticSize.Y
+    gridF.BackgroundTransparency = 1
+    gridF.Parent = flingPage
+
+    local gridLayout = Instance.new("UIGridLayout")
+    gridLayout.CellSize = UDim2.fromOffset(116,54)
+    gridLayout.CellPadding = UDim2.fromOffset(5,5)
+    gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    gridLayout.Parent = gridF
+    Instance.new("UIPadding",gridF).PaddingLeft = UDim.new(0,4)
+
+    local flingCards = {}
+    local flingSelected = nil
+
+    local function clearFlingCards()
+        for _,c2 in ipairs(flingCards) do pcall(function() c2:Destroy() end) end
+        flingCards = {}
+        flingSelected = nil
+    end
+
+    local function makeFlingCard(plr)
+        local card = Instance.new("TextButton")
+        card.Size = UDim2.fromOffset(116,54)
+        card.BackgroundColor3 = Color3.fromRGB(22,22,32)
+        card.AutoButtonColor = false
+        card.Text = ""
+        card.BorderSizePixel = 0
+        card.Parent = gridF
+        Instance.new("UICorner",card).CornerRadius = UDim.new(0,12)
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 1.5
+        stroke.Color = NX2.COL.Purple
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = card
+        NX2.onAccent(function(a) if card.Parent then stroke.Color=a end end)
+
+        local av = Instance.new("ImageLabel")
+        av.Size = UDim2.fromOffset(38,38)
+        av.Position = UDim2.fromOffset(7,8)
+        av.BackgroundColor3 = Color3.fromRGB(38,38,52)
+        av.BorderSizePixel = 0
+        av.Parent = card
+        Instance.new("UICorner",av).CornerRadius = UDim.new(0,8)
+        task.spawn(function()
+            local ok,img = pcall(function()
+                return Players:GetUserThumbnailAsync(plr.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48)
+            end)
+            if ok and av.Parent then av.Image=img end
+        end)
+
+        local nm = Instance.new("TextLabel")
+        nm.Size = UDim2.new(1,-52,0,18)
+        nm.Position = UDim2.fromOffset(50,8)
+        nm.BackgroundTransparency = 1
+        nm.Text = plr.DisplayName
+        nm.Font = Enum.Font.GothamBold
+        nm.TextSize = 11
+        nm.TextColor3 = Color3.new(1,1,1)
+        nm.TextTruncate = Enum.TextTruncate.AtEnd
+        nm.TextXAlignment = Enum.TextXAlignment.Left
+        nm.Parent = card
+
+        local un = Instance.new("TextLabel")
+        un.Size = UDim2.new(1,-52,0,13)
+        un.Position = UDim2.fromOffset(50,27)
+        un.BackgroundTransparency = 1
+        un.Text = "@"..plr.Name
+        un.Font = Enum.Font.Gotham
+        un.TextSize = 9
+        un.TextColor3 = NX2.COL.Sub
+        un.TextTruncate = Enum.TextTruncate.AtEnd
+        un.TextXAlignment = Enum.TextXAlignment.Left
+        un.Parent = card
+
+        card.MouseButton1Click:Connect(function()
+            flingSelected = plr
+            for _,c2 in ipairs(flingCards) do
+                local s2 = c2:FindFirstChildOfClass("UIStroke")
+                if s2 then s2.Color=NX2.COL.Purple s2.Thickness=1.5 end
+                c2.BackgroundColor3 = Color3.fromRGB(22,22,32)
+            end
+            stroke.Color = NX2.COL.Pink
+            stroke.Thickness = 2.5
+            card.BackgroundColor3 = Color3.fromRGB(50,28,80)
+        end)
+
+        flingCards[#flingCards+1] = card
+    end
+
+    local function refreshFlingCards()
+        clearFlingCards()
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if plr ~= lp2 then makeFlingCard(plr) end
+        end
+    end
+    refreshFlingCards()
+    Players.PlayerAdded:Connect(refreshFlingCards)
+    Players.PlayerRemoving:Connect(function() task.wait(0.1) refreshFlingCards() end)
+
+    -- ปุ่ม Fling
+    local btnRowF = Instance.new("Frame")
+    btnRowF.Size = UDim2.new(1,0,0,32)
+    btnRowF.BackgroundTransparency = 1
+    btnRowF.Parent = flingPage
+    local ll = Instance.new("UIListLayout")
+    ll.FillDirection = Enum.FillDirection.Horizontal
+    ll.Padding = UDim.new(0,8)
+    ll.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    ll.VerticalAlignment = Enum.VerticalAlignment.Center
+    ll.Parent = btnRowF
+
+    local function mkFBtn(txt2, col, cb)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.fromOffset(118,26)
+        b.BackgroundColor3 = col
+        b.Text = txt2
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 11
+        b.TextColor3 = Color3.new(1,1,1)
+        b.AutoButtonColor = false
+        b.Parent = btnRowF
+        Instance.new("UICorner",b).CornerRadius = UDim.new(0,10)
+        b.MouseButton1Click:Connect(cb)
+    end
+
+    mkFBtn("💥 FLING!", Color3.fromRGB(160,25,55), function()
+        local plr = flingSelected
+        if not plr then toast("No player selected","ยังไม่ได้เลือกผู้เล่น") return end
         task.spawn(flingPlayer, plr)
-    end })
+    end)
 
     onUnload(function() FLAGS.flinging = false end)
 end
