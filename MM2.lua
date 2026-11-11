@@ -1540,6 +1540,8 @@ local TR={
  ["mm2_aShoot"]={"🎯 Auto shoot (visible only)","🎯 ยิงอัตโนมัติ (เห็นตัวเท่านั้น)"},
  ["mm2_aThrowWall"]={"🔪 Knife through walls","🔪 ปามีดทะลุกำแพง"},
  ["mm2_aShootWall"]={"🔫 Shoot through walls","🔫 ยิงทะลุกำแพง"},
+ ["mm2_wPicker"]={"🌀 Select player to warp","🌀 เลือกผู้เล่นที่จะวาร์ป"},
+ ["mm2_fPick"]={"⚡ Select player to fling","⚡ เลือกผู้เล่นที่จะฟลิ้ง"},
  ["mm2_secPlayer"]={"Player","ตัวละคร"},
  ["mm2_pNoclip"]={"👻 Ghost mode (noclip)","👻 โหมดผี (ทะลุ)"},
  ["mm2_pSpeed"]={"⚡ Speed +100","⚡ สปีด +100"},
@@ -2282,44 +2284,31 @@ do
         warpToRole("Sheriff","Sheriff not found","ไม่พบนายอำเภอ")
     end })
 
-    -- === Player Card Picker (Warp) ===
+    -- === Player Card Picker (Warp) — ใส่ใน sf ของ tab ผ่าน wrapper frame ===
     local NX3 = getgenv().NX
-    local warpPage = NX3.pages["mm_warp"]
     local lp3 = Players.LocalPlayer
 
-    local warpPickLabel = Instance.new("TextLabel")
-    warpPickLabel.Size = UDim2.new(1,-16,0,20)
-    warpPickLabel.Position = UDim2.fromOffset(8,8)
-    warpPickLabel.BackgroundTransparency = 1
-    warpPickLabel.Text = "🌀 เลือกผู้เล่นที่จะวาร์ป / Select Player"
-    warpPickLabel.Font = Enum.Font.GothamBold
-    warpPickLabel.TextSize = 11
-    warpPickLabel.TextColor3 = NX3.COL.Pink
-    warpPickLabel.TextXAlignment = Enum.TextXAlignment.Left
-    warpPickLabel.Parent = warpPage
-    NX3.onAccent(function(_,b) warpPickLabel.TextColor3=b end)
+    -- wrapper frame ที่อยู่ใน ScrollingFrame ของ tab (ใช้ tab:Section เป็น anchor แล้วต่อ frame ลูกลงไป)
+    tab:Section({ Title = "mm2_wPicker" })
 
-    local divW = Instance.new("Frame")
-    divW.Size = UDim2.new(1,-16,0,1)
-    divW.Position = UDim2.fromOffset(8,30)
-    divW.BackgroundColor3 = NX3.COL.Purple
-    divW.BorderSizePixel = 0
-    divW.Parent = warpPage
-    NX3.onAccent(function(a) divW.BackgroundColor3=a end)
+    -- ดึง sf ของ tab จาก page
+    local warpSF = NX3.pages["mm_warp"]:FindFirstChildOfClass("ScrollingFrame")
 
-    local gridW = Instance.new("Frame")
-    gridW.Size = UDim2.new(1,0,0,0)
-    gridW.Position = UDim2.fromOffset(0,36)
-    gridW.AutomaticSize = Enum.AutomaticSize.Y
-    gridW.BackgroundTransparency = 1
-    gridW.Parent = warpPage
+    -- grid container อยู่ใน sf โดยตรง ให้ UIListLayout ของ sf จัดเรียง
+    local gridW = mk("Frame", {
+        Size = UDim2.new(1,0,0,0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        LayoutOrder = 999,
+    }, warpSF)
 
-    local gridLayoutW = Instance.new("UIGridLayout")
-    gridLayoutW.CellSize = UDim2.fromOffset(116,54)
-    gridLayoutW.CellPadding = UDim2.fromOffset(5,5)
-    gridLayoutW.SortOrder = Enum.SortOrder.LayoutOrder
-    gridLayoutW.Parent = gridW
-    Instance.new("UIPadding",gridW).PaddingLeft = UDim.new(0,4)
+    local gridLayoutW = mk("UIGridLayout", {
+        CellSize = UDim2.fromOffset(112,56),
+        CellPadding = UDim2.fromOffset(5,5),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, gridW)
+    mk("UIPadding",{PaddingLeft=UDim.new(0,4),PaddingBottom=UDim.new(0,4)}, gridW)
 
     local warpCards = {}
     local warpSelected = nil
@@ -2434,10 +2423,11 @@ do
     Players.PlayerRemoving:Connect(function() task.wait(0.1) refreshWarpCards() end)
 
     -- ปุ่ม Warp
-    local btnRowW = Instance.new("Frame")
-    btnRowW.Size = UDim2.new(1,0,0,32)
-    btnRowW.BackgroundTransparency = 1
-    btnRowW.Parent = warpPage
+    local btnRowW = mk("Frame", {
+        Size = UDim2.new(1,0,0,36),
+        BackgroundTransparency = 1,
+        LayoutOrder = 1000,
+    }, warpSF)
     local llW = Instance.new("UIListLayout")
     llW.FillDirection = Enum.FillDirection.Horizontal
     llW.Padding = UDim.new(0,8)
@@ -2790,23 +2780,143 @@ do
     end)
 
     -- ปุ่มปามีด / ปุ่มยิง ข้างขวาจอ
-    local function sideButton(y, textEn, textTh, color, bg)
+    -- container แนวตั้งปุ่มขวาจอ
+    local sidePad = mk("Frame", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -8, 0.5, 0),
+        Size = UDim2.fromOffset(68, 10),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Visible = false, ZIndex = 20,
+    }, overlay)
+    local sideList = mk("UIListLayout", {
+        FillDirection = Enum.FillDirection.Vertical,
+        Padding = UDim.new(0, 6),
+        HorizontalAlignment = Enum.HorizontalAlignment.Right,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+    }, sidePad)
+
+    local function sideButton(textEn, textTh, strokeColor, bgColor, isWall)
         local b = mk("TextButton", {
-            AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.45, y),
-            Size = UDim2.fromOffset(70, 70), BackgroundColor3 = bg, TextColor3 = Color3.new(1, 1, 1),
-            Font = Enum.Font.GothamBold, TextSize = 13, Text = "", AutoButtonColor = false,
-            Visible = false, ZIndex = 20,
-        }, overlay)
-        corner(b, 16)
-        mk("UIStroke", { ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Color = color, Thickness = 2.5 }, b)
+            Size = UDim2.fromOffset(68, 68),
+            BackgroundColor3 = bgColor,
+            TextColor3 = Color3.new(1, 1, 1),
+            Font = Enum.Font.GothamBold, TextSize = 12,
+            Text = "", AutoButtonColor = false, ZIndex = 20,
+        }, sidePad)
+        corner(b, 14)
+
+        -- border stroke
+        local stroke = mk("UIStroke", {
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Color = strokeColor, Thickness = 2,
+        }, b)
+
+        -- gradient background
+        local grad = mk("UIGradient", {
+            Rotation = 135,
+            Color = ColorSequence.new(
+                bgColor:Lerp(Color3.new(1,1,1), 0.08),
+                bgColor:Lerp(Color3.new(0,0,0), 0.3)
+            ),
+        }, b)
+
+        -- lightning spark เส้นแนวทแยงวิ่ง (สายฟ้าสีขาว-ดำ)
+        if isWall then
+            local sparkHolder = mk("Frame", {
+                Size = UDim2.fromScale(1,1), BackgroundTransparency=1,
+                ClipsDescendants=true, ZIndex=21,
+            }, b)
+            task.spawn(function()
+                while b.Parent and b.Visible do
+                    task.wait(math.random(8,18)/10)
+                    if not b.Visible then continue end
+                    -- สายฟ้าขาว
+                    local s1 = mk("Frame",{
+                        AnchorPoint=Vector2.new(.5,.5),
+                        Position=UDim2.fromScale(math.random()*0.6+0.1, 0),
+                        Size=UDim2.fromOffset(2, 80),
+                        Rotation=math.random(-20,20),
+                        BackgroundColor3=Color3.new(1,1,1),
+                        BackgroundTransparency=0.1,
+                        BorderSizePixel=0, ZIndex=22,
+                    }, sparkHolder)
+                    -- กลอว์สีดำด้านหลัง
+                    local s2 = mk("Frame",{
+                        AnchorPoint=Vector2.new(.5,.5),
+                        Position=s1.Position,
+                        Size=UDim2.fromOffset(6, 84),
+                        Rotation=s1.Rotation,
+                        BackgroundColor3=Color3.new(0,0,0),
+                        BackgroundTransparency=0.5,
+                        BorderSizePixel=0, ZIndex=21,
+                    }, sparkHolder)
+                    game:GetService("TweenService"):Create(s1, TweenInfo.new(0.35), {
+                        Position=UDim2.fromScale(s1.Position.X.Scale+0.4, 1.1),
+                        BackgroundTransparency=1,
+                    }):Play()
+                    game:GetService("TweenService"):Create(s2, TweenInfo.new(0.35), {
+                        Position=UDim2.fromScale(s2.Position.X.Scale+0.4, 1.1),
+                        BackgroundTransparency=1,
+                    }):Play()
+                    task.delay(0.4, function() s1:Destroy() s2:Destroy() end)
+                end
+            end)
+        end
+
         local function setText() b.Text = T(textEn, textTh) end
         setText()
         pcall(function() NXH.onLang(setText) end)
         return b
     end
 
-    local throwBtn = sideButton(0, "🔪\nTHROW", "🔪\nปามีด", Color3.fromRGB(255, 70, 85), Color3.fromRGB(70, 16, 30))
-    local shootBtn = sideButton(84, "🔫\nSHOOT", "🔫\nยิง", Color3.fromRGB(60, 140, 255), Color3.fromRGB(16, 40, 90))
+    local throwBtn  = sideButton("🔪\nTHROW",  "🔪\nปามีด",   Color3.fromRGB(255,70,85),  Color3.fromRGB(70,16,30),  false)
+    local shootBtn  = sideButton("🔫\nSHOOT",  "🔫\nยิง",     Color3.fromRGB(60,140,255), Color3.fromRGB(16,40,90),  false)
+    local throwWBtn = sideButton("🔪\nWALL",   "🔪\nทะลุ",    Color3.fromRGB(220,220,255),Color3.fromRGB(18,10,40),  true)
+    local shootWBtn = sideButton("🔫\nWALL",   "🔫\nยิงทะลุ", Color3.fromRGB(180,230,255),Color3.fromRGB(10,24,44),  true)
+
+    throwWBtn.Visible  = false
+    shootWBtn.Visible  = false
+
+    local busyTW = false
+    throwWBtn.Activated:Connect(function()
+        if busyTW then return end
+        busyTW = true
+        local ok, err = pcall(function()
+            local r = nearest(nil, false) -- ทะลุกำแพง ไม่ต้อง canSee
+            if not r then toast("No target","ไม่พบเป้า") return end
+            if throwAt(r, false) then toast("🔪 Thrown (wall)","🔪 ปาทะลุแล้ว") end
+        end)
+        if not ok then warn("[NXMM2 THROWWALL]", err) end
+        busyTW = false
+    end)
+
+    local busySW = false
+    shootWBtn.Activated:Connect(function()
+        if busySW then return end
+        busySW = true
+        local ok, err = pcall(function()
+            local r = murdererTarget(false)
+            if not r then r = nearest(nil, false) end
+            if not r then toast("No target","ไม่พบเป้า") return end
+            if shootAt(r, false) then toast("🔫 Shot (wall)","🔫 ยิงทะลุแล้ว") end
+        end)
+        if not ok then warn("[NXMM2 SHOOTWALL]", err) end
+        busySW = false
+    end)
+
+    -- ซ่อนปุ่มที่ไม่ใช้ออกจาก layout จริงๆ ด้วย
+    local function setSideVis(btn, v)
+        btn.Visible = v
+        -- รีเฟรช size container
+        task.defer(function()
+            local h = 0
+            for _, c in ipairs(sidePad:GetChildren()) do
+                if c:IsA("TextButton") and c.Visible then h = h + 68 + 6 end
+            end
+            sidePad.Visible = (h > 0)
+        end)
+    end
 
     local busyT = false
     throwBtn.Activated:Connect(function()
@@ -2871,12 +2981,12 @@ do
     tab:Section({ Title = "mm2_secHunter" })
     tab:Toggle({ Title = "mm2_mAuto", Value = false, Callback = function(v) K.auto = v end })
     tab:Toggle({ Title = "mm2_mAll", Value = false, Callback = function(v) K.all = v end })
-    tab:Toggle({ Title = "mm2_mThrow", Value = false, Callback = function(v) K.throw = v throwBtn.Visible = v end })
-    tab:Toggle({ Title = "mm2_sShoot", Value = false, Callback = function(v) K.shoot = v shootBtn.Visible = v end })
+    tab:Toggle({ Title = "mm2_mThrow", Value = false, Callback = function(v) K.throw = v setSideVis(throwBtn, v) end })
+    tab:Toggle({ Title = "mm2_sShoot", Value = false, Callback = function(v) K.shoot = v setSideVis(shootBtn, v) end })
     tab:Toggle({ Title = "mm2_aThrow", Value = false, Callback = function(v) K.aThrow = v end })
     tab:Toggle({ Title = "mm2_aShoot", Value = false, Callback = function(v) K.aShoot = v end })
-    tab:Toggle({ Title = "mm2_aThrowWall", Value = false, Callback = function(v) K.aThrowWall = v end })
-    tab:Toggle({ Title = "mm2_aShootWall", Value = false, Callback = function(v) K.aShootWall = v end })
+    tab:Toggle({ Title = "mm2_aThrowWall", Value = false, Callback = function(v) K.aThrowWall = v setSideVis(throwWBtn, v) end })
+    tab:Toggle({ Title = "mm2_aShootWall", Value = false, Callback = function(v) K.aShootWall = v setSideVis(shootWBtn, v) end })
 
     -- ปามีดทะลุกำแพง / ยิงทะลุกำแพง (ไม่ต้อง canSee)
     task.spawn(function()
@@ -2907,8 +3017,10 @@ do
 
     onUnload(function()
         for k in pairs(K) do K[k] = false end
-        throwBtn.Visible  = false
-        shootBtn.Visible  = false
+        setSideVis(throwBtn, false)
+        setSideVis(shootBtn, false)
+        setSideVis(throwWBtn, false)
+        setSideVis(shootWBtn, false)
     end)
 end
 
@@ -3029,44 +3141,28 @@ do
         flingRole("Murderer","Murderer not found","ไม่พบฆาตกร")
     end })
 
-    -- === Player Card Picker (Fling) ===
+    -- === Player Card Picker (Fling) — ใส่ใน sf ของ tab ===
     local NX2 = getgenv().NX
-    local flingPage = NX2.pages["mm_fling"]
     local lp2 = Players.LocalPlayer
 
-    local pickerLabel = Instance.new("TextLabel")
-    pickerLabel.Size = UDim2.new(1,-16,0,20)
-    pickerLabel.Position = UDim2.fromOffset(8,8)
-    pickerLabel.BackgroundTransparency = 1
-    pickerLabel.Text = "⚡ เลือกผู้เล่น / Select Player"
-    pickerLabel.Font = Enum.Font.GothamBold
-    pickerLabel.TextSize = 11
-    pickerLabel.TextColor3 = NX2.COL.Pink
-    pickerLabel.TextXAlignment = Enum.TextXAlignment.Left
-    pickerLabel.Parent = flingPage
-    NX2.onAccent(function(_,b) pickerLabel.TextColor3=b end)
+    tab:Section({ Title = "mm2_fPick" })
 
-    local divF = Instance.new("Frame")
-    divF.Size = UDim2.new(1,-16,0,1)
-    divF.Position = UDim2.fromOffset(8,30)
-    divF.BackgroundColor3 = NX2.COL.Purple
-    divF.BorderSizePixel = 0
-    divF.Parent = flingPage
-    NX2.onAccent(function(a) divF.BackgroundColor3=a end)
+    local flingSF = NX2.pages["mm_fling"]:FindFirstChildOfClass("ScrollingFrame")
 
-    local gridF = Instance.new("Frame")
-    gridF.Size = UDim2.new(1,0,0,0)
-    gridF.Position = UDim2.fromOffset(0,36)
-    gridF.AutomaticSize = Enum.AutomaticSize.Y
-    gridF.BackgroundTransparency = 1
-    gridF.Parent = flingPage
+    local gridF = mk("Frame", {
+        Size = UDim2.new(1,0,0,0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        LayoutOrder = 999,
+    }, flingSF)
 
-    local gridLayout = Instance.new("UIGridLayout")
-    gridLayout.CellSize = UDim2.fromOffset(116,54)
-    gridLayout.CellPadding = UDim2.fromOffset(5,5)
-    gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    gridLayout.Parent = gridF
-    Instance.new("UIPadding",gridF).PaddingLeft = UDim.new(0,4)
+    mk("UIGridLayout", {
+        CellSize = UDim2.fromOffset(112,56),
+        CellPadding = UDim2.fromOffset(5,5),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, gridF)
+    mk("UIPadding",{PaddingLeft=UDim.new(0,4),PaddingBottom=UDim.new(0,4)}, gridF)
 
     local flingCards = {}
     local flingSelected = nil
@@ -3158,10 +3254,11 @@ do
     Players.PlayerRemoving:Connect(function() task.wait(0.1) refreshFlingCards() end)
 
     -- ปุ่ม Fling
-    local btnRowF = Instance.new("Frame")
-    btnRowF.Size = UDim2.new(1,0,0,32)
-    btnRowF.BackgroundTransparency = 1
-    btnRowF.Parent = flingPage
+    local btnRowF = mk("Frame", {
+        Size = UDim2.new(1,0,0,36),
+        BackgroundTransparency = 1,
+        LayoutOrder = 1000,
+    }, flingSF)
     local ll = Instance.new("UIListLayout")
     ll.FillDirection = Enum.FillDirection.Horizontal
     ll.Padding = UDim.new(0,8)
