@@ -534,7 +534,10 @@ section("MAIN","หลัก")
 addPage("home","⌂","HOME","HOME")
 section("AUTO","ออโต้")
 addPage("auto","⚡","AUTO","ออโต้")
-addPage("buysell","💰","BUY / SELL","ซื้อ / ขาย")
+section("SHOP","ร้านค้า")
+addPage("buy","🛒","BUY","ซื้อ")
+addPage("sell","💸","SELL","ขาย")
+section("EVENT","อีเวนท์")
 addPage("event","🎉","EVENT","อีเวนท์")
 section("SYSTEM","ระบบ")
 addPage("settings","☼","SETTINGS","SETTINGS")
@@ -980,17 +983,23 @@ end)
 end
 
 ------------------------------------------------------------------
--- SHARED HELPERS สำหรับ AUTO / BUY / SELL (โยนอาหารให้สัตว์)
+-- SHARED HELPERS — ใส่ใน getgenv().NXG เพื่อให้ทุก do block เข้าถึงได้
 ------------------------------------------------------------------
--- ข้อมูลเกม
-local RS_=game:GetService("ReplicatedStorage")
-local Remotes_=RS_:WaitForChild("Remotes",5)
-local function getRemote(name) return Remotes_ and Remotes_:FindFirstChild(name) end
+do
+getgenv().NXG={}
+local G=getgenv().NXG
 
--- ลำดับความหายาก (กากสุด→ดีสุด)
-local RARITY_ORDER={Common=1,Uncommon=2,Rare=3,Epic=4,Legendary=5,Mythic=6,Divine=7,Secret=8}
--- พื้นที่โยน (ด่าน) ในเกม — ชื่อ Folder ใน workspace.Biomes
-local BIOMES={
+G.RS=game:GetService("ReplicatedStorage")
+G.getRemote=function(name)
+ local rs=G.RS
+ local rem=rs:FindFirstChild("Remotes") or rs:FindFirstChild("RemoteEvents") or rs
+ local r=rem:FindFirstChild(name,true)
+ return r
+end
+
+G.RARITY_ORDER={Common=1,Uncommon=2,Rare=3,Epic=4,Legendary=5,Mythic=6,Divine=7,Secret=8}
+
+G.BIOMES={
  {id="Forest",name="🌲 Forest"},
  {id="Savana",name="🦁 Savana"},
  {id="Desert",name="🏜 Desert"},
@@ -1011,8 +1020,8 @@ local BIOMES={
  {id="CursedCarnival",name="🎪 Cursed Carnival"},
  {id="EclipseKingdom",name="🌑 Eclipse Kingdom"},
 }
--- อาหารทุกชนิดในเกม (จาก RS.Food ตามลำดับราคา/tier)
-local FOODS_ORDERED={
+
+G.FOODS_ORDERED={
  "Pear","Apple","Carrot","Banana","Toast","Cheese","Croissant","Bread Loaf",
  "WaterMelon","Mushroom","Orange","Chocolate","Elder Strawberry","Bacon",
  "Burger","Shank","Fillet","Star Jelly","Steak","Crystal Melon",
@@ -1023,31 +1032,39 @@ local FOODS_ORDERED={
  "Uranium Cake","Cursed Candy Apple","Ringmaster Cake","Spectral Cotton Candy",
  "Ghost Popcorn","Royal Mooncake","Black Sun Souffle","Sunwheel Tart","Crescent Pear",
 }
--- helper: เอา plot ของ local player
-local function getMyPlot()
+
+G.RARITY_COLORS={
+ Common=Color3.fromRGB(180,180,180), Uncommon=Color3.fromRGB(90,230,160),
+ Rare=Color3.fromRGB(80,160,255), Epic=Color3.fromRGB(180,80,255),
+ Legendary=Color3.fromRGB(255,180,0), Mythic=Color3.fromRGB(255,80,80),
+ Divine=Color3.fromRGB(255,220,0), Secret=Color3.fromRGB(255,60,180),
+}
+
+G.getMyPlot=function()
  local lp=game:GetService("Players").LocalPlayer
  local pi=lp:GetAttribute("PlotIndex")
  if not pi then return nil end
- return workspace:FindFirstChild("Plots") and workspace.Plots:FindFirstChild(tostring(pi))
+ local plots=workspace:FindFirstChild("Plots")
+ return plots and plots:FindFirstChild(tostring(pi))
 end
--- helper: เอา animals ในสวน sort by Income (น้อย→มาก)
-local function getAnimalsInPlot()
- local plot=getMyPlot() if not plot then return {} end
+
+G.getAnimalsInPlot=function()
+ local plot=G.getMyPlot() if not plot then return {} end
  local af=plot:FindFirstChild("Animals") if not af then return {} end
  local list={}
  for _,a in ipairs(af:GetChildren()) do
   if a:GetAttribute("AnimalName") then list[#list+1]=a end
  end
  table.sort(list,function(a,b)
-  local ai=a:GetAttribute("Income") or 0
-  local bi=b:GetAttribute("Income") or 0
-  return ai<bi
+  return (a:GetAttribute("Income") or 0) < (b:GetAttribute("Income") or 0)
  end)
  return list
 end
--- helper: หา position ของ biome folder (ใช้ FieldArea แรก)
-local function getBiomePos(biomeName)
- local b=workspace:FindFirstChild("Biomes") and workspace.Biomes:FindFirstChild(biomeName)
+
+G.getBiomePos=function(biomeName)
+ local biomes=workspace:FindFirstChild("Biomes")
+ if not biomes then return nil end
+ local b=biomes:FindFirstChild(biomeName)
  if not b then return nil end
  local fa=b:FindFirstChild("FieldArea",true)
  if fa and fa:IsA("BasePart") then return fa.Position+Vector3.new(0,5,0) end
@@ -1055,12 +1072,14 @@ local function getBiomePos(biomeName)
  if pp then return pp.Position+Vector3.new(0,5,0) end
  return nil
 end
+end -- end SHARED HELPERS
 
 ------------------------------------------------------------------
 -- หน้า AUTO
 ------------------------------------------------------------------
 do
 local NX=getgenv().NX
+local G=getgenv().NXG
 local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
 local TS=game:GetService("TweenService")
 local UIS=game:GetService("UserInputService")
@@ -1070,6 +1089,12 @@ local lp=Players.LocalPlayer
 local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
 local S=NX.state
 local function T(en,th) return (NX.getLang()=="TH") and th or en end
+local getRemote=G.getRemote
+local BIOMES=G.BIOMES
+local getBiomePos=G.getBiomePos
+local getMyPlot=G.getMyPlot
+local getAnimalsInPlot=G.getAnimalsInPlot
+local RARITY_ORDER=G.RARITY_ORDER
 
 -- ===== หน้า AUTO (ฟาร์ม) =====
 local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.auto)
@@ -1402,7 +1427,7 @@ do
   for _,b in ipairs(animalBtns) do b:Destroy() end
   animalBtns={}
   -- เก็บ animals จาก workspace (Animals ใน ReplicatedStorage folder)
-  local animalFolder=RS_:FindFirstChild("Animals")
+  local animalFolder=G.RS:FindFirstChild("Animals")
   local list={}
   if animalFolder then
    for _,m in ipairs(animalFolder:GetChildren()) do
@@ -1504,10 +1529,11 @@ end)
 end -- end AUTO page
 
 ------------------------------------------------------------------
--- หน้า BUY / SELL  (โยนอาหารให้สัตว์)
+-- หน้า BUY (ซื้อ)
 ------------------------------------------------------------------
 do
 local NX=getgenv().NX
+local G=getgenv().NXG
 local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
 local TS=game:GetService("TweenService")
 local UIS=game:GetService("UserInputService")
@@ -1515,9 +1541,10 @@ local lp=game:GetService("Players").LocalPlayer
 local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
 local S=NX.state
 local function T(en,th) return (NX.getLang()=="TH") and th or en end
+local getRemote=G.getRemote
+local FOODS_ORDERED=G.FOODS_ORDERED
 
--- shared widget helpers (scope ใหม่ไม่ซ้ำกับ AUTO)
-local sf2=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.buysell)
+local sf2=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.buy)
 make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf2)
 make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf2)
 local ord2=0
@@ -1586,7 +1613,7 @@ do
  round(fb,13) NX.onAccent(function(a) fb.BackgroundColor3=a end)
  L(txt2(fb,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Pick food","เลือก")
  -- Food picker popup
- local fpop=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(260,340),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.buysell)
+ local fpop=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(260,340),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.buy)
  round(fpop,20) make("UIStroke",{Color=COL.Pink,Thickness=1.5,Transparency=.3},fpop)
  local fpTop=make("Frame",{Size=UDim2.new(1,0,0,36),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},fpop) round(fpTop,20)
  L(txt2(fpTop,{Position=UDim2.fromOffset(14,8),Size=UDim2.new(1,-50,0,20),Font=Enum.Font.GothamBlack,TextSize=14,TextColor3=Color3.new(1,1,1)}),"Select Food","เลือกอาหาร")
@@ -1678,38 +1705,100 @@ tog2("autoUpgradeFence","Auto Upgrade Garden (Fence)","ออโต้อัพ�
  end)
 end)
 
--- ===========================
--- หมวด ขาย
--- ===========================
-hdr2("SELL","ขาย")
+end -- end BUY page
+
+------------------------------------------------------------------
+-- หน้า SELL (ขาย)
+------------------------------------------------------------------
+do
+local NX=getgenv().NX
+local G=getgenv().NXG
+local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
+local TS=game:GetService("TweenService")
+local UIS=game:GetService("UserInputService")
+local lp=game:GetService("Players").LocalPlayer
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local S=NX.state
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
+local getRemote=G.getRemote
+local RARITY_COLORS2=G.RARITY_COLORS
+
+local sfSell=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.sell)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sfSell)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sfSell)
+local ordS=0
+local function txtS(p,pr)
+ pr.BackgroundTransparency=1 pr.Font=pr.Font or Enum.Font.GothamBold
+ pr.TextColor3=pr.TextColor3 or COL.Text pr.TextXAlignment=pr.TextXAlignment or Enum.TextXAlignment.Left
+ return make("TextLabel",pr,p)
+end
+local function hdrS(en,th)
+ ordS+=1
+ L(txtS(sfSell,{LayoutOrder=ordS,Size=UDim2.new(1,0,0,16),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Pink}),en,th)
+end
+local function rowS(h)
+ ordS+=1
+ local r=make("Frame",{LayoutOrder=ordS,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sfSell)
+ round(r,14)
+ local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+ NX.onAccent(function(a,b) s.Color=b end)
+ return r
+end
+local function ttlS(r,en,th,de,dt)
+ L(txtS(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-80,0,16),TextSize=12}),en,th)
+ if de then L(txtS(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),de,dt) end
+end
+local function togS(key,en,th,de,dt,cb)
+ local r=rowS(42) ttlS(r,en,th,de,dt)
+ if S[key]==nil then S[key]=false end
+ local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
+ round(sw,10)
+ local kn=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw) round(kn,7)
+ local function set(v,fire)
+  S[key]=v
+  TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play()
+  TS:Create(kn,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
+  if fire and cb then cb(v) end
+ end
+ sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
+ NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
+ set(S[key],false)
+end
+local function btnS(en,th,de,dt,be,bt,cb)
+ local r=rowS(42)
+ L(txtS(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),en,th)
+ local d=txtS(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,TextTruncate=Enum.TextTruncate.AtEnd})
+ L(d,de,dt)
+ local b=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
+ round(b,13) NX.onAccent(function(a) b.BackgroundColor3=a end)
+ local bl=L(txtS(b,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),be,bt)
+ b.MouseButton1Click:Connect(function() if cb then cb(d,bl) end end)
+ return d,bl
+end
+
+hdrS("SELL CONFIG","ตั้งค่าการขาย")
 
 -- ตารางระดับที่จะ "ไม่ขาย" (exempt)
--- state: S.sellExemptRarities = {Common=false, Uncommon=false, ...}
 local RARITIES_LIST={"Common","Uncommon","Rare","Epic","Legendary","Mythic","Divine","Secret"}
-local RARITY_COLORS2={
- Common=Color3.fromRGB(180,180,180), Uncommon=COL.Green,
- Rare=Color3.fromRGB(80,160,255), Epic=Color3.fromRGB(180,80,255),
- Legendary=Color3.fromRGB(255,180,0), Mythic=Color3.fromRGB(255,80,80),
- Divine=Color3.fromRGB(255,220,0), Secret=Color3.fromRGB(255,60,180),
-}
+-- ใช้ RARITY_COLORS2 จาก G
 if S.sellExemptRarities==nil then
  S.sellExemptRarities={Divine=true,Secret=true,Mythic=true}
 end
 
 -- แถว "เลือกระดับที่จะ ไม่ขาย"
 do
- local r=row2(44)
- L(txt2(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Exempt from sell","ระดับที่จะไม่ขาย")
- L(txt2(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),"Tap to pick","กดเลือก")
+ local r=rowS(44)
+ L(txtS(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Exempt from sell","ระดับที่จะไม่ขาย")
+ L(txtS(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),"Tap to pick","กดเลือก")
  local exBtn=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
  round(exBtn,13) NX.onAccent(function(a) exBtn.BackgroundColor3=a end)
- L(txt2(exBtn,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Manage","จัดการ")
+ L(txtS(exBtn,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Manage","จัดการ")
 
  -- Exempt popup
- local exPop=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(272,420),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.buysell)
+ local exPop=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(272,420),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.sell)
  round(exPop,20) make("UIStroke",{Color=COL.Pink,Thickness=1.5,Transparency=.3},exPop)
  local exTop=make("Frame",{Size=UDim2.new(1,0,0,36),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},exPop) round(exTop,20)
- L(txt2(exTop,{Position=UDim2.fromOffset(14,8),Size=UDim2.new(1,-52,0,20),Font=Enum.Font.GothamBlack,TextSize=14,TextColor3=Color3.new(1,1,1)}),"Sell Exemptions","ตั้งค่าไม่ขาย")
+ L(txtS(exTop,{Position=UDim2.fromOffset(14,8),Size=UDim2.new(1,-52,0,20),Font=Enum.Font.GothamBlack,TextSize=14,TextColor3=Color3.new(1,1,1)}),"Sell Exemptions","ตั้งค่าไม่ขาย")
  local exClose=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(28,28),BackgroundColor3=COL.Red,Text="✕",Font=Enum.Font.GothamBold,TextSize=11,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},exTop) round(exClose,14)
  exClose.MouseButton1Click:Connect(function() exPop.Visible=false end)
  local exScroll=make("ScrollingFrame",{Position=UDim2.fromOffset(0,42),Size=UDim2.new(1,0,1,-46),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},exPop)
@@ -1749,7 +1838,7 @@ do
 end
 
 -- ออโต้ขาย (ขายทุกตัวในสวน ยกเว้นระดับที่กำหนด)
-tog2("autoSell","Auto Sell","ออโต้ขาย","Sells animals not in exempt list","ขายสัตว์ยกเว้นที่กำหนดไว้",function(v)
+togS("autoSell","Auto Sell","ออโต้ขาย","Sells animals not in exempt list","ขายสัตว์ยกเว้นที่กำหนดไว้",function(v)
  if not v then return end
  task.spawn(function()
   while S.autoSell do
@@ -1778,7 +1867,7 @@ tog2("autoSell","Auto Sell","ออโต้ขาย","Sells animals not in exe
 end)
 
 -- ปุ่มขายทุกตัวทันที (Sell All)
-btn2("Sell All Now","ขายทุกตัวเดี๋ยวนี้","Sells all non-exempt animals immediately","ขายสัตว์ทั้งหมดที่ไม่ได้ยกเว้นทันที","Sell All","ขายหมด",function(d,bl)
+btnS("Sell All Now","ขายทุกตัวเดี๋ยวนี้","Sells all non-exempt animals immediately","ขายสัตว์ทั้งหมดที่ไม่ได้ยกเว้นทันที","Sell All","ขายหมด",function(d,bl)
  local orig=bl.Text bl.Text=T("...","...") local count=0
  task.spawn(function()
   local rf=getRemote("Plot_SellAll")
@@ -1809,13 +1898,14 @@ btn2("Sell All Now","ขายทุกตัวเดี๋ยวนี้","Se
  end)
 end)
 
-end -- end BUY/SELL page
+end -- end SELL page
 
 ------------------------------------------------------------------
 -- หน้า EVENT  (อีเวนท์ในเกมโยนอาหาร)
 ------------------------------------------------------------------
 do
 local NX=getgenv().NX
+local G=getgenv().NXG
 local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
 local TS=game:GetService("TweenService")
 local UIS=game:GetService("UserInputService")
@@ -1823,6 +1913,8 @@ local lp=game:GetService("Players").LocalPlayer
 local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
 local S=NX.state
 local function T(en,th) return (NX.getLang()=="TH") and th or en end
+local getRemote=G.getRemote
+local getBiomePos=G.getBiomePos
 
 local sf3=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.event)
 make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf3)
@@ -1988,7 +2080,7 @@ do
    pcall(function()
     -- หา EventTimer value ใน workspace หรือ RS
     local ev=workspace:FindFirstChild("EventTimer",true)
-     or RS_:FindFirstChild("EventTimer",true)
+     or G.RS:FindFirstChild("EventTimer",true)
     if ev and (ev:IsA("IntValue") or ev:IsA("NumberValue")) then
      local secs=math.max(0,math.floor(ev.Value))
      local m=math.floor(secs/60) local s=secs%60
@@ -2011,7 +2103,7 @@ tog3("autoClaimEvent","Auto Claim Reward","ออโต้รับรางว�
  task.spawn(function()
   while S.autoClaimEvent do
    pcall(function()
-    local ev=workspace:FindFirstChild("EventTimer",true) or RS_:FindFirstChild("EventTimer",true)
+    local ev=workspace:FindFirstChild("EventTimer",true) or G.RS:FindFirstChild("EventTimer",true)
     if ev and (ev:IsA("IntValue") or ev:IsA("NumberValue")) and ev.Value<=0 then
      local rf=getRemote("Event_ClaimReward") or getRemote("Quest_Complete")
      if rf then rf:InvokeServer() end
