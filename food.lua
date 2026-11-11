@@ -532,7 +532,7 @@ local function addPage(name,icon,en,th)
 end
 section("MAIN","หลัก")
 addPage("home","⌂","HOME","HOME")
-section("AUTO","ออโต้")
+section("FARM","ฟาร์ม")
 addPage("auto","⚡","AUTO","ออโต้")
 section("SHOP","ร้านค้า")
 addPage("buy","🛒","BUY","ซื้อ")
@@ -980,1142 +980,6 @@ task.spawn(function()
   task.wait(.25)
  end
 end)
-end
-
-------------------------------------------------------------------
--- SHARED HELPERS — ใส่ใน getgenv().NXG เพื่อให้ทุก do block เข้าถึงได้
-------------------------------------------------------------------
-do
-getgenv().NXG={}
-local G=getgenv().NXG
-
-G.RS=game:GetService("ReplicatedStorage")
-G.getRemote=function(name)
- local rs=G.RS
- local rem=rs:FindFirstChild("Remotes") or rs:FindFirstChild("RemoteEvents") or rs
- local r=rem:FindFirstChild(name,true)
- return r
-end
-
-G.RARITY_ORDER={Common=1,Uncommon=2,Rare=3,Epic=4,Legendary=5,Mythic=6,Divine=7,Secret=8}
-
-G.BIOMES={
- {id="Forest",name="🌲 Forest"},
- {id="Savana",name="🦁 Savana"},
- {id="Desert",name="🏜 Desert"},
- {id="Jungle",name="🌴 Jungle"},
- {id="Ocean",name="🌊 Ocean"},
- {id="Mountains",name="⛰ Mountains"},
- {id="Taiga",name="🌨 Taiga"},
- {id="Winter",name="❄ Winter"},
- {id="PrehistoricForest",name="🦕 Prehistoric"},
- {id="DeepWaters",name="🐙 Deep Waters"},
- {id="Hell",name="🔥 Hell"},
- {id="AncientRuins",name="🏛 Ancient Ruins"},
- {id="MythicalParadise",name="✨ Mythical"},
- {id="ShadowRealm",name="👻 Shadow Realm"},
- {id="HarvestFields",name="🌾 Harvest Fields"},
- {id="PhantomHarbor",name="⚓ Phantom Harbor"},
- {id="NuclearWasteland",name="☢ Nuclear"},
- {id="CursedCarnival",name="🎪 Cursed Carnival"},
- {id="EclipseKingdom",name="🌑 Eclipse Kingdom"},
-}
-
-G.FOODS_ORDERED={
- "Pear","Apple","Carrot","Banana","Toast","Cheese","Croissant","Bread Loaf",
- "WaterMelon","Mushroom","Orange","Chocolate","Elder Strawberry","Bacon",
- "Burger","Shank","Fillet","Star Jelly","Steak","Crystal Melon",
- "Ember Bacon","Royal Steak","Lava Steak","Dragon's Apple","Phoenix Fillet",
- "Glowshroom","Sundae Tower","Golden Corn","Starlight Donut","Roast Turkey",
- "Caramel Apple","Candy Corn","Hot Cider","Golden Pumpkin","Ghost Chowder",
- "Calamari Rings","Phantom Lobster","Toxic Donut","Mutant Melon","Atomic Pizza",
- "Uranium Cake","Cursed Candy Apple","Ringmaster Cake","Spectral Cotton Candy",
- "Ghost Popcorn","Royal Mooncake","Black Sun Souffle","Sunwheel Tart","Crescent Pear",
-}
-
-G.RARITY_COLORS={
- Common=Color3.fromRGB(180,180,180), Uncommon=Color3.fromRGB(90,230,160),
- Rare=Color3.fromRGB(80,160,255), Epic=Color3.fromRGB(180,80,255),
- Legendary=Color3.fromRGB(255,180,0), Mythic=Color3.fromRGB(255,80,80),
- Divine=Color3.fromRGB(255,220,0), Secret=Color3.fromRGB(255,60,180),
-}
-
-G.getMyPlot=function()
- local lp=game:GetService("Players").LocalPlayer
- local pi=lp:GetAttribute("PlotIndex")
- if not pi then return nil end
- local plots=workspace:FindFirstChild("Plots")
- return plots and plots:FindFirstChild(tostring(pi))
-end
-
-G.getAnimalsInPlot=function()
- local plot=G.getMyPlot() if not plot then return {} end
- local af=plot:FindFirstChild("Animals") if not af then return {} end
- local list={}
- for _,a in ipairs(af:GetChildren()) do
-  if a:GetAttribute("AnimalName") then list[#list+1]=a end
- end
- table.sort(list,function(a,b)
-  return (a:GetAttribute("Income") or 0) < (b:GetAttribute("Income") or 0)
- end)
- return list
-end
-
-G.getBiomePos=function(biomeName)
- local biomes=workspace:FindFirstChild("Biomes")
- if not biomes then return nil end
- local b=biomes:FindFirstChild(biomeName)
- if not b then return nil end
- local fa=b:FindFirstChild("FieldArea",true)
- if fa and fa:IsA("BasePart") then return fa.Position+Vector3.new(0,5,0) end
- local pp=b:FindFirstChildOfClass("BasePart",true)
- if pp then return pp.Position+Vector3.new(0,5,0) end
- return nil
-end
-end -- end SHARED HELPERS
-
-------------------------------------------------------------------
--- หน้า AUTO
-------------------------------------------------------------------
-do
-local NX=getgenv().NX
-local G=getgenv().NXG
-local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
-local TS=game:GetService("TweenService")
-local UIS=game:GetService("UserInputService")
-local RS=game:GetService("RunService")
-local Players=game:GetService("Players")
-local lp=Players.LocalPlayer
-local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
-local S=NX.state
-local function T(en,th) return (NX.getLang()=="TH") and th or en end
-local getRemote=G.getRemote
-local BIOMES=G.BIOMES
-local getBiomePos=G.getBiomePos
-local getMyPlot=G.getMyPlot
-local getAnimalsInPlot=G.getAnimalsInPlot
-local RARITY_ORDER=G.RARITY_ORDER
-
--- ===== หน้า AUTO (ฟาร์ม) =====
-local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.auto)
-make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
-make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
-local ord=0
-
-local function txt(p,props)
- props.BackgroundTransparency=1
- props.Font=props.Font or Enum.Font.GothamBold
- props.TextColor3=props.TextColor3 or COL.Text
- props.TextXAlignment=props.TextXAlignment or Enum.TextXAlignment.Left
- return make("TextLabel",props,p)
-end
-local function hdr(en,th)
- ord+=1
- L(txt(sf,{LayoutOrder=ord,Size=UDim2.new(1,0,0,16),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Pink}),en,th)
-end
-local function row(h)
- ord+=1
- local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf)
- round(r,14)
- local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
- NX.onAccent(function(a,b) s.Color=b end)
- return r
-end
-local function ttl(r,en,th,de,dt)
- L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-80,0,16),TextSize=12}),en,th)
- if de then L(txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),de,dt) end
-end
-local function tog(key,en,th,de,dt,cb)
- local r=row(42) ttl(r,en,th,de,dt)
- if S[key]==nil then S[key]=false end
- local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
- round(sw,10)
- local kn=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw) round(kn,7)
- local function set(v,fire)
-  S[key]=v
-  TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play()
-  TS:Create(kn,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
-  if fire and cb then cb(v) end
- end
- sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
- NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
- set(S[key],false)
- return set
-end
-local function btn(en,th,de,dt,be,bt,cb)
- local r=row(42)
- L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),en,th)
- local d=txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,TextTruncate=Enum.TextTruncate.AtEnd})
- L(d,de,dt)
- local b=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
- round(b,13) NX.onAccent(function(a) b.BackgroundColor3=a end)
- local bl=L(txt(b,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),be,bt)
- b.MouseButton1Click:Connect(function() if cb then cb(d,bl) end end)
- return d,bl
-end
-local function sldr(key,en,th,mn,mx,fmt,cb)
- local r=row(50) ttl(r,en,th)
- if S[key]==nil then S[key]=mn end
- local vl=txt(r,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-14,0,6),Size=UDim2.fromOffset(70,16),TextSize=11,TextColor3=COL.Pink,TextXAlignment=Enum.TextXAlignment.Right})
- local track=make("Frame",{Position=UDim2.new(0,14,0,34),Size=UDim2.new(1,-28,0,6),BackgroundColor3=COL.Bg},r) round(track,3)
- local fill=make("Frame",{Size=UDim2.fromScale(0,1),BackgroundColor3=COL.Purple},track) round(fill,3)
- local kn=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(0,.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=Color3.new(1,1,1)},track) round(kn,7)
- NX.onAccent(function(a) fill.BackgroundColor3=a end)
- local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,14,0,22),Size=UDim2.new(1,-28,0,26)},r)
- local function show(v) local t=(v-mn)/(mx-mn) fill.Size=UDim2.fromScale(t,1) kn.Position=UDim2.fromScale(t,.5) vl.Text=fmt(v) end
- local drag=false
- local function fromX(x)
-  local t=math.clamp((x-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
-  local v=mn+(mx-mn)*t S[key]=v show(v) if cb then cb(v) end
- end
- local function isP(i) return i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch end
- hit.InputBegan:Connect(function(i) if isP(i) then drag=true fromX(i.Position.X) end end)
- UIS.InputChanged:Connect(function(i) if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromX(i.Position.X) end end)
- UIS.InputEnded:Connect(function(i) if drag and isP(i) then drag=false end end)
- show(S[key])
-end
-
--- ========== บวกลัคกี้ 100% ==========
-hdr("LUCK BOOST","บูสต์ลัคกี้")
-
--- Lucky 100% toggle — set workspace AdminLuck to 100 (เพิ่มโอกาสได้ตัวดี)
-local luckyActive=false
-tog("lucky100","Lucky 100%","ลัคกี้ 100%","Max luck for best animal drops","เพิ่มโอกาสได้สัตว์หายากสูงสุด",function(v)
- luckyActive=v
- pcall(function()
-  -- set Workspace attribute AdminLuck
-  workspace:SetAttribute("AdminLuck",v and 100 or 1)
-  workspace:SetAttribute("ServerLuck",v and 100 or 1)
- end)
-end)
-
--- ========== ออโต้โยน (auto throw) ==========
-hdr("AUTO THROW","ออโต้โยน")
-
--- เลือกระดับการโยน (power tier)
-do
- ord+=1
- local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,52),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf) round(r,14)
- local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r) NX.onAccent(function(a,b) s.Color=b end)
- L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-14,0,14),TextSize=10,TextColor3=COL.Sub}),"Throw power level","ระดับพลังโยน (กาก→ดี)")
- local holder=make("Frame",{Position=UDim2.fromOffset(10,24),Size=UDim2.new(1,-20,0,22),BackgroundTransparency=1},r)
- make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,4)},holder)
- local POWERS={1,2,3,4,5} local PLABELS={"⭐1","⭐2","⭐3","⭐4","⭐5"}
- if S.throwPower==nil then S.throwPower=5 end
- local pbtns={}
- for i,pv in ipairs(POWERS) do
-  local pb=make("TextButton",{Size=UDim2.new(1/#POWERS,-4,1,0),BackgroundColor3=COL.Bg,Text=PLABELS[i],Font=Enum.Font.GothamBold,TextSize=9,TextColor3=COL.Text,AutoButtonColor=false},holder)
-  round(pb,10) pbtns[i]=pb
-  pb.MouseButton1Click:Connect(function()
-   S.throwPower=pv
-   for j,b2 in ipairs(pbtns) do TS:Create(b2,TI,{BackgroundColor3=(j==i) and COL.Purple or COL.Bg}):Play() end
-   pcall(function()
-    local rf=getRemote("Player_SetThrowPower") if rf then rf:InvokeServer(pv) end
-   end)
-  end)
- end
- NX.onAccent(function()
-  local cur=S.throwPower or 5
-  for i,pv in ipairs(POWERS) do TS:Create(pbtns[i],TI,{BackgroundColor3=(pv==cur) and COL.Purple or COL.Bg}):Play() end
- end)
- -- mark current
- for i,pv in ipairs(POWERS) do if pv==(S.throwPower or 5) then TS:Create(pbtns[i],TI,{BackgroundColor3=COL.Purple}):Play() end end
-end
-
--- เลือกด่านโยน
-do
- ord+=1
- local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,42),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf) round(r,14)
- local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r) NX.onAccent(function(a,b) s.Color=b end)
- L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-180,0,16),TextSize=12}),"Select throw zone","เลือกด่านโยน")
- local curZoneTxt=txt(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-180,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Pink,Text=(S.throwZone or "Forest")})
- -- ปุ่มเปิด picker
- local pickBtn=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
- round(pickBtn,13) NX.onAccent(function(a) pickBtn.BackgroundColor3=a end)
- L(txt(pickBtn,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Pick zone","เลือก")
- -- Zone Picker GUI
- local zonePop=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(260,340),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.auto)
- round(zonePop,20) make("UIStroke",{Color=COL.Pink,Thickness=1.5,Transparency=.3},zonePop) NX.onAccent(function(a,b) end)
- local zpTop=make("Frame",{Size=UDim2.new(1,0,0,36),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},zonePop) round(zpTop,20)
- L(txt(zpTop,{Position=UDim2.fromOffset(14,8),Size=UDim2.new(1,-50,0,20),Font=Enum.Font.GothamBlack,TextSize=14,TextColor3=Color3.new(1,1,1)}),"Select Zone","เลือกด่าน")
- local zpClose=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(28,28),BackgroundColor3=COL.Red,Text="✕",Font=Enum.Font.GothamBold,TextSize=11,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},zpTop) round(zpClose,14)
- zpClose.MouseButton1Click:Connect(function() zonePop.Visible=false end)
- local zpScroll=make("ScrollingFrame",{Position=UDim2.fromOffset(0,40),Size=UDim2.new(1,0,1,-44),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},zonePop)
- make("UIListLayout",{Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder},zpScroll)
- make("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8),PaddingTop=UDim.new(0,4)},zpScroll)
- for zi,bm in ipairs(BIOMES) do
-  local zb=make("TextButton",{Size=UDim2.new(1,0,0,32),BackgroundColor3=COL.Chip,BackgroundTransparency=.5,Text="",AutoButtonColor=false},zpScroll)
-  round(zb,12)
-  make("TextLabel",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=bm.name,Font=Enum.Font.GothamBold,TextSize=11,TextColor3=COL.Text,TextXAlignment=Enum.TextXAlignment.Left},zb)
-  make("UIPadding",{PaddingLeft=UDim.new(0,10)},zb)
-  zb.MouseButton1Click:Connect(function()
-   S.throwZone=bm.id
-   curZoneTxt.Text=bm.name
-   zonePop.Visible=false
-  end)
- end
- pickBtn.MouseButton1Click:Connect(function() zonePop.Visible=not zonePop.Visible end)
- if S.throwZone==nil then S.throwZone="Forest" end
-end
-
--- ออโต้โยน (วาร์ปไปด่านแล้วโยน)
-local autoThrowConn
-local throwImg -- รูป 91144361769901 ที่ใช้ลากไปยังด่าน (จำลองไว้บน Part)
-tog("autoThrow","Auto Throw","ออโต้โยน","Warp to zone then throw food","วาร์ปไปด่านที่เลือกแล้วโยนอาหาร",function(v)
- if v then
-  autoThrowConn=task.spawn(function()
-   while S.autoThrow do
-    pcall(function()
-     local ch=lp.Character
-     local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-     if not hrp then task.wait(1) return end
-     -- วาร์ปไปด่าน
-     local zonePos=getBiomePos(S.throwZone or "Forest")
-     if zonePos then hrp.CFrame=CFrame.new(zonePos) end
-     task.wait(.3)
-     -- สร้าง Part ลากรูปไปยังตำแหน่งด่าน (เหมือนแผ่นรูปใต้ผลไม้)
-     if throwImg then pcall(function() throwImg:Destroy() end) end
-     throwImg=Instance.new("Part")
-     throwImg.Size=Vector3.new(2,0.1,2)
-     throwImg.Anchored=true
-     throwImg.CanCollide=false
-     throwImg.Material=Enum.Material.Neon
-     throwImg.BrickColor=BrickColor.new("Bright yellow")
-     throwImg.Name="NX_ThrowTarget"
-     local d=Instance.new("Decal",throwImg)
-     d.Texture="rbxassetid://91144361769901"
-     d.Face=Enum.NormalId.Top
-     if zonePos then throwImg.CFrame=CFrame.new(zonePos.X,zonePos.Y-4,zonePos.Z) end
-     throwImg.Parent=workspace
-     -- ยิง Throw_Start แล้ว Throw_Complete ตามพลังที่เลือก
-     local rf_start=getRemote("Throw_Start")
-     local rf_comp=getRemote("Throw_Complete")
-     if rf_start then
-      local ok,res=pcall(function() return rf_start:InvokeServer() end)
-      task.wait(.15)
-      if rf_comp and ok then
-       pcall(function()
-        local power=S.throwPower or 5
-        rf_comp:InvokeServer(power,CFrame.new(zonePos or hrp.Position+hrp.CFrame.LookVector*8))
-       end)
-      end
-     end
-     if throwImg then pcall(function() throwImg:Destroy() end) throwImg=nil end
-    end)
-    task.wait(S.throwDelay or 1.5)
-   end
-  end)
- else
-  if throwImg then pcall(function() throwImg:Destroy() end) throwImg=nil end
- end
-end)
-
-sldr("throwDelay","Throw delay (sec)","ดีเลย์โยน (วิ)",0.5,5,function(v) return string.format("%.1fs",v) end,nil)
-
--- ========== ออโต้เพิ่มพลัง (Training) ==========
-hdr("AUTO POWER UP","ออโต้เพิ่มพลัง")
-
-local trainConn
-tog("autoTrain","Auto Training","ออโต้เทรน","Auto press training bar","กดบาร์เพิ่มพลังอัตโนมัติ",function(v)
- if v then
-  trainConn=task.spawn(function()
-   while S.autoTrain do
-    pcall(function()
-     local ch=lp.Character
-     local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-     -- วาร์ปไป TrainingArea
-     local ta=workspace:FindFirstChild("TrainingArea",true) or workspace.LocalPlotProps:FindFirstChild("TrainingArea",true)
-     if ta and hrp then
-      local tp=ta:FindFirstChildOfClass("BasePart")
-      if tp then hrp.CFrame=CFrame.new(tp.Position+Vector3.new(0,5,0)) end
-     end
-     task.wait(.3)
-     -- เริ่ม training + tap bonus ซ้ำ
-     local rfStart=getRemote("Training_Start")
-     local rfTap=getRemote("Training_TapBonus")
-     local rfStop=getRemote("Training_Stop")
-     if rfStart then pcall(function() rfStart:InvokeServer() end) end
-     task.wait(.1)
-     for _=1,20 do
-      if not S.autoTrain then break end
-      pcall(function() if rfTap then rfTap:InvokeServer() end end)
-      task.wait(.05)
-     end
-     if rfStop then pcall(function() rfStop:InvokeServer() end) end
-    end)
-    task.wait(2)
-   end
-  end)
- else
-  pcall(function()
-   local rfStop=getRemote("Training_Stop")
-   if rfStop then rfStop:InvokeServer() end
-  end)
- end
-end)
-
--- อัพเกรด Stand (ที่โหน)
-tog("autoStandUp","Auto Upgrade Stand","ออโต้อัพที่โหน","Upgrade pull-up stand when possible","อัพสถานีโหนอัตโนมัติ",function(v)
- if not v then return end
- task.spawn(function()
-  while S.autoStandUp do
-   pcall(function()
-    local rf=getRemote("Stand_Upgrade")
-    if rf then rf:InvokeServer(1) end -- StandIndex 1 = อัพไปเรื่อยๆ
-   end)
-   task.wait(5)
-  end
- end)
-end)
-
--- ========== ออโต้ใส่สัตว์ที่ดีที่สุดในสวน ==========
-hdr("AUTO BEST EQUIP","ออโต้ใส่ตัวดีที่สุด")
-
-local equipTimer=0
-tog("autoEquipBest","Auto Equip Best (1 min)","ออโต้ใส่ตัวดีที่สุด (1 นาที)","Put best animal in garden every 1 min","ใส่สัตว์ดีที่สุดในสวนทุก 1 นาที",function(v)
- if not v then return end
- task.spawn(function()
-  while S.autoEquipBest do
-   pcall(function()
-    local rf=getRemote("Plot_EquipBest")
-    if rf then rf:InvokeServer() end
-   end)
-   -- รอ 60 วิ
-   for _=1,120 do
-    if not S.autoEquipBest then break end
-    task.wait(.5)
-   end
-  end
- end)
-end)
-
--- ========== ออโต้โยนจนได้ตัวที่ต้องการ ==========
-hdr("TARGET HUNT","ล่าสัตว์เป้าหมาย")
-
--- state สำหรับ hunt
-local huntTarget=nil -- AnimalName ที่ต้องการ
-local huntActive=false
-local huntStatusTxt
-
-do
- -- แถว status + ปุ่มเลือกเป้าหมาย
- local r=row(44)
- L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Target Hunt","ล่าสัตว์เป้าหมาย")
- huntStatusTxt=txt(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Pink,Text="-- ยังไม่ได้เลือกเป้าหมาย --"})
- local selBtn=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
- round(selBtn,13) NX.onAccent(function(a) selBtn.BackgroundColor3=a end)
- L(txt(selBtn,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Select","เลือก")
-
- -- Animal Picker popup
- local aPop=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(272,380),BackgroundColor3=COL.Side,Visible=false,ZIndex=25},NX.pages.auto)
- round(aPop,20) make("UIStroke",{Color=COL.Pink,Thickness=1.5,Transparency=.3},aPop)
- local apTop=make("Frame",{Size=UDim2.new(1,0,0,36),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},aPop) round(apTop,20)
- L(txt(apTop,{Position=UDim2.fromOffset(14,8),Size=UDim2.new(1,-52,0,20),Font=Enum.Font.GothamBlack,TextSize=14,TextColor3=Color3.new(1,1,1)}),"Pick Target Animal","เลือกสัตว์เป้าหมาย")
- local apClose=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(28,28),BackgroundColor3=COL.Red,Text="✕",Font=Enum.Font.GothamBold,TextSize=11,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},apTop) round(apClose,14)
- apClose.MouseButton1Click:Connect(function() aPop.Visible=false end)
-
- -- ช่องค้นหา
- local apSearch=make("TextBox",{Position=UDim2.fromOffset(8,42),Size=UDim2.new(1,-16,0,26),BackgroundColor3=COL.Chip,Text="",PlaceholderText="🔍 ค้นหาสัตว์...",Font=Enum.Font.Gotham,TextSize=11,TextColor3=COL.Text,ClearTextOnFocus=false},aPop)
- round(apSearch,13)
-
- local apScroll=make("ScrollingFrame",{Position=UDim2.fromOffset(0,74),Size=UDim2.new(1,0,1,-78),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},aPop)
- make("UIListLayout",{Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder},apScroll)
- make("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8),PaddingTop=UDim.new(0,4)},apScroll)
-
- local animalBtns={}
- local function buildAnimalList(filter)
-  for _,b in ipairs(animalBtns) do b:Destroy() end
-  animalBtns={}
-  -- เก็บ animals จาก workspace (Animals ใน ReplicatedStorage folder)
-  local animalFolder=G.RS:FindFirstChild("Animals")
-  local list={}
-  if animalFolder then
-   for _,m in ipairs(animalFolder:GetChildren()) do
-    local n=m:IsA("Model") and m.Name or nil
-    if n and (filter=="" or n:lower():find(filter:lower())) then
-     local rarity=(m:GetAttribute and m:GetAttribute("Rarity")) or "Common"
-     list[#list+1]={name=n,rarity=rarity,rarityOrder=RARITY_ORDER[rarity] or 0}
-    end
-   end
-  end
-  -- เรียงจากกากสุด→ดีสุด
-  table.sort(list,function(a,b) return a.rarityOrder<b.rarityOrder end)
-  local RARITY_COLORS={Common=Color3.fromRGB(180,180,180),Uncommon=COL.Green,Rare=Color3.fromRGB(80,160,255),Epic=Color3.fromRGB(180,80,255),Legendary=Color3.fromRGB(255,180,0),Mythic=Color3.fromRGB(255,80,80),Divine=Color3.fromRGB(255,220,0),Secret=Color3.fromRGB(255,60,180)}
-  for _,item in ipairs(list) do
-   local ab=make("TextButton",{Size=UDim2.new(1,0,0,36),BackgroundColor3=COL.Chip,BackgroundTransparency=.4,Text="",AutoButtonColor=false},apScroll)
-   round(ab,12)
-   -- รูปสัตว์ (thumbnail จาก RS)
-   local ai=make("ImageLabel",{Position=UDim2.fromOffset(6,4),Size=UDim2.fromOffset(28,28),BackgroundColor3=COL.Bg,ScaleType=Enum.ScaleType.Fit},ab) round(ai,8)
-   task.spawn(function()
-    local ok,img=pcall(function()
-     return game:GetService("Players"):GetUserThumbnailAsync(0,Enum.ThumbnailType.AvatarBust,Enum.ThumbnailSize.Size48x48)
-    end)
-    -- ใช้ AssetID จาก animal model ถ้ามี
-    local mdl=animalFolder and animalFolder:FindFirstChild(item.name)
-    if mdl then
-     local pp=mdl:FindFirstChildOfClass("BasePart")
-     -- fallback: ไม่โหลดรูปจริง ใส่สีตาม rarity แทน
-     ai.BackgroundColor3=RARITY_COLORS[item.rarity] or COL.Sub
-    end
-   end)
-   make("TextLabel",{Position=UDim2.fromOffset(42,4),Size=UDim2.new(1,-50,0,16),BackgroundTransparency=1,Text=item.name,Font=Enum.Font.GothamBold,TextSize=11,TextColor3=RARITY_COLORS[item.rarity] or COL.Text,TextXAlignment=Enum.TextXAlignment.Left},ab)
-   make("TextLabel",{Position=UDim2.fromOffset(42,20),Size=UDim2.new(1,-50,0,12),BackgroundTransparency=1,Text=item.rarity,Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Left},ab)
-   ab.MouseButton1Click:Connect(function()
-    huntTarget=item.name
-    huntStatusTxt.Text="🎯 "..item.name.." ("..item.rarity..")"
-    aPop.Visible=false
-   end)
-   animalBtns[#animalBtns+1]=ab
-  end
- end
- buildAnimalList("")
- apSearch:GetPropertyChangedSignal("Text"):Connect(function() buildAnimalList(apSearch.Text) end)
- selBtn.MouseButton1Click:Connect(function() aPop.Visible=not aPop.Visible if aPop.Visible then buildAnimalList(apSearch.Text) end end)
-end
-
--- ปุ่มเริ่ม/หยุด hunt
-local huntBtnLbl
-local _,huntBL=btn("Start Hunt","เริ่มล่าเป้าหมาย","Not started","ยังไม่ได้เริ่ม","Start","เริ่ม",function(d,bl)
- huntBtnLbl=bl
- if huntActive then
-  huntActive=false
-  d.Text=T("Stopped","หยุดแล้ว")
-  bl.Text=T("Start","เริ่ม")
- else
-  if not huntTarget then
-   d.Text=T("Pick target first!","เลือกเป้าหมายก่อน!")
-   return
-  end
-  huntActive=true
-  bl.Text=T("Stop","หยุด")
-  task.spawn(function()
-   local got=false
-   while huntActive and not got do
-    -- เช็คใน plot ว่าได้แล้วหรือยัง
-    local animals=getAnimalsInPlot()
-    for _,a in ipairs(animals) do
-     if a:GetAttribute("AnimalName")==huntTarget then
-      got=true break
-     end
-    end
-    if got then break end
-    -- โยนไปด่านที่เลือก
-    pcall(function()
-     local ch=lp.Character
-     local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-     local zonePos=getBiomePos(S.throwZone or "Forest")
-     if hrp and zonePos then hrp.CFrame=CFrame.new(zonePos) end
-     task.wait(.3)
-     local rf1=getRemote("Throw_Start") local rf2=getRemote("Throw_Complete")
-     if rf1 then pcall(function() rf1:InvokeServer() end) end
-     task.wait(.15)
-     if rf2 and zonePos then
-      pcall(function() rf2:InvokeServer(S.throwPower or 5,CFrame.new(zonePos)) end)
-     end
-    end)
-    if huntStatusTxt then huntStatusTxt.Text="🔄 ล่า "..huntTarget.."..." end
-    task.wait(S.throwDelay or 1.5)
-   end
-   huntActive=false
-   if huntBL then
-    huntBL.Text=T("Start","เริ่ม")
-    huntBL.Parent.Parent:FindFirstChildOfClass("TextLabel").Text=got and T("✅ Got it!","✅ ได้แล้ว!") or T("Stopped","หยุดแล้ว")
-   end
-   if huntStatusTxt and got then huntStatusTxt.Text="✅ ได้ "..huntTarget.." แล้ว!" end
-  end)
- end
-end)
-
-end -- end AUTO page
-
-------------------------------------------------------------------
--- หน้า BUY (ซื้อ)
-------------------------------------------------------------------
-do
-local NX=getgenv().NX
-local G=getgenv().NXG
-local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
-local TS=game:GetService("TweenService")
-local UIS=game:GetService("UserInputService")
-local lp=game:GetService("Players").LocalPlayer
-local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
-local S=NX.state
-local function T(en,th) return (NX.getLang()=="TH") and th or en end
-local getRemote=G.getRemote
-local FOODS_ORDERED=G.FOODS_ORDERED
-
-local sf2=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.buy)
-make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf2)
-make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf2)
-local ord2=0
-local function txt2(p,pr)
- pr.BackgroundTransparency=1 pr.Font=pr.Font or Enum.Font.GothamBold
- pr.TextColor3=pr.TextColor3 or COL.Text pr.TextXAlignment=pr.TextXAlignment or Enum.TextXAlignment.Left
- return make("TextLabel",pr,p)
-end
-local function hdr2(en,th)
- ord2+=1
- L(txt2(sf2,{LayoutOrder=ord2,Size=UDim2.new(1,0,0,16),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Pink}),en,th)
-end
-local function row2(h)
- ord2+=1
- local r=make("Frame",{LayoutOrder=ord2,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf2)
- round(r,14)
- local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
- NX.onAccent(function(a,b) s.Color=b end)
- return r
-end
-local function ttl2(r,en,th,de,dt)
- L(txt2(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-80,0,16),TextSize=12}),en,th)
- if de then L(txt2(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),de,dt) end
-end
-local function tog2(key,en,th,de,dt,cb)
- local r=row2(42) ttl2(r,en,th,de,dt)
- if S[key]==nil then S[key]=false end
- local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
- round(sw,10)
- local kn=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw) round(kn,7)
- local function set(v,fire)
-  S[key]=v
-  TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play()
-  TS:Create(kn,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
-  if fire and cb then cb(v) end
- end
- sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
- NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
- set(S[key],false)
-end
-local function btn2(en,th,de,dt,be,bt,cb)
- local r=row2(42)
- L(txt2(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),en,th)
- local d=txt2(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,TextTruncate=Enum.TextTruncate.AtEnd})
- L(d,de,dt)
- local b=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
- round(b,13) NX.onAccent(function(a) b.BackgroundColor3=a end)
- local bl=L(txt2(b,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),be,bt)
- b.MouseButton1Click:Connect(function() if cb then cb(d,bl) end end)
- return d,bl
-end
-
--- ===========================
--- หมวด ซื้อ
--- ===========================
-hdr2("AUTO BUY FOOD","ออโต้ซื้ออาหาร")
-
--- เลือกอาหารที่จะซื้อ (ดีสุด = ตัวสุดท้ายใน FOODS_ORDERED)
-do
- local r=row2(44)
- L(txt2(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Food to buy","อาหารที่จะซื้อ")
- local curFoodTxt=txt2(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Pink})
- if S.buyFood==nil then S.buyFood=FOODS_ORDERED[#FOODS_ORDERED] end
- curFoodTxt.Text=S.buyFood
- local fb=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
- round(fb,13) NX.onAccent(function(a) fb.BackgroundColor3=a end)
- L(txt2(fb,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Pick food","เลือก")
- -- Food picker popup
- local fpop=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(260,340),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.buy)
- round(fpop,20) make("UIStroke",{Color=COL.Pink,Thickness=1.5,Transparency=.3},fpop)
- local fpTop=make("Frame",{Size=UDim2.new(1,0,0,36),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},fpop) round(fpTop,20)
- L(txt2(fpTop,{Position=UDim2.fromOffset(14,8),Size=UDim2.new(1,-50,0,20),Font=Enum.Font.GothamBlack,TextSize=14,TextColor3=Color3.new(1,1,1)}),"Select Food","เลือกอาหาร")
- local fpClose=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(28,28),BackgroundColor3=COL.Red,Text="✕",Font=Enum.Font.GothamBold,TextSize=11,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},fpTop) round(fpClose,14)
- fpClose.MouseButton1Click:Connect(function() fpop.Visible=false end)
- local fpScroll=make("ScrollingFrame",{Position=UDim2.fromOffset(0,40),Size=UDim2.new(1,0,1,-44),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},fpop)
- make("UIListLayout",{Padding=UDim.new(0,4)},fpScroll)
- make("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8),PaddingTop=UDim.new(0,4)},fpScroll)
- -- รายการอาหารเรียงจากกาก→ดี (index น้อย=กาก มาก=ดี)
- for i=#FOODS_ORDERED,1,-1 do
-  local fname=FOODS_ORDERED[i]
-  local ib=make("TextButton",{Size=UDim2.new(1,0,0,30),BackgroundColor3=COL.Chip,BackgroundTransparency=.5,Text="",AutoButtonColor=false},fpScroll)
-  round(ib,10)
-  local lbl=make("TextLabel",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=fname,Font=Enum.Font.GothamBold,TextSize=11,TextColor3=COL.Text,TextXAlignment=Enum.TextXAlignment.Left},ib)
-  make("UIPadding",{PaddingLeft=UDim.new(0,10)},ib)
-  ib.MouseButton1Click:Connect(function()
-   S.buyFood=fname curFoodTxt.Text=fname fpop.Visible=false
-  end)
- end
- fb.MouseButton1Click:Connect(function() fpop.Visible=not fpop.Visible end)
-end
-
--- ออโต้ซื้ออาหารดีสุดเมื่อเงินพอ
-tog2("autoBuyFood","Auto Buy Best Food","ออโต้ซื้ออาหารดีสุด","Buys selected food when you have enough cash","ซื้ออาหารที่เลือกอัตโนมัติเมื่อเงินพอ",function(v)
- if not v then return end
- task.spawn(function()
-  while S.autoBuyFood do
-   pcall(function()
-    local rf=getRemote("Shop_Buy")
-    if rf then
-     -- InvokeServer ด้วยชื่ออาหาร
-     rf:InvokeServer(S.buyFood or FOODS_ORDERED[#FOODS_ORDERED])
-    end
-   end)
-   task.wait(1.5)
-  end
- end)
-end)
-
--- ออโต้อัพเกรด EP (พลัง) ผ่าน Stand_Upgrade
-hdr2("AUTO UPGRADE","ออโต้อัพเกรด")
-
-tog2("autoUpgradeEP","Auto Upgrade EP (Power)","ออโต้อัพ EP พลัง","Automatically upgrades your throw power EP","อัพ EP พลังโยนอัตโนมัติ",function(v)
- if not v then return end
- task.spawn(function()
-  while S.autoUpgradeEP do
-   pcall(function()
-    local rf=getRemote("Stand_Upgrade")
-    if rf then rf:InvokeServer(S.standIndex or 1) end
-   end)
-   task.wait(2)
-  end
- end)
-end)
-
--- เลือก Stand Index ที่จะอัพ
-do
- local r=row2(50)
- L(txt2(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-14,0,14),TextSize=10,TextColor3=COL.Sub}),"Stand index to upgrade","เลือก Stand ที่จะอัพ")
- local holder=make("Frame",{Position=UDim2.fromOffset(10,24),Size=UDim2.new(1,-20,0,22),BackgroundTransparency=1},r)
- make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,4)},holder)
- if S.standIndex==nil then S.standIndex=1 end
- local sbtns={}
- for i=1,6 do
-  local sb=make("TextButton",{Size=UDim2.new(1/6,-4,1,0),BackgroundColor3=(i==S.standIndex) and COL.Purple or COL.Bg,Text=tostring(i),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Text,AutoButtonColor=false},holder)
-  round(sb,10) sbtns[i]=sb
-  sb.MouseButton1Click:Connect(function()
-   S.standIndex=i
-   for j,b in ipairs(sbtns) do TS:Create(b,TI,{BackgroundColor3=(j==i) and COL.Purple or COL.Bg}):Play() end
-  end)
- end
- NX.onAccent(function()
-  local c=S.standIndex or 1
-  for j,b in ipairs(sbtns) do TS:Create(b,TI,{BackgroundColor3=(j==c) and COL.Purple or COL.Bg}):Play() end
- end)
-end
-
--- ออโต้อัพสวน (Fence)
-tog2("autoUpgradeFence","Auto Upgrade Garden (Fence)","ออโต้อัพสวน","Auto upgrade your plot fence","อัพรั้วสวนอัตโนมัติ",function(v)
- if not v then return end
- task.spawn(function()
-  while S.autoUpgradeFence do
-   pcall(function()
-    local rf=getRemote("Plot_UpgradeFence")
-    if rf then rf:InvokeServer() end
-   end)
-   task.wait(3)
-  end
- end)
-end)
-
-end -- end BUY page
-
-------------------------------------------------------------------
--- หน้า SELL (ขาย)
-------------------------------------------------------------------
-do
-local NX=getgenv().NX
-local G=getgenv().NXG
-local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
-local TS=game:GetService("TweenService")
-local UIS=game:GetService("UserInputService")
-local lp=game:GetService("Players").LocalPlayer
-local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
-local S=NX.state
-local function T(en,th) return (NX.getLang()=="TH") and th or en end
-local getRemote=G.getRemote
-local RARITY_COLORS2=G.RARITY_COLORS
-
-local sfSell=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.sell)
-make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sfSell)
-make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sfSell)
-local ordS=0
-local function txtS(p,pr)
- pr.BackgroundTransparency=1 pr.Font=pr.Font or Enum.Font.GothamBold
- pr.TextColor3=pr.TextColor3 or COL.Text pr.TextXAlignment=pr.TextXAlignment or Enum.TextXAlignment.Left
- return make("TextLabel",pr,p)
-end
-local function hdrS(en,th)
- ordS+=1
- L(txtS(sfSell,{LayoutOrder=ordS,Size=UDim2.new(1,0,0,16),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Pink}),en,th)
-end
-local function rowS(h)
- ordS+=1
- local r=make("Frame",{LayoutOrder=ordS,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sfSell)
- round(r,14)
- local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
- NX.onAccent(function(a,b) s.Color=b end)
- return r
-end
-local function ttlS(r,en,th,de,dt)
- L(txtS(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-80,0,16),TextSize=12}),en,th)
- if de then L(txtS(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),de,dt) end
-end
-local function togS(key,en,th,de,dt,cb)
- local r=rowS(42) ttlS(r,en,th,de,dt)
- if S[key]==nil then S[key]=false end
- local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
- round(sw,10)
- local kn=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw) round(kn,7)
- local function set(v,fire)
-  S[key]=v
-  TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play()
-  TS:Create(kn,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
-  if fire and cb then cb(v) end
- end
- sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
- NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
- set(S[key],false)
-end
-local function btnS(en,th,de,dt,be,bt,cb)
- local r=rowS(42)
- L(txtS(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),en,th)
- local d=txtS(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,TextTruncate=Enum.TextTruncate.AtEnd})
- L(d,de,dt)
- local b=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
- round(b,13) NX.onAccent(function(a) b.BackgroundColor3=a end)
- local bl=L(txtS(b,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),be,bt)
- b.MouseButton1Click:Connect(function() if cb then cb(d,bl) end end)
- return d,bl
-end
-
-hdrS("SELL CONFIG","ตั้งค่าการขาย")
-
--- ตารางระดับที่จะ "ไม่ขาย" (exempt)
-local RARITIES_LIST={"Common","Uncommon","Rare","Epic","Legendary","Mythic","Divine","Secret"}
--- ใช้ RARITY_COLORS2 จาก G
-if S.sellExemptRarities==nil then
- S.sellExemptRarities={Divine=true,Secret=true,Mythic=true}
-end
-
--- แถว "เลือกระดับที่จะ ไม่ขาย"
-do
- local r=rowS(44)
- L(txtS(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Exempt from sell","ระดับที่จะไม่ขาย")
- L(txtS(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),"Tap to pick","กดเลือก")
- local exBtn=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
- round(exBtn,13) NX.onAccent(function(a) exBtn.BackgroundColor3=a end)
- L(txtS(exBtn,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Manage","จัดการ")
-
- -- Exempt popup
- local exPop=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(272,420),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.sell)
- round(exPop,20) make("UIStroke",{Color=COL.Pink,Thickness=1.5,Transparency=.3},exPop)
- local exTop=make("Frame",{Size=UDim2.new(1,0,0,36),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},exPop) round(exTop,20)
- L(txtS(exTop,{Position=UDim2.fromOffset(14,8),Size=UDim2.new(1,-52,0,20),Font=Enum.Font.GothamBlack,TextSize=14,TextColor3=Color3.new(1,1,1)}),"Sell Exemptions","ตั้งค่าไม่ขาย")
- local exClose=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(28,28),BackgroundColor3=COL.Red,Text="✕",Font=Enum.Font.GothamBold,TextSize=11,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},exTop) round(exClose,14)
- exClose.MouseButton1Click:Connect(function() exPop.Visible=false end)
- local exScroll=make("ScrollingFrame",{Position=UDim2.fromOffset(0,42),Size=UDim2.new(1,0,1,-46),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},exPop)
- make("UIListLayout",{Padding=UDim.new(0,6)},exScroll)
- make("UIPadding",{PaddingLeft=UDim.new(0,10),PaddingRight=UDim.new(0,10),PaddingTop=UDim.new(0,8)},exScroll)
-
- -- แต่ละ rarity เป็น row ที่กดได้
- for _,rar in ipairs(RARITIES_LIST) do
-  local exRow=make("Frame",{Size=UDim2.new(1,0,0,52),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},exScroll)
-  round(exRow,14)
-  -- สี rarity ด้านซ้าย
-  local accent=make("Frame",{Size=UDim2.fromOffset(4,52),BackgroundColor3=RARITY_COLORS2[rar]},exRow) round(accent,2)
-  -- รูปสัตว์ตัวอย่างตามระดับ (ImageLabel สีตาม rarity)
-  local img=make("ImageLabel",{Position=UDim2.fromOffset(12,10),Size=UDim2.fromOffset(32,32),BackgroundColor3=RARITY_COLORS2[rar],BackgroundTransparency=.4,Image="rbxassetid://91144361769901",ScaleType=Enum.ScaleType.Fit},exRow) round(img,8)
-  make("TextLabel",{Position=UDim2.fromOffset(52,8),Size=UDim2.new(1,-130,0,20),BackgroundTransparency=1,Text=rar,Font=Enum.Font.GothamBlack,TextSize=13,TextColor3=RARITY_COLORS2[rar],TextXAlignment=Enum.TextXAlignment.Left},exRow)
-  local sublbl=make("TextLabel",{Position=UDim2.fromOffset(52,28),Size=UDim2.new(1,-130,0,16),BackgroundTransparency=1,Font=Enum.Font.Gotham,TextSize=10,TextColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Left},exRow)
-  -- toggle สำหรับแต่ละ rarity
-  local exSw=make("TextButton",{Text="",AutoButtonColor=false,AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(44,22),BackgroundColor3=COL.Bg},exRow) round(exSw,11)
-  local exKn=make("Frame",{Size=UDim2.fromOffset(16,16),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},exSw) round(exKn,8)
-  local function refreshExRow()
-   local exempt=S.sellExemptRarities[rar]
-   TS:Create(exSw,TI,{BackgroundColor3=exempt and COL.Purple or COL.Bg}):Play()
-   TS:Create(exKn,TI,{Position=exempt and UDim2.fromOffset(25,3) or UDim2.fromOffset(3,3)}):Play()
-   sublbl.Text=exempt and T("Will NOT sell","จะ ไม่ ขาย") or T("Will sell","จะขาย")
-   sublbl.TextColor3=exempt and COL.Green or COL.Red
-  end
-  exSw.MouseButton1Click:Connect(function()
-   S.sellExemptRarities[rar]=not S.sellExemptRarities[rar]
-   refreshExRow()
-  end)
-  NX.onAccent(function()
-   if S.sellExemptRarities[rar] then exSw.BackgroundColor3=COL.Purple end
-  end)
-  refreshExRow()
- end
- exBtn.MouseButton1Click:Connect(function() exPop.Visible=not exPop.Visible end)
-end
-
--- ออโต้ขาย (ขายทุกตัวในสวน ยกเว้นระดับที่กำหนด)
-togS("autoSell","Auto Sell","ออโต้ขาย","Sells animals not in exempt list","ขายสัตว์ยกเว้นที่กำหนดไว้",function(v)
- if not v then return end
- task.spawn(function()
-  while S.autoSell do
-   pcall(function()
-    local plot=getMyPlot()
-    if not plot then task.wait(2) return end
-    local af=plot:FindFirstChild("Animals") if not af then task.wait(2) return end
-    for _,animal in ipairs(af:GetChildren()) do
-     local rar=animal:GetAttribute("Rarity") or "Common"
-     local exempt=S.sellExemptRarities and S.sellExemptRarities[rar]
-     if not exempt then
-      local animalId=animal:GetAttribute("AnimalId")
-      if animalId then
-       local rf=getRemote("Plot_SellAnimal")
-       if rf then
-        pcall(function() rf:InvokeServer(animalId) end)
-        task.wait(.3)
-       end
-      end
-     end
-    end
-   end)
-   task.wait(2)
-  end
- end)
-end)
-
--- ปุ่มขายทุกตัวทันที (Sell All)
-btnS("Sell All Now","ขายทุกตัวเดี๋ยวนี้","Sells all non-exempt animals immediately","ขายสัตว์ทั้งหมดที่ไม่ได้ยกเว้นทันที","Sell All","ขายหมด",function(d,bl)
- local orig=bl.Text bl.Text=T("...","...") local count=0
- task.spawn(function()
-  local rf=getRemote("Plot_SellAll")
-  if rf then
-   pcall(function() rf:InvokeServer() end)
-   bl.Text=T("✔ Done","✔ เสร็จ")
-  else
-   -- fallback: ขายทีละตัว
-   local plot=getMyPlot()
-   if plot then
-    local af=plot:FindFirstChild("Animals")
-    if af then
-     for _,a in ipairs(af:GetChildren()) do
-      local rar=a:GetAttribute("Rarity") or "Common"
-      if not (S.sellExemptRarities and S.sellExemptRarities[rar]) then
-       local aid=a:GetAttribute("AnimalId")
-       if aid then
-        local rf2=getRemote("Plot_SellAnimal")
-        if rf2 then pcall(function() rf2:InvokeServer(aid) end) task.wait(.2) count+=1 end
-       end
-      end
-     end
-    end
-   end
-   bl.Text=T("✔ Sold "..count,"✔ ขาย "..count.." ตัว")
-  end
-  task.delay(2,function() bl.Text=orig end)
- end)
-end)
-
-end -- end SELL page
-
-------------------------------------------------------------------
--- หน้า EVENT  (อีเวนท์ในเกมโยนอาหาร)
-------------------------------------------------------------------
-do
-local NX=getgenv().NX
-local G=getgenv().NXG
-local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
-local TS=game:GetService("TweenService")
-local UIS=game:GetService("UserInputService")
-local lp=game:GetService("Players").LocalPlayer
-local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
-local S=NX.state
-local function T(en,th) return (NX.getLang()=="TH") and th or en end
-local getRemote=G.getRemote
-local getBiomePos=G.getBiomePos
-
-local sf3=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.event)
-make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf3)
-make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf3)
-local ord3=0
-local function txt3(p,pr)
- pr.BackgroundTransparency=1 pr.Font=pr.Font or Enum.Font.GothamBold
- pr.TextColor3=pr.TextColor3 or COL.Text pr.TextXAlignment=pr.TextXAlignment or Enum.TextXAlignment.Left
- return make("TextLabel",pr,p)
-end
-local function hdr3(en,th)
- ord3+=1
- L(txt3(sf3,{LayoutOrder=ord3,Size=UDim2.new(1,0,0,16),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Pink}),en,th)
-end
-local function row3(h)
- ord3+=1
- local r=make("Frame",{LayoutOrder=ord3,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf3)
- round(r,14)
- local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
- NX.onAccent(function(a,b) s.Color=b end)
- return r
-end
-local function ttl3(r,en,th,de,dt)
- L(txt3(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-80,0,16),TextSize=12}),en,th)
- if de then L(txt3(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),de,dt) end
-end
-local function tog3(key,en,th,de,dt,cb)
- local r=row3(42) ttl3(r,en,th,de,dt)
- if S[key]==nil then S[key]=false end
- local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
- round(sw,10)
- local kn=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw) round(kn,7)
- local function set(v,fire)
-  S[key]=v
-  TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play()
-  TS:Create(kn,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
-  if fire and cb then cb(v) end
- end
- sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
- NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
- set(S[key],false)
-end
-local function btn3(en,th,de,dt,be,bt,cb)
- local r=row3(42)
- L(txt3(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),en,th)
- local d=txt3(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,TextTruncate=Enum.TextTruncate.AtEnd})
- L(d,de,dt)
- local b=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
- round(b,13) NX.onAccent(function(a) b.BackgroundColor3=a end)
- local bl=L(txt3(b,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),be,bt)
- b.MouseButton1Click:Connect(function() if cb then cb(d,bl) end end)
- return d,bl
-end
-
--- ===========================
--- หมวด อีเวนท์
--- ===========================
-hdr3("EVENT AUTO","ออโต้อีเวนท์")
-
--- ออโต้ทำ quest/task อีเวนท์
-tog3("autoEventTask","Auto Event Tasks","ออโต้ทำภารกิจอีเวนท์","Auto-complete event tasks & quests","ทำภารกิจอีเวนท์อัตโนมัติ",function(v)
- if not v then return end
- task.spawn(function()
-  while S.autoEventTask do
-   pcall(function()
-    -- รับเควสอีเวนท์
-    local rfAccept=getRemote("Event_AcceptQuest") or getRemote("Quest_Accept")
-    if rfAccept then rfAccept:InvokeServer() end
-    task.wait(.2)
-    -- โยนอาหารไปที่ EventArea (จากตำแหน่งอีเวนท์ใน workspace)
-    local ch=lp.Character
-    local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-    local evZone=workspace:FindFirstChild("EventArea",true)
-     or workspace:FindFirstChild("EventZone",true)
-     or workspace:FindFirstChild("Event",true)
-    if hrp and evZone then
-     local evPart=evZone:IsA("BasePart") and evZone
-      or evZone:FindFirstChildOfClass("BasePart")
-     if evPart then
-      hrp.CFrame=CFrame.new(evPart.Position+Vector3.new(0,5,0))
-      task.wait(.3)
-      -- ใส่ decal รูปโลโก้ใต้จุดโยน
-      local marker=Instance.new("Part")
-      marker.Size=Vector3.new(2,.1,2) marker.Anchored=true marker.CanCollide=false
-      marker.Material=Enum.Material.Neon marker.BrickColor=BrickColor.new("Bright yellow")
-      marker.CFrame=CFrame.new(evPart.Position+Vector3.new(0,-2,0))
-      local d=Instance.new("Decal",marker)
-      d.Texture="rbxassetid://91144361769901" d.Face=Enum.NormalId.Top
-      marker.Parent=workspace
-      -- โยน
-      local rf1=getRemote("Throw_Start")
-      local rf2=getRemote("Throw_Complete")
-      if rf1 then pcall(function() rf1:InvokeServer() end) end
-      task.wait(.15)
-      if rf2 then pcall(function() rf2:InvokeServer(S.throwPower or 5,CFrame.new(evPart.Position)) end) end
-      task.delay(.5,function() pcall(function() marker:Destroy() end) end)
-     end
-    end
-    task.wait(.5)
-    -- รับรางวัล
-    local rfClaim=getRemote("Event_ClaimReward") or getRemote("Quest_Complete")
-    if rfClaim then pcall(function() rfClaim:InvokeServer() end) end
-   end)
-   task.wait(S.eventDelay or 2)
-  end
- end)
-end)
-
--- ดีเลย์อีเวนท์
-do
- local r=row3(50) ttl3(r,"Event delay (sec)","ดีเลย์อีเวนท์ (วิ)")
- if S.eventDelay==nil then S.eventDelay=2 end
- local vl=txt3(r,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-14,0,6),Size=UDim2.fromOffset(60,16),TextSize=11,TextColor3=COL.Pink,TextXAlignment=Enum.TextXAlignment.Right,Text="2.0s"})
- local track=make("Frame",{Position=UDim2.new(0,14,0,34),Size=UDim2.new(1,-28,0,6),BackgroundColor3=COL.Bg},r) round(track,3)
- local fill=make("Frame",{Size=UDim2.fromScale((2-0.5)/(10-0.5),1),BackgroundColor3=COL.Purple},track) round(fill,3)
- local kn=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale((2-0.5)/(10-0.5),.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=Color3.new(1,1,1)},track) round(kn,7)
- NX.onAccent(function(a) fill.BackgroundColor3=a end)
- local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,14,0,22),Size=UDim2.new(1,-28,0,26)},r)
- local drag=false
- local function fromX(x)
-  local t=math.clamp((x-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
-  local v=0.5+(10-0.5)*t S.eventDelay=v
-  fill.Size=UDim2.fromScale(t,1) kn.Position=UDim2.fromScale(t,.5)
-  vl.Text=string.format("%.1fs",v)
- end
- local function isP(i) return i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch end
- hit.InputBegan:Connect(function(i) if isP(i) then drag=true fromX(i.Position.X) end end)
- UIS.InputChanged:Connect(function(i) if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromX(i.Position.X) end end)
- UIS.InputEnded:Connect(function(i) if drag and isP(i) then drag=false end end)
-end
-
--- วาร์ปไป Event NPC
-btn3("Go to Event NPC","ไป NPC อีเวนท์","Teleport to event NPC","วาร์ปไป NPC อีเวนท์","Go","ไป",function(d,bl)
- local orig=bl.Text bl.Text=T("...","...")
- pcall(function()
-  local ch=lp.Character
-  local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-  local npc=workspace:FindFirstChild("EventNPC",true)
-   or workspace:FindFirstChild("Event",true)
-   or workspace:FindFirstChild("EventArea",true)
-  if hrp and npc then
-   local pp=npc:IsA("BasePart") and npc or npc:FindFirstChildOfClass("BasePart")
-   if pp then hrp.CFrame=CFrame.new(pp.Position+Vector3.new(0,5,0)) bl.Text=T("✔","✔") task.delay(1.5,function() bl.Text=orig end) return end
-  end
-  bl.Text=T("✖ Not found","✖ ไม่พบ") task.delay(1.5,function() bl.Text=orig end)
- end)
-end)
-
--- ===========================
--- หมวด ตัวนับ / countdown
--- ===========================
-hdr3("EVENT TIMER","ตัวนับเวลาอีเวนท์")
-
-do
- local r=row3(60)
- L(txt3(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(.5,0,0,14),TextSize=10,TextColor3=COL.Sub}),"Event cooldown","คูลดาวน์อีเวนท์")
- local cdTxt=txt3(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(.8,0,0,28),Font=Enum.Font.GothamBlack,TextSize=22,TextColor3=COL.Pink,Text="-- : --"})
- local cg=make("UIGradient",{},cdTxt)
- NX.onAccent(function(a,b) cg.Color=ColorSequence.new(b,a) end)
- local taskLabel=txt3(r,{Position=UDim2.fromOffset(14,50),Size=UDim2.new(1,-20,0,12),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,Text=""})
- task.spawn(function()
-  while r:IsDescendantOf(game) do
-   pcall(function()
-    -- หา EventTimer value ใน workspace หรือ RS
-    local ev=workspace:FindFirstChild("EventTimer",true)
-     or G.RS:FindFirstChild("EventTimer",true)
-    if ev and (ev:IsA("IntValue") or ev:IsA("NumberValue")) then
-     local secs=math.max(0,math.floor(ev.Value))
-     local m=math.floor(secs/60) local s=secs%60
-     cdTxt.Text=string.format("%02d : %02d",m,s)
-     taskLabel.Text=secs==0 and T("Event ready!","อีเวนท์พร้อมแล้ว!") or T("Next event in...","อีเวนท์ถัดไปใน...")
-    else
-     -- ไม่มี timer value → แสดง --
-     cdTxt.Text="-- : --"
-     taskLabel.Text=T("No active event","ไม่มีอีเวนท์ตอนนี้")
-    end
-   end)
-   task.wait(1)
-  end
- end)
-end
-
--- ออโต้รับรางวัลอีเวนท์เมื่อพร้อม
-tog3("autoClaimEvent","Auto Claim Reward","ออโต้รับรางวัล","Claim event reward when timer hits 0","รับรางวัลอีเวนท์เมื่อตัวนับถึง 0",function(v)
- if not v then return end
- task.spawn(function()
-  while S.autoClaimEvent do
-   pcall(function()
-    local ev=workspace:FindFirstChild("EventTimer",true) or G.RS:FindFirstChild("EventTimer",true)
-    if ev and (ev:IsA("IntValue") or ev:IsA("NumberValue")) and ev.Value<=0 then
-     local rf=getRemote("Event_ClaimReward") or getRemote("Quest_Complete")
-     if rf then rf:InvokeServer() end
-    end
-   end)
-   task.wait(1)
-  end
- end)
-end)
-
-end -- end EVENT page
-
 ------------------------------------------------------------------
 -- หน้า SETTINGS
 ------------------------------------------------------------------
@@ -2639,3 +1503,708 @@ do
   task.delay(.6,function() NX.setOpen(true) end)
  end)
 end
+
+------------------------------------------------------------------
+-- HELPER MACRO (ใช้ซ้ำในทุกหน้า — copy ตรงๆ ไม่ใช้ global)
+------------------------------------------------------------------
+-- (ไม่มีโค้ดที่นี่ — แต่ละ do block ประกาศ helpers ตัวเอง)
+
+------------------------------------------------------------------
+-- หน้า AUTO (ฟาร์ม)
+------------------------------------------------------------------
+do
+local NX=getgenv().NX
+local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
+local TS=game:GetService("TweenService")
+local UIS=game:GetService("UserInputService")
+local RunSvc=game:GetService("RunService")
+local lp=game:GetService("Players").LocalPlayer
+local RS=game:GetService("ReplicatedStorage")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local S=NX.state
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
+
+local function rem(name)
+ local r=RS:FindFirstChild("Remotes") or RS
+ return r:FindFirstChild(name,true)
+end
+local function biomePos(id)
+ local b=workspace:FindFirstChild("Biomes") if not b then return nil end
+ local bm=b:FindFirstChild(id) if not bm then return nil end
+ local p=bm:FindFirstChildOfClass("BasePart",true)
+ return p and (p.Position+Vector3.new(0,5,0)) or nil
+end
+local RARITY_ORDER={Common=1,Uncommon=2,Rare=3,Epic=4,Legendary=5,Mythic=6,Divine=7,Secret=8}
+local BIOMES={
+ {id="Forest",name="🌲 Forest"},{id="Savana",name="🦁 Savana"},{id="Desert",name="🏜 Desert"},
+ {id="Jungle",name="🌴 Jungle"},{id="Ocean",name="🌊 Ocean"},{id="Mountains",name="⛰ Mountains"},
+ {id="Taiga",name="🌨 Taiga"},{id="Winter",name="❄ Winter"},{id="PrehistoricForest",name="🦕 Prehistoric"},
+ {id="DeepWaters",name="🐙 Deep Waters"},{id="Hell",name="🔥 Hell"},{id="AncientRuins",name="🏛 Ancient Ruins"},
+ {id="MythicalParadise",name="✨ Mythical"},{id="ShadowRealm",name="👻 Shadow Realm"},
+ {id="HarvestFields",name="🌾 Harvest Fields"},{id="PhantomHarbor",name="⚓ Phantom Harbor"},
+ {id="NuclearWasteland",name="☢ Nuclear"},{id="CursedCarnival",name="🎪 Cursed Carnival"},
+ {id="EclipseKingdom",name="🌑 Eclipse Kingdom"},
+}
+
+-- scroll container
+local sf=make("ScrollingFrame",{
+ Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
+ ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,
+ AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()
+},NX.pages.auto)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local n=0
+
+local function txt(p,pr)
+ pr.BackgroundTransparency=1
+ pr.Font=pr.Font or Enum.Font.GothamBold
+ pr.TextColor3=pr.TextColor3 or COL.Text
+ pr.TextXAlignment=pr.TextXAlignment or Enum.TextXAlignment.Left
+ return make("TextLabel",pr,p)
+end
+local function hdr(a,b) n+=1; L(txt(sf,{LayoutOrder=n,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink}),a,b) end
+local function row(h)
+ n+=1
+ local r=make("Frame",{LayoutOrder=n,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf)
+ round(r,14)
+ local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+ NX.onAccent(function(a,b2) s.Color=b2 end)
+ return r
+end
+local function tlabel(r,a,b,da,db)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-80,0,16),TextSize=12}),a,b)
+ if da then L(txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),da,db) end
+end
+local function tog(key,a,b,da,db,cb)
+ local r=row(42); tlabel(r,a,b,da,db)
+ if S[key]==nil then S[key]=false end
+ local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
+ round(sw,10)
+ local kn=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw); round(kn,7)
+ local function set(v,fire)
+  S[key]=v
+  TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play()
+  TS:Create(kn,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
+  if fire and cb then cb(v) end
+ end
+ sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
+ NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
+ set(S[key],false)
+end
+
+-- ===================== ลัคกี้ =====================
+hdr("LUCKY BOOST","บูสต์ลัคกี้")
+tog("lucky100","Lucky 100%","ลัคกี้ 100%","Max luck — best animal drops","เพิ่มโอกาสได้ตัวดีสูงสุด",function(v)
+ pcall(function()
+  workspace:SetAttribute("AdminLuck",v and 100 or 1)
+  workspace:SetAttribute("ServerLuck",v and 100 or 1)
+ end)
+end)
+
+-- ===================== เลือกระดับโยน =====================
+hdr("AUTO THROW","ออโต้โยน")
+do
+ local r=row(52)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-14,0,14),TextSize=10,TextColor3=COL.Sub}),"Throw power (1=worst 5=best)","พลังโยน (1=กาก 5=ดี)")
+ local holder=make("Frame",{Position=UDim2.fromOffset(10,24),Size=UDim2.new(1,-20,0,22),BackgroundTransparency=1},r)
+ make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,4)},holder)
+ if S.throwPower==nil then S.throwPower=5 end
+ local pbtns={}
+ for i=1,5 do
+  local pb=make("TextButton",{Size=UDim2.new(1/5,-4,1,0),BackgroundColor3=(i==S.throwPower) and COL.Purple or COL.Bg,Text="⭐"..i,Font=Enum.Font.GothamBold,TextSize=9,TextColor3=COL.Text,AutoButtonColor=false},holder)
+  round(pb,10); pbtns[i]=pb
+  pb.MouseButton1Click:Connect(function()
+   S.throwPower=i
+   for j,b2 in ipairs(pbtns) do TS:Create(b2,TI,{BackgroundColor3=(j==i) and COL.Purple or COL.Bg}):Play() end
+   pcall(function() local rf=rem("Player_SetThrowPower") if rf then rf:InvokeServer(i) end end)
+  end)
+ end
+end
+
+-- เลือกด่านโยน
+do
+ local r=row(44)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Throw Zone","ด่านโยน")
+ local zoneLbl=txt(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Pink,Text=S.throwZone or "Forest"})
+ local pb=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
+ round(pb,13); NX.onAccent(function(a) pb.BackgroundColor3=a end)
+ L(txt(pb,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Pick","เลือก")
+ -- Zone popup
+ local zp=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(250,320),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.auto)
+ round(zp,18); make("UIStroke",{Color=COL.Pink,Thickness=1,Transparency=.4},zp)
+ local zpH=make("Frame",{Size=UDim2.new(1,0,0,34),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},zp); round(zpH,18)
+ L(txt(zpH,{Position=UDim2.fromOffset(12,8),Size=UDim2.new(1,-50,0,18),Font=Enum.Font.GothamBlack,TextSize=13,TextColor3=Color3.new(1,1,1)}),"Select Zone","เลือกด่าน")
+ local zpX=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-8,.5,0),Size=UDim2.fromOffset(26,26),BackgroundColor3=COL.Red,Text="✕",Font=Enum.Font.GothamBold,TextSize=10,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},zpH); round(zpX,13)
+ zpX.MouseButton1Click:Connect(function() zp.Visible=false end)
+ local zpSc=make("ScrollingFrame",{Position=UDim2.fromOffset(0,38),Size=UDim2.new(1,0,1,-42),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},zp)
+ make("UIListLayout",{Padding=UDim.new(0,4)},zpSc); make("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8),PaddingTop=UDim.new(0,4)},zpSc)
+ for _,bm in ipairs(BIOMES) do
+  local zb=make("TextButton",{Size=UDim2.new(1,0,0,30),BackgroundColor3=COL.Chip,BackgroundTransparency=.5,Text="",AutoButtonColor=false},zpSc); round(zb,10)
+  make("TextLabel",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=bm.name,Font=Enum.Font.GothamBold,TextSize=11,TextColor3=COL.Text,TextXAlignment=Enum.TextXAlignment.Left},zb)
+  make("UIPadding",{PaddingLeft=UDim.new(0,10)},zb)
+  local bmId=bm.id; local bmName=bm.name
+  zb.MouseButton1Click:Connect(function() S.throwZone=bmId; zoneLbl.Text=bmName; zp.Visible=false end)
+ end
+ pb.MouseButton1Click:Connect(function() zp.Visible=not zp.Visible end)
+ if S.throwZone==nil then S.throwZone="Forest" end
+end
+
+-- ออโต้โยน
+tog("autoThrow","Auto Throw","ออโต้โยน","Warp to zone then throw","วาร์ปไปด่านแล้วโยนอัตโนมัติ",function(v)
+ if not v then return end
+ task.spawn(function()
+  while S.autoThrow do
+   pcall(function()
+    local ch=lp.Character; local hrp=ch and ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+    local zp=biomePos(S.throwZone or "Forest")
+    if zp then hrp.CFrame=CFrame.new(zp) end
+    task.wait(.3)
+    -- วางแผ่น decal รูปโลโก้ใต้จุดโยน
+    local mk=Instance.new("Part"); mk.Size=Vector3.new(2,.1,2); mk.Anchored=true; mk.CanCollide=false
+    mk.Material=Enum.Material.Neon; mk.BrickColor=BrickColor.new("Bright yellow"); mk.Name="NX_Throw"
+    local dc=Instance.new("Decal",mk); dc.Texture="rbxassetid://91144361769901"; dc.Face=Enum.NormalId.Top
+    if zp then mk.CFrame=CFrame.new(zp.X,zp.Y-5,zp.Z) end; mk.Parent=workspace
+    local r1=rem("Throw_Start"); local r2=rem("Throw_Complete")
+    if r1 then pcall(function() r1:InvokeServer() end) end
+    task.wait(.2)
+    if r2 and zp then pcall(function() r2:InvokeServer(S.throwPower or 5,CFrame.new(zp)) end) end
+    task.delay(.8,function() pcall(function() mk:Destroy() end) end)
+   end)
+   task.wait(S.throwDelay or 1.5)
+  end
+ end)
+end)
+
+-- delay slider
+do
+ local r=row(50); tlabel(r,"Throw delay (sec)","ดีเลย์โยน (วิ)")
+ if S.throwDelay==nil then S.throwDelay=1.5 end
+ local mn,mx=0.5,5
+ local vl=txt(r,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-12,0,6),Size=UDim2.fromOffset(60,16),TextSize=11,TextColor3=COL.Pink,TextXAlignment=Enum.TextXAlignment.Right,Text="1.5s"})
+ local tr=make("Frame",{Position=UDim2.new(0,14,0,34),Size=UDim2.new(1,-28,0,6),BackgroundColor3=COL.Bg},r); round(tr,3)
+ local fi=make("Frame",{Size=UDim2.fromScale((1.5-mn)/(mx-mn),1),BackgroundColor3=COL.Purple},tr); round(fi,3)
+ local kn=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale((1.5-mn)/(mx-mn),.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=Color3.new(1,1,1)},tr); round(kn,7)
+ NX.onAccent(function(a) fi.BackgroundColor3=a end)
+ local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,14,0,22),Size=UDim2.new(1,-28,0,26)},r)
+ local drag=false
+ local function fromX(x) local t=math.clamp((x-tr.AbsolutePosition.X)/tr.AbsoluteSize.X,0,1); local v=mn+(mx-mn)*t; S.throwDelay=v; fi.Size=UDim2.fromScale(t,1); kn.Position=UDim2.fromScale(t,.5); vl.Text=string.format("%.1fs",v) end
+ local function isP(i) return i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch end
+ hit.InputBegan:Connect(function(i) if isP(i) then drag=true; fromX(i.Position.X) end end)
+ UIS.InputChanged:Connect(function(i) if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromX(i.Position.X) end end)
+ UIS.InputEnded:Connect(function(i) if drag and isP(i) then drag=false end end)
+end
+
+-- ===================== เพิ่มพลัง =====================
+hdr("AUTO POWER","ออโต้เพิ่มพลัง")
+tog("autoTrain","Auto Training","ออโต้เทรน","Auto press training bar","กดบาร์ฝึกพลังอัตโนมัติ",function(v)
+ if not v then
+  pcall(function() local rf=rem("Training_Stop"); if rf then rf:InvokeServer() end end)
+  return
+ end
+ task.spawn(function()
+  while S.autoTrain do
+   pcall(function()
+    local ch=lp.Character; local hrp=ch and ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+    local ta=workspace:FindFirstChild("TrainingArea",true)
+    if ta then local pp=ta:IsA("BasePart") and ta or ta:FindFirstChildOfClass("BasePart"); if pp then hrp.CFrame=CFrame.new(pp.Position+Vector3.new(0,5,0)) end end
+    task.wait(.3)
+    local r1=rem("Training_Start"); local r2=rem("Training_TapBonus"); local r3=rem("Training_Stop")
+    if r1 then pcall(function() r1:InvokeServer() end) end
+    task.wait(.1)
+    for _=1,20 do if not S.autoTrain then break end; pcall(function() if r2 then r2:InvokeServer() end end); task.wait(.05) end
+    if r3 then pcall(function() r3:InvokeServer() end) end
+   end)
+   task.wait(2)
+  end
+ end)
+end)
+
+tog("autoStandUp","Auto Upgrade Stand","ออโต้อัพที่โหน","Upgrade pull-up stand","อัพสถานีโหนอัตโนมัติ",function(v)
+ if not v then return end
+ task.spawn(function()
+  while S.autoStandUp do
+   pcall(function() local rf=rem("Stand_Upgrade"); if rf then rf:InvokeServer(S.standIdx or 1) end end)
+   task.wait(5)
+  end
+ end)
+end)
+
+-- ===================== ใส่สัตว์ดีสุด =====================
+hdr("AUTO EQUIP","ออโต้ใส่ตัวดีที่สุด")
+tog("autoEquipBest","Auto Equip Best (1 min)","ออโต้ใส่ตัวดีที่สุด (1 นาที)","Put best animal in garden every 1 min","ใส่สัตว์ดีที่สุดในสวนทุก 1 นาที",function(v)
+ if not v then return end
+ task.spawn(function()
+  while S.autoEquipBest do
+   pcall(function() local rf=rem("Plot_EquipBest"); if rf then rf:InvokeServer() end end)
+   for _=1,120 do if not S.autoEquipBest then break end; task.wait(.5) end
+  end
+ end)
+end)
+
+-- ===================== ล่าสัตว์เป้าหมาย =====================
+hdr("TARGET HUNT","ล่าสัตว์เป้าหมาย")
+local huntTarget=nil; local huntActive=false; local huntStatusLbl
+
+do
+ local r=row(44)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Target Hunt","ล่าสัตว์เป้าหมาย")
+ huntStatusLbl=txt(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Pink,Text="-- ยังไม่เลือก --"})
+ local selB=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
+ round(selB,13); NX.onAccent(function(a) selB.BackgroundColor3=a end)
+ L(txt(selB,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Pick","เลือก")
+
+ -- Animal picker popup
+ local ap=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(265,370),BackgroundColor3=COL.Side,Visible=false,ZIndex=25},NX.pages.auto)
+ round(ap,18); make("UIStroke",{Color=COL.Pink,Thickness=1,Transparency=.3},ap)
+ local apH=make("Frame",{Size=UDim2.new(1,0,0,34),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},ap); round(apH,18)
+ L(txt(apH,{Position=UDim2.fromOffset(12,8),Size=UDim2.new(1,-50,0,18),Font=Enum.Font.GothamBlack,TextSize=13,TextColor3=Color3.new(1,1,1)}),"Pick Target","เลือกเป้าหมาย")
+ local apX=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-8,.5,0),Size=UDim2.fromOffset(26,26),BackgroundColor3=COL.Red,Text="✕",Font=Enum.Font.GothamBold,TextSize=10,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},apH); round(apX,13)
+ apX.MouseButton1Click:Connect(function() ap.Visible=false end)
+ local apSrch=make("TextBox",{Position=UDim2.fromOffset(8,38),Size=UDim2.new(1,-16,0,26),BackgroundColor3=COL.Chip,Text="",PlaceholderText="🔍 ค้นหา...",Font=Enum.Font.Gotham,TextSize=11,TextColor3=COL.Text,ClearTextOnFocus=false},ap); round(apSrch,12)
+ local apSc=make("ScrollingFrame",{Position=UDim2.fromOffset(0,70),Size=UDim2.new(1,0,1,-74),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},ap)
+ make("UIListLayout",{Padding=UDim.new(0,4)},apSc); make("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8),PaddingTop=UDim.new(0,4)},apSc)
+ local RCOL={Common=Color3.fromRGB(180,180,180),Uncommon=Color3.fromRGB(90,230,160),Rare=Color3.fromRGB(80,160,255),Epic=Color3.fromRGB(180,80,255),Legendary=Color3.fromRGB(255,180,0),Mythic=Color3.fromRGB(255,80,80),Divine=Color3.fromRGB(255,220,0),Secret=Color3.fromRGB(255,60,180)}
+ local abtns={}
+ local function buildList(filter)
+  for _,b2 in ipairs(abtns) do b2:Destroy() end; abtns={}
+  local af=RS:FindFirstChild("Animals"); if not af then return end
+  local items={}
+  for _,m in ipairs(af:GetChildren()) do
+   if m.Name~="" and (filter=="" or m.Name:lower():find(filter:lower(),1,true)) then
+    local rar=(m:GetAttribute and m:GetAttribute("Rarity")) or "Common"
+    items[#items+1]={name=m.Name,rar=rar,ord=RARITY_ORDER[rar] or 0}
+   end
+  end
+  table.sort(items,function(a2,b2) return a2.ord<b2.ord end)
+  for _,it in ipairs(items) do
+   local ab=make("TextButton",{Size=UDim2.new(1,0,0,34),BackgroundColor3=COL.Chip,BackgroundTransparency=.4,Text="",AutoButtonColor=false},apSc); round(ab,10)
+   local rc=RCOL[it.rar] or COL.Text
+   make("Frame",{Size=UDim2.fromOffset(4,34),BackgroundColor3=rc},ab); round(make("Frame",{Size=UDim2.fromOffset(4,34),BackgroundColor3=rc},ab),2)
+   make("TextLabel",{Position=UDim2.fromOffset(14,4),Size=UDim2.new(1,-18,0,16),BackgroundTransparency=1,Text=it.name,Font=Enum.Font.GothamBold,TextSize=11,TextColor3=rc,TextXAlignment=Enum.TextXAlignment.Left},ab)
+   make("TextLabel",{Position=UDim2.fromOffset(14,20),Size=UDim2.new(1,-18,0,12),BackgroundTransparency=1,Text=it.rar,Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Left},ab)
+   local itn=it.name
+   ab.MouseButton1Click:Connect(function() huntTarget=itn; huntStatusLbl.Text="🎯 "..itn; ap.Visible=false end)
+   abtns[#abtns+1]=ab
+  end
+ end
+ buildList("")
+ apSrch:GetPropertyChangedSignal("Text"):Connect(function() buildList(apSrch.Text) end)
+ selB.MouseButton1Click:Connect(function() ap.Visible=not ap.Visible; if ap.Visible then buildList(apSrch.Text) end end)
+end
+
+-- ปุ่ม Start/Stop Hunt
+do
+ n+=1
+ local r=make("Frame",{LayoutOrder=n,Size=UDim2.new(1,0,0,42),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf); round(r,14)
+ local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r); NX.onAccent(function(a,b2) s.Color=b2 end)
+ local stLbl=txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12,Text=T("Hunt Status","สถานะล่า")})
+ L(stLbl,"Hunt Status","สถานะล่า")
+ local subLbl=txt(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,Text=T("Idle","รอ")})
+ local hb=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
+ round(hb,13); NX.onAccent(function(a) hb.BackgroundColor3=a end)
+ local hbL=txt(hb,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center,Text=T("Start","เริ่ม")})
+ hb.MouseButton1Click:Connect(function()
+  if huntActive then
+   huntActive=false; hbL.Text=T("Start","เริ่ม"); subLbl.Text=T("Stopped","หยุด")
+  else
+   if not huntTarget then subLbl.Text=T("Pick target first!","เลือกเป้าหมายก่อน!"); return end
+   huntActive=true; hbL.Text=T("Stop","หยุด")
+   task.spawn(function()
+    local got=false
+    while huntActive and not got do
+     pcall(function()
+      -- เช็คว่าได้แล้วหรือยัง
+      local pi=lp:GetAttribute("PlotIndex")
+      local plots=workspace:FindFirstChild("Plots")
+      local plot=pi and plots and plots:FindFirstChild(tostring(pi))
+      if plot then
+       local af2=plot:FindFirstChild("Animals")
+       if af2 then for _,a2 in ipairs(af2:GetChildren()) do if a2:GetAttribute("AnimalName")==huntTarget then got=true end end end
+      end
+      if got then return end
+      -- โยน
+      local ch=lp.Character; local hrp=ch and ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+      local zp=biomePos(S.throwZone or "Forest")
+      if zp then hrp.CFrame=CFrame.new(zp) end
+      task.wait(.3)
+      local r1=rem("Throw_Start"); local r2=rem("Throw_Complete")
+      if r1 then pcall(function() r1:InvokeServer() end) end
+      task.wait(.2)
+      if r2 and zp then pcall(function() r2:InvokeServer(S.throwPower or 5,CFrame.new(zp)) end) end
+      subLbl.Text=T("Hunting "..huntTarget,"ล่า "..huntTarget)
+     end)
+     task.wait(S.throwDelay or 1.5)
+    end
+    huntActive=false; hbL.Text=T("Start","เริ่ม")
+    subLbl.Text=got and T("✅ Got it!","✅ ได้แล้ว!") or T("Stopped","หยุด")
+    if huntStatusLbl and got then huntStatusLbl.Text="✅ ได้ "..huntTarget.."!" end
+   end)
+  end
+ end)
+end
+
+end -- end AUTO page
+
+------------------------------------------------------------------
+-- หน้า BUY (ซื้อ)
+------------------------------------------------------------------
+do
+local NX=getgenv().NX
+local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
+local TS=game:GetService("TweenService")
+local UIS=game:GetService("UserInputService")
+local lp=game:GetService("Players").LocalPlayer
+local RS=game:GetService("ReplicatedStorage")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local S=NX.state
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
+local function rem(name) local r=RS:FindFirstChild("Remotes") or RS; return r:FindFirstChild(name,true) end
+
+local FOODS={
+ "Pear","Apple","Carrot","Banana","Toast","Cheese","Croissant","Bread Loaf","WaterMelon",
+ "Mushroom","Orange","Chocolate","Elder Strawberry","Bacon","Burger","Shank","Fillet",
+ "Star Jelly","Steak","Crystal Melon","Ember Bacon","Royal Steak","Lava Steak",
+ "Dragon's Apple","Phoenix Fillet","Glowshroom","Sundae Tower","Golden Corn",
+ "Starlight Donut","Roast Turkey","Caramel Apple","Candy Corn","Hot Cider",
+ "Golden Pumpkin","Ghost Chowder","Calamari Rings","Phantom Lobster","Toxic Donut",
+ "Mutant Melon","Atomic Pizza","Uranium Cake","Cursed Candy Apple","Ringmaster Cake",
+ "Spectral Cotton Candy","Ghost Popcorn","Royal Mooncake","Black Sun Souffle",
+ "Sunwheel Tart","Crescent Pear",
+}
+
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.buy)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local n=0
+local function txt(p,pr) pr.BackgroundTransparency=1; pr.Font=pr.Font or Enum.Font.GothamBold; pr.TextColor3=pr.TextColor3 or COL.Text; pr.TextXAlignment=pr.TextXAlignment or Enum.TextXAlignment.Left; return make("TextLabel",pr,p) end
+local function hdr(a,b) n+=1; L(txt(sf,{LayoutOrder=n,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink}),a,b) end
+local function row(h) n+=1; local r=make("Frame",{LayoutOrder=n,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf); round(r,14); local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r); NX.onAccent(function(a2,b2) s.Color=b2 end); return r end
+local function tlbl(r,a,b,da,db) L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-80,0,16),TextSize=12}),a,b); if da then L(txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),da,db) end end
+local function tog(key,a,b,da,db,cb)
+ local r=row(42); tlbl(r,a,b,da,db)
+ if S[key]==nil then S[key]=false end
+ local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r); round(sw,10)
+ local kn=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw); round(kn,7)
+ local function set(v,fire) S[key]=v; TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play(); TS:Create(kn,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play(); if fire and cb then cb(v) end end
+ sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
+ NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
+ set(S[key],false)
+end
+
+-- เลือกอาหาร
+hdr("FOOD SELECTION","เลือกอาหารที่จะซื้อ")
+do
+ local r=row(44)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Food to buy","อาหารที่จะซื้อ")
+ if S.buyFood==nil then S.buyFood=FOODS[#FOODS] end
+ local curL=txt(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Pink,Text=S.buyFood})
+ local pb=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r); round(pb,13); NX.onAccent(function(a) pb.BackgroundColor3=a end)
+ L(txt(pb,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Pick","เลือก")
+ local fp=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(250,320),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.buy)
+ round(fp,18); make("UIStroke",{Color=COL.Pink,Thickness=1,Transparency=.4},fp)
+ local fpH=make("Frame",{Size=UDim2.new(1,0,0,34),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},fp); round(fpH,18)
+ L(txt(fpH,{Position=UDim2.fromOffset(12,8),Size=UDim2.new(1,-50,0,18),Font=Enum.Font.GothamBlack,TextSize=13,TextColor3=Color3.new(1,1,1)}),"Select Food","เลือกอาหาร")
+ local fpX=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-8,.5,0),Size=UDim2.fromOffset(26,26),BackgroundColor3=COL.Red,Text="✕",Font=Enum.Font.GothamBold,TextSize=10,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},fpH); round(fpX,13)
+ fpX.MouseButton1Click:Connect(function() fp.Visible=false end)
+ local fpSc=make("ScrollingFrame",{Position=UDim2.fromOffset(0,38),Size=UDim2.new(1,0,1,-42),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},fp)
+ make("UIListLayout",{Padding=UDim.new(0,4)},fpSc); make("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8),PaddingTop=UDim.new(0,4)},fpSc)
+ for i=#FOODS,1,-1 do
+  local fname=FOODS[i]
+  local ib=make("TextButton",{Size=UDim2.new(1,0,0,28),BackgroundColor3=COL.Chip,BackgroundTransparency=.5,Text="",AutoButtonColor=false},fpSc); round(ib,10)
+  make("TextLabel",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=fname,Font=Enum.Font.GothamBold,TextSize=11,TextColor3=COL.Text,TextXAlignment=Enum.TextXAlignment.Left},ib)
+  make("UIPadding",{PaddingLeft=UDim.new(0,10)},ib)
+  ib.MouseButton1Click:Connect(function() S.buyFood=fname; curL.Text=fname; fp.Visible=false end)
+ end
+ pb.MouseButton1Click:Connect(function() fp.Visible=not fp.Visible end)
+end
+
+hdr("AUTO BUY","ออโต้ซื้อ")
+tog("autoBuyFood","Auto Buy Food","ออโต้ซื้ออาหาร","Buy selected food when cash ready","ซื้ออาหารที่เลือกเมื่อเงินพอ",function(v)
+ if not v then return end
+ task.spawn(function()
+  while S.autoBuyFood do
+   pcall(function() local rf=rem("Shop_Buy"); if rf then rf:InvokeServer(S.buyFood or FOODS[#FOODS]) end end)
+   task.wait(1.5)
+  end
+ end)
+end)
+
+hdr("AUTO UPGRADE","ออโต้อัพเกรด")
+tog("autoUpgradeEP","Auto Upgrade EP","ออโต้อัพ EP พลัง","Auto upgrade throw power EP","อัพ EP พลังโยนอัตโนมัติ",function(v)
+ if not v then return end
+ task.spawn(function()
+  while S.autoUpgradeEP do
+   pcall(function() local rf=rem("Stand_Upgrade"); if rf then rf:InvokeServer(S.standIdx or 1) end end)
+   task.wait(2)
+  end
+ end)
+end)
+
+-- Stand index selector
+do
+ local r=row(50)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-14,0,14),TextSize=10,TextColor3=COL.Sub}),"Stand index","Stand ที่จะอัพ")
+ local holder=make("Frame",{Position=UDim2.fromOffset(10,24),Size=UDim2.new(1,-20,0,22),BackgroundTransparency=1},r)
+ make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,4)},holder)
+ if S.standIdx==nil then S.standIdx=1 end
+ local sbs={}
+ for i=1,6 do
+  local sb=make("TextButton",{Size=UDim2.new(1/6,-4,1,0),BackgroundColor3=(i==S.standIdx) and COL.Purple or COL.Bg,Text=tostring(i),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Text,AutoButtonColor=false},holder); round(sb,10); sbs[i]=sb
+  sb.MouseButton1Click:Connect(function() S.standIdx=i; for j,b2 in ipairs(sbs) do TS:Create(b2,TI,{BackgroundColor3=(j==i) and COL.Purple or COL.Bg}):Play() end end)
+ end
+end
+
+tog("autoUpgradeFence","Auto Upgrade Garden","ออโต้อัพสวน","Auto upgrade plot fence","อัพรั้วสวนอัตโนมัติ",function(v)
+ if not v then return end
+ task.spawn(function()
+  while S.autoUpgradeFence do
+   pcall(function() local rf=rem("Plot_UpgradeFence"); if rf then rf:InvokeServer() end end)
+   task.wait(3)
+  end
+ end)
+end)
+
+end -- end BUY page
+
+------------------------------------------------------------------
+-- หน้า SELL (ขาย)
+------------------------------------------------------------------
+do
+local NX=getgenv().NX
+local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
+local TS=game:GetService("TweenService")
+local UIS=game:GetService("UserInputService")
+local lp=game:GetService("Players").LocalPlayer
+local RS=game:GetService("ReplicatedStorage")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local S=NX.state
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
+local function rem(name) local r=RS:FindFirstChild("Remotes") or RS; return r:FindFirstChild(name,true) end
+
+local RARITY_LIST={"Common","Uncommon","Rare","Epic","Legendary","Mythic","Divine","Secret"}
+local RCOL={Common=Color3.fromRGB(180,180,180),Uncommon=Color3.fromRGB(90,230,160),Rare=Color3.fromRGB(80,160,255),Epic=Color3.fromRGB(180,80,255),Legendary=Color3.fromRGB(255,180,0),Mythic=Color3.fromRGB(255,80,80),Divine=Color3.fromRGB(255,220,0),Secret=Color3.fromRGB(255,60,180)}
+
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.sell)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local n=0
+local function txt(p,pr) pr.BackgroundTransparency=1; pr.Font=pr.Font or Enum.Font.GothamBold; pr.TextColor3=pr.TextColor3 or COL.Text; pr.TextXAlignment=pr.TextXAlignment or Enum.TextXAlignment.Left; return make("TextLabel",pr,p) end
+local function hdr(a,b) n+=1; L(txt(sf,{LayoutOrder=n,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink}),a,b) end
+local function row(h) n+=1; local r=make("Frame",{LayoutOrder=n,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf); round(r,14); local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r); NX.onAccent(function(a2,b2) s.Color=b2 end); return r end
+local function tog(key,a,b,da,db,cb)
+ local r=row(42)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-80,0,16),TextSize=12}),a,b)
+ if da then L(txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),da,db) end
+ if S[key]==nil then S[key]=false end
+ local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r); round(sw,10)
+ local kn=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw); round(kn,7)
+ local function set(v,fire) S[key]=v; TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play(); TS:Create(kn,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play(); if fire and cb then cb(v) end end
+ sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
+ NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
+ set(S[key],false)
+end
+
+-- ตั้งค่าระดับที่ไม่ขาย
+hdr("SELL CONFIG","ตั้งค่าขาย")
+if S.sellExempt==nil then S.sellExempt={Divine=true,Secret=true,Mythic=true} end
+
+do
+ local r=row(44)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Exempt from sell","ระดับที่จะไม่ขาย")
+ L(txt(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),"Tap to manage","กดจัดการ")
+ local eb=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r); round(eb,13); NX.onAccent(function(a) eb.BackgroundColor3=a end)
+ L(txt(eb,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Manage","จัดการ")
+ -- Exempt popup
+ local ep=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(265,420),BackgroundColor3=COL.Side,Visible=false,ZIndex=20},NX.pages.sell)
+ round(ep,18); make("UIStroke",{Color=COL.Pink,Thickness=1,Transparency=.3},ep)
+ local epH=make("Frame",{Size=UDim2.new(1,0,0,34),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},ep); round(epH,18)
+ L(txt(epH,{Position=UDim2.fromOffset(12,8),Size=UDim2.new(1,-50,0,18),Font=Enum.Font.GothamBlack,TextSize=13,TextColor3=Color3.new(1,1,1)}),"Sell Exemptions","ตั้งค่าไม่ขาย")
+ local epX=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-8,.5,0),Size=UDim2.fromOffset(26,26),BackgroundColor3=COL.Red,Text="✕",Font=Enum.Font.GothamBold,TextSize=10,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},epH); round(epX,13)
+ epX.MouseButton1Click:Connect(function() ep.Visible=false end)
+ local epSc=make("ScrollingFrame",{Position=UDim2.fromOffset(0,38),Size=UDim2.new(1,0,1,-42),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},ep)
+ make("UIListLayout",{Padding=UDim.new(0,6)},epSc); make("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8),PaddingTop=UDim.new(0,6)},epSc)
+ for _,rar in ipairs(RARITY_LIST) do
+  local er=make("Frame",{Size=UDim2.new(1,0,0,52),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},epSc); round(er,13)
+  local rc=RCOL[rar] or COL.Text
+  local ac=make("Frame",{Size=UDim2.fromOffset(4,52),BackgroundColor3=rc},er); round(ac,2)
+  local img=make("ImageLabel",{Position=UDim2.fromOffset(12,10),Size=UDim2.fromOffset(32,32),BackgroundColor3=rc,BackgroundTransparency=.5,Image="rbxassetid://91144361769901",ScaleType=Enum.ScaleType.Fit},er); round(img,8)
+  make("TextLabel",{Position=UDim2.fromOffset(52,8),Size=UDim2.new(1,-130,0,18),BackgroundTransparency=1,Text=rar,Font=Enum.Font.GothamBlack,TextSize=13,TextColor3=rc,TextXAlignment=Enum.TextXAlignment.Left},er)
+  local subL=make("TextLabel",{Position=UDim2.fromOffset(52,28),Size=UDim2.new(1,-130,0,14),BackgroundTransparency=1,Font=Enum.Font.Gotham,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left},er)
+  local esw=make("TextButton",{Text="",AutoButtonColor=false,AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(44,22),BackgroundColor3=COL.Bg},er); round(esw,11)
+  local ekn=make("Frame",{Size=UDim2.fromOffset(16,16),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},esw); round(ekn,8)
+  local rarKey=rar
+  local function refresh()
+   local ex=S.sellExempt[rarKey]
+   TS:Create(esw,TI,{BackgroundColor3=ex and COL.Purple or COL.Bg}):Play()
+   TS:Create(ekn,TI,{Position=ex and UDim2.fromOffset(25,3) or UDim2.fromOffset(3,3)}):Play()
+   subL.Text=ex and T("Will NOT sell","จะ ไม่ ขาย") or T("Will sell","จะขาย")
+   subL.TextColor3=ex and COL.Green or COL.Red
+  end
+  esw.MouseButton1Click:Connect(function() S.sellExempt[rarKey]=not S.sellExempt[rarKey]; refresh() end)
+  NX.onAccent(function() if S.sellExempt[rarKey] then esw.BackgroundColor3=COL.Purple end end)
+  refresh()
+ end
+ eb.MouseButton1Click:Connect(function() ep.Visible=not ep.Visible end)
+end
+
+hdr("AUTO SELL","ออโต้ขาย")
+tog("autoSell","Auto Sell","ออโต้ขาย","Sell animals not in exempt list","ขายสัตว์ยกเว้นที่กำหนด",function(v)
+ if not v then return end
+ task.spawn(function()
+  while S.autoSell do
+   pcall(function()
+    local pi=lp:GetAttribute("PlotIndex"); local plots=workspace:FindFirstChild("Plots"); local plot=pi and plots and plots:FindFirstChild(tostring(pi)); if not plot then return end
+    local af=plot:FindFirstChild("Animals"); if not af then return end
+    for _,a in ipairs(af:GetChildren()) do
+     local rar=a:GetAttribute("Rarity") or "Common"
+     if not (S.sellExempt and S.sellExempt[rar]) then
+      local aid=a:GetAttribute("AnimalId")
+      if aid then local rf=rem("Plot_SellAnimal"); if rf then pcall(function() rf:InvokeServer(aid) end); task.wait(.3) end end
+     end
+    end
+   end)
+   task.wait(2)
+  end
+ end)
+end)
+
+-- ปุ่มขายหมดทันที
+do
+ n+=1
+ local r=make("Frame",{LayoutOrder=n,Size=UDim2.new(1,0,0,42),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf); round(r,14); local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r); NX.onAccent(function(a2,b2) s.Color=b2 end)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Sell All Now","ขายทุกตัวเดี๋ยวนี้")
+ L(txt(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),"Sell all non-exempt immediately","ขายสัตว์ทั้งหมดที่ไม่ได้ยกเว้น")
+ local ab=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r); round(ab,13); NX.onAccent(function(a) ab.BackgroundColor3=a end)
+ local abl=txt(ab,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center,Text=T("Sell All","ขายหมด")})
+ ab.MouseButton1Click:Connect(function()
+  local orig=abl.Text; abl.Text=T("...","...")
+  task.spawn(function()
+   local rf=rem("Plot_SellAll")
+   if rf then pcall(function() rf:InvokeServer() end); abl.Text=T("✔","✔")
+   else
+    local ct=0
+    local pi=lp:GetAttribute("PlotIndex"); local plots=workspace:FindFirstChild("Plots"); local plot=pi and plots and plots:FindFirstChild(tostring(pi))
+    if plot then local af=plot:FindFirstChild("Animals"); if af then for _,a in ipairs(af:GetChildren()) do local rar=a:GetAttribute("Rarity") or "Common"; if not (S.sellExempt and S.sellExempt[rar]) then local aid=a:GetAttribute("AnimalId"); if aid then local rf2=rem("Plot_SellAnimal"); if rf2 then pcall(function() rf2:InvokeServer(aid) end); ct+=1; task.wait(.2) end end end end end
+    abl.Text=T("✔ "..ct,"✔ "..ct)
+   end
+   task.delay(2,function() abl.Text=orig end)
+  end)
+ end)
+end
+
+end -- end SELL page
+
+------------------------------------------------------------------
+-- หน้า EVENT (อีเวนท์)
+------------------------------------------------------------------
+do
+local NX=getgenv().NX
+local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
+local TS=game:GetService("TweenService")
+local UIS=game:GetService("UserInputService")
+local lp=game:GetService("Players").LocalPlayer
+local RS=game:GetService("ReplicatedStorage")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local S=NX.state
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
+local function rem(name) local r=RS:FindFirstChild("Remotes") or RS; return r:FindFirstChild(name,true) end
+
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.event)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local n=0
+local function txt(p,pr) pr.BackgroundTransparency=1; pr.Font=pr.Font or Enum.Font.GothamBold; pr.TextColor3=pr.TextColor3 or COL.Text; pr.TextXAlignment=pr.TextXAlignment or Enum.TextXAlignment.Left; return make("TextLabel",pr,p) end
+local function hdr(a,b) n+=1; L(txt(sf,{LayoutOrder=n,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink}),a,b) end
+local function row(h) n+=1; local r=make("Frame",{LayoutOrder=n,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf); round(r,14); local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r); NX.onAccent(function(a2,b2) s.Color=b2 end); return r end
+local function tog(key,a,b,da,db,cb)
+ local r=row(42); L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-80,0,16),TextSize=12}),a,b)
+ if da then L(txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),da,db) end
+ if S[key]==nil then S[key]=false end
+ local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r); round(sw,10)
+ local kn=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw); round(kn,7)
+ local function set(v,fire) S[key]=v; TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play(); TS:Create(kn,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play(); if fire and cb then cb(v) end end
+ sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
+ NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
+ set(S[key],false)
+end
+
+hdr("AUTO EVENT","ออโต้อีเวนท์")
+tog("autoEventTask","Auto Event Tasks","ออโต้ทำภารกิจ","Auto-complete event tasks","ทำภารกิจอีเวนท์อัตโนมัติ",function(v)
+ if not v then return end
+ task.spawn(function()
+  while S.autoEventTask do
+   pcall(function()
+    local ch=lp.Character; local hrp=ch and ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+    local ev=workspace:FindFirstChild("EventArea",true) or workspace:FindFirstChild("Event",true)
+    if ev then local pp=ev:IsA("BasePart") and ev or ev:FindFirstChildOfClass("BasePart"); if pp then hrp.CFrame=CFrame.new(pp.Position+Vector3.new(0,5,0)); task.wait(.3)
+     local mk=Instance.new("Part"); mk.Size=Vector3.new(2,.1,2); mk.Anchored=true; mk.CanCollide=false; mk.BrickColor=BrickColor.new("Bright yellow"); mk.Name="NX_EV"
+     local dc=Instance.new("Decal",mk); dc.Texture="rbxassetid://91144361769901"; dc.Face=Enum.NormalId.Top; mk.CFrame=CFrame.new(pp.Position+Vector3.new(0,-2,0)); mk.Parent=workspace
+     local r1=rem("Throw_Start"); local r2=rem("Throw_Complete")
+     if r1 then pcall(function() r1:InvokeServer() end) end; task.wait(.15)
+     if r2 then pcall(function() r2:InvokeServer(S.throwPower or 5,CFrame.new(pp.Position)) end) end
+     task.delay(.5,function() pcall(function() mk:Destroy() end) end)
+    end end
+    local rfC=rem("Event_ClaimReward") or rem("Quest_Complete"); if rfC then pcall(function() rfC:InvokeServer() end) end
+   end)
+   task.wait(S.eventDelay or 2)
+  end
+ end)
+end)
+
+tog("autoClaimEvent","Auto Claim Reward","ออโต้รับรางวัล","Claim reward when timer = 0","รับรางวัลเมื่อตัวนับถึง 0",function(v)
+ if not v then return end
+ task.spawn(function()
+  while S.autoClaimEvent do
+   pcall(function()
+    local ev=workspace:FindFirstChild("EventTimer",true) or RS:FindFirstChild("EventTimer",true)
+    if ev and (ev:IsA("IntValue") or ev:IsA("NumberValue")) and ev.Value<=0 then
+     local rf=rem("Event_ClaimReward") or rem("Quest_Complete"); if rf then rf:InvokeServer() end
+    end
+   end)
+   task.wait(1)
+  end
+ end)
+end)
+
+hdr("EVENT INFO","ข้อมูลอีเวนท์")
+-- Countdown timer
+do
+ local r=row(60); L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,0,0,14),TextSize=10,TextColor3=COL.Sub}),"Event cooldown","คูลดาวน์อีเวนท์")
+ local cd=txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(.8,0,0,28),Font=Enum.Font.GothamBlack,TextSize=22,TextColor3=COL.Pink,Text="-- : --"})
+ local cg=make("UIGradient",{},cd); NX.onAccent(function(a,b2) cg.Color=ColorSequence.new(b2,a) end)
+ local sl=txt(r,{Position=UDim2.fromOffset(14,50),Size=UDim2.new(1,-20,0,12),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,Text=""})
+ task.spawn(function()
+  while r:IsDescendantOf(game) do
+   pcall(function()
+    local ev=workspace:FindFirstChild("EventTimer",true) or RS:FindFirstChild("EventTimer",true)
+    if ev and (ev:IsA("IntValue") or ev:IsA("NumberValue")) then
+     local secs=math.max(0,math.floor(ev.Value)); cd.Text=string.format("%02d : %02d",math.floor(secs/60),secs%60)
+     sl.Text=secs==0 and T("Event ready!","อีเวนท์พร้อม!") or T("Next event in...","อีเวนท์ถัดไปใน...")
+    else cd.Text="-- : --"; sl.Text=T("No active event","ไม่มีอีเวนท์") end
+   end)
+   task.wait(1)
+  end
+ end)
+end
+
+-- Warp to Event NPC
+do
+ n+=1
+ local r=make("Frame",{LayoutOrder=n,Size=UDim2.new(1,0,0,42),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf); round(r,14); local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r); NX.onAccent(function(a2,b2) s.Color=b2 end)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),"Go to Event NPC","ไป NPC อีเวนท์")
+ L(txt(r,{Position=UDim2.fromOffset(14,24),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),"Teleport to event area","วาร์ปไปอีเวนท์")
+ local gb=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r); round(gb,13); NX.onAccent(function(a) gb.BackgroundColor3=a end)
+ local gbl=txt(gb,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center,Text=T("Go","ไป")})
+ gb.MouseButton1Click:Connect(function()
+  local orig=gbl.Text; gbl.Text=T("...","...")
+  pcall(function()
+   local ch=lp.Character; local hrp=ch and ch:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+   local ev=workspace:FindFirstChild("EventNPC",true) or workspace:FindFirstChild("EventArea",true) or workspace:FindFirstChild("Event",true)
+   if ev then local pp=ev:IsA("BasePart") and ev or ev:FindFirstChildOfClass("BasePart"); if pp then hrp.CFrame=CFrame.new(pp.Position+Vector3.new(0,5,0)); gbl.Text=T("✔","✔"); task.delay(1.5,function() gbl.Text=orig end); return end end
+   gbl.Text=T("✖","✖"); task.delay(1.5,function() gbl.Text=orig end)
+  end)
+ end)
+end
+
+end -- end EVENT page
