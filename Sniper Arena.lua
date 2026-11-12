@@ -3,8 +3,14 @@ if not game:IsLoaded() then
 end
 
 if game.GameId ~= 9534705677 then
-    game:GetService("Players").LocalPlayer:Kick("NEXORA HUB: this script is for Sniper Arena only")
-    return
+    warn("[NEXORA HUB] not Sniper Arena: game-specific features will be blocked")
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "NEXORA HUB",
+            Text = "Not Sniper Arena: game-specific features are unavailable here",
+            Duration = 8,
+        })
+    end)
 end
 
 if not LPH_OBFUSCATED then
@@ -3059,15 +3065,28 @@ end
 ---@return table  grayscale skin for the menu library + logo badge
 local NexoraTheme = {
     LogoId = "rbxassetid://91144361769901",
+    Scale = 0.7, -- menu size on phones (lower = smaller)
     Hooked = setmetatable({}, { __mode = "k" }),
     Props = { "BackgroundColor3", "TextColor3", "ImageColor3", "BorderColor3", "TextStrokeColor3", "ScrollBarImageColor3", "PlaceholderColor3", "Color" },
 }
 
-function NexoraTheme.IsGray(color)
-    return math.abs(color.R - color.G) < 0.004 and math.abs(color.G - color.B) < 0.004
+function NexoraTheme.IsPurple(h, sat)
+    return sat > 0.3 and math.abs(h - 0.76) < 0.025
 end
 
+---settled = already gray or already purple, nothing left to convert
+function NexoraTheme.IsGray(color)
+    if math.abs(color.R - color.G) < 0.004 and math.abs(color.G - color.B) < 0.004 then return true end
+    local h, sat = color:ToHSV()
+    return NexoraTheme.IsPurple(h, sat)
+end
+
+---reds become purple, every other color becomes black/white/gray
 function NexoraTheme.Gray(color)
+    local h, sat, val = color:ToHSV()
+    if sat > 0.3 and (h <= 0.07 or h >= 0.93) then
+        return Color3.fromHSV(0.76, math.clamp(sat, 0.55, 0.85), math.clamp(val, 0.4, 1))
+    end
     local lum = color.R * 0.299 + color.G * 0.587 + color.B * 0.114
     local value = math.clamp((lum - 0.5) * 1.35 + 0.5, 0, 1)
     return Color3.new(value, value, value)
@@ -3084,8 +3103,9 @@ function NexoraTheme.Paint(inst, prop)
     elseif kind == "ColorSequence" then
         local points, dirty = {}, false
         for _, key in ipairs(value.Keypoints) do
-            if not NexoraTheme.IsGray(key.Value) then dirty = true end
-            points[#points + 1] = ColorSequenceKeypoint.new(key.Time, NexoraTheme.Gray(key.Value))
+            local settled = NexoraTheme.IsGray(key.Value)
+            if not settled then dirty = true end
+            points[#points + 1] = ColorSequenceKeypoint.new(key.Time, settled and key.Value or NexoraTheme.Gray(key.Value))
         end
         if dirty then pcall(function() inst[prop] = ColorSequence.new(points) end) end
     end
@@ -3113,49 +3133,82 @@ function NexoraTheme.Adopt(root)
         NexoraTheme.Hook(descendant)
     end
     xDTaraZ:Connect(root.DescendantAdded, NexoraTheme.Hook)
+    NexoraTheme.Fit(root)
 end
 
-function NexoraTheme.Logo()
-    local overlay = Util.Overlay()
-    if overlay:FindFirstChild("NexoraLogo") then return end
+function NexoraTheme.ScaleChild(child)
+    if not child:IsA("GuiObject") then return end
+    local scale = child:FindFirstChildOfClass("UIScale")
+    if not scale then
+        scale = Instance.new("UIScale")
+        scale.Parent = child
+    end
+    scale.Scale = scale.Scale * NexoraTheme.Scale
+end
 
-    local badge = Instance.new("ImageButton")
-    badge.Name = "NexoraLogo"
-    badge.Size = UDim2.fromOffset(46, 46)
-    badge.Position = UDim2.new(0, 12, 0, 12)
-    badge.BackgroundColor3 = Color3.new(0, 0, 0)
-    badge.AutoButtonColor = false
-    badge.Image = NexoraTheme.LogoId
-    badge.Parent = overlay
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
-    corner.Parent = badge
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.new(1, 1, 1)
-    stroke.Thickness = 1.5
-    stroke.Parent = badge
-
-    local dragging, start, origin = false, nil, nil
-    badge.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging, start, origin = true, input.Position, badge.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
+function NexoraTheme.SwapLogo(root, last)
+    local main, area = nil, 0
+    for _, child in ipairs(root:GetChildren()) do
+        if child:IsA("GuiObject") then
+            local size = child.AbsoluteSize
+            if size.X * size.Y > area then main, area = child, size.X * size.Y end
         end
+    end
+    if not main or area < 40000 then return false end
+
+    local origin, best, bestScore = main.AbsolutePosition, nil, nil
+    for _, item in ipairs(main:GetDescendants()) do
+        if (item:IsA("ImageLabel") or item:IsA("ImageButton")) and item.Visible and item.Image ~= "" then
+            local rel, size = item.AbsolutePosition - origin, item.AbsoluteSize
+            if rel.X >= -2 and rel.Y >= -2 and rel.X < 120 and rel.Y < 70 and size.X >= 8 and size.X <= 90 then
+                local score = rel.X + rel.Y
+                if not bestScore or score < bestScore then best, bestScore = item, score end
+            end
+        end
+    end
+
+    if not best and last then
+        best = Instance.new("ImageLabel")
+        best.Name = "NexoraLogo"
+        best.BackgroundTransparency = 1
+        best.Size = UDim2.fromOffset(26, 26)
+        best.Position = UDim2.fromOffset(6, 6)
+        best.ZIndex = 50
+        best.Parent = main
+    end
+    if not best then return false end
+
+    local function Apply()
+        if best.Image ~= NexoraTheme.LogoId then best.Image = NexoraTheme.LogoId end
+        best.ImageRectOffset = Vector2.zero
+        best.ImageRectSize = Vector2.zero
+        best.ImageColor3 = Color3.new(1, 1, 1)
+        best.ScaleType = Enum.ScaleType.Fit
+    end
+    Apply()
+    xDTaraZ:Connect(best:GetPropertyChangedSignal("Image"), Apply)
+    return true
+end
+
+function NexoraTheme.Fit(root)
+    for _, child in ipairs(root:GetChildren()) do
+        Util.Try("scale", NexoraTheme.ScaleChild, child)
+    end
+    xDTaraZ:Connect(root.ChildAdded, function(child)
+        Util.Try("scale", NexoraTheme.ScaleChild, child)
     end)
-    xDTaraZ:Connect(UserInputService.InputChanged, function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - start
-            badge.Position = UDim2.new(origin.X.Scale, origin.X.Offset + delta.X, origin.Y.Scale, origin.Y.Offset + delta.Y)
+    task.spawn(function()
+        for attempt = 1, 40 do
+            task.wait(0.5)
+            if not xDTaraZ.State.Alive or not root.Parent then return end
+            local ok, done = pcall(NexoraTheme.SwapLogo, root, attempt == 40)
+            if ok and done then return end
         end
     end)
 end
 
 ---Call right before CreateWindow: any ScreenGui that appears in the next 10s is the menu.
 function NexoraTheme.Start()
-    Util.Try("logo", NexoraTheme.Logo)
     local mounts = {}
     if Util.GetHui then
         local ok, hui = pcall(Util.GetHui)
