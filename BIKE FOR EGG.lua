@@ -1,1985 +1,2486 @@
 --[[
-  BIKE FOR EGG — Mystrix Hub Logic + NexoraHub GUI
-  GUI Framework: NexoraHub (GUI.lua)
-  Logic Engine: Mystrix Hub BFE
-  WindUI ถูกแทนที่ทั้งหมดด้วย NexoraHub
+ NEXORA HUB v2  BLACK-WHITE LIGHTNING EDITION (ไฟล์เดียวรวมทุกส่วน)
+ แก้ค่าตั้งต้นได้ที่ CFG ด้านล่าง โดยเฉพาะ DISCORD_LINK
 ]]
+local CFG={
+ LOGO_ID="91144361769901",
+ LOGO_DARK=Color3.fromRGB(255,255,255), -- 255=สีเดิมของรูป (ยิ่งน้อยยิ่งเข้ม)
+ DISCORD_ICON_ID="17056354182",
+ DISCORD_LINK="https://discord.gg/vHRMNpDsQ4", -- <<< ใส่ลิงก์ดิสคอสของคุณตรงนี้
+ NAME="NEXORA HUB",
+ SETTINGS_FILE="NexoraHub_Settings_v2.json",
+}
 
--- ============================================================
--- SECTION 1: โหลด NexoraHub GUI (วางลิงก์จริงของคุณแทน)
--- ============================================================
-local GUI_URL = "YOUR_NEXORAHUB_GUI_RAW_URL_HERE"
--- ถ้าไฟล์อยู่ local ให้ใช้: loadstring(readfile("NexoraHub.lua"))()
-loadstring(game:HttpGet(GUI_URL))()
+local Players=game:GetService("Players")
+local TS=game:GetService("TweenService")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("RunService")
+local LIN=Enum.EasingStyle.Linear
+local SINE=Enum.EasingStyle.Sine
+local IO=Enum.EasingDirection.InOut
 
--- รอให้ NX พร้อม
-local NX = getgenv().NX
-while not NX do task.wait(0.1) NX = getgenv().NX end
-local COL = NX.COL
-local make = NX.make
-local round = NX.round
-local glow = NX.glow
-local TS = game:GetService("TweenService")
-local TI = TweenInfo.new(0.3, Enum.EasingStyle.Quint)
+local COL={
+ Bg=Color3.fromRGB(6,6,6),
+ Side=Color3.fromRGB(22,22,22),
+ Chip=Color3.fromRGB(34,34,34),
+ Purple=Color3.fromRGB(110,110,110),
+ Pink=Color3.fromRGB(245,245,245),
+ Text=Color3.fromRGB(245,245,245),
+ Sub=Color3.fromRGB(165,165,165),
+ Red=Color3.fromRGB(255,80,110),
+ Green=Color3.fromRGB(90,230,160),
+}
+-- ธีมสี: 1=ขาว(ปกติ) 2=ม่วง 3=ฟ้า 4=แดง
+local PRESETS={
+ {Color3.fromRGB(110,110,110),Color3.fromRGB(245,245,245)},
+ {Color3.fromRGB(140,80,255),Color3.fromRGB(215,125,255)},
+ {Color3.fromRGB(50,130,255),Color3.fromRGB(110,220,255)},
+ {Color3.fromRGB(235,50,70),Color3.fromRGB(255,130,150)},
+}
+local function make(c,p,par)
+ local o=Instance.new(c)
+ for k,v in pairs(p) do o[k]=v end
+ o.Parent=par
+ return o
+end
+local function round(o,r) return make("UICorner",{CornerRadius=UDim.new(0,r)},o) end
 
--- ============================================================
--- SECTION 2: Notify helper (แทน WindUI:Notify)
--- ============================================================
-local notifQueue = {}
-local notifActive = false
+-- โหลดรูปจากไอดี: แข่งโหลดหลายแหล่งพร้อมกัน ใครเสร็จก่อนใช้อันนั้น (เร็วขึ้นมาก)
+local CP=game:GetService("ContentProvider")
+local imgCache={}
+local function resolveImg(id)
+ if imgCache[id] then return imgCache[id] end
+ local c={}
+ imgCache[id]=c
+ for _,u in ipairs({"rbxassetid://"..id,"rbxthumb://type=Asset&id="..id.."&w=420&h=420"}) do
+  task.spawn(function()
+   local p=Instance.new("ImageLabel")
+   p.Image=u
+   pcall(function() CP:PreloadAsync({p}) end)
+   if not c.url and p.IsLoaded then c.url=u end
+   p:Destroy()
+  end)
+ end
+ return c
+end
+local function setImg(o,id)
+ local c=resolveImg(id)
+ o.Image=c.url or ("rbxassetid://"..id)
+ if c.url then return end
+ task.spawn(function()
+  local t=0
+  while not c.url and t<8 do task.wait(.05) t+=.05 end
+  if c.url then o.Image=c.url end
+ end)
+end
+-- เริ่มโหลดรูปทันทีตั้งแต่บรรทัดแรก ก่อนสร้าง GUI
+resolveImg(CFG.LOGO_ID)
+resolveImg(CFG.DISCORD_ICON_ID)
 
-local function Notify(opts)
-    -- opts: { Title, Content, Duration, Icon }
-    table.insert(notifQueue, opts)
-    if notifActive then return end
-    notifActive = true
-    task.spawn(function()
-        while #notifQueue > 0 do
-            local o = table.remove(notifQueue, 1)
-            local sg = NX.gui
-            if not sg or not sg.Parent then break end
-
-            local iconMap = {
-                ["circle-check"] = "✅", ["circle-alert"] = "⚠️",
-                ["circle-x"] = "❌", ["triangle-alert"] = "⚠️",
-                ["clipboard-check"] = "📋", ["clipboard"] = "📋",
-                ["shield-alert"] = "🛡️", ["download"] = "⬇️",
-                ["link"] = "🔗",
-            }
-            local ico = iconMap[o.Icon or ""] or "ℹ️"
-
-            local notifFrame = make("Frame", {
-                AnchorPoint = Vector2.new(1, 0),
-                Position = UDim2.new(1, -10, 0, 10),
-                Size = UDim2.fromOffset(0, 56),
-                AutomaticSize = Enum.AutomaticSize.X,
-                BackgroundColor3 = COL.Side,
-                ClipsDescendants = true,
-                ZIndex = 999,
-            }, sg)
-            round(notifFrame, 14)
-            glow(notifFrame, 1)
-
-            local pad = make("UIPadding", {
-                PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12),
-                PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6),
-            }, notifFrame)
-
-            make("TextLabel", {
-                Size = UDim2.new(1, 0, 0, 18),
-                BackgroundTransparency = 1,
-                Text = ico .. "  " .. (o.Title or ""),
-                Font = Enum.Font.GothamBlack,
-                TextSize = 13,
-                TextColor3 = Color3.new(1, 1, 1),
-                TextXAlignment = Enum.TextXAlignment.Left,
-            }, notifFrame)
-
-            make("TextLabel", {
-                Position = UDim2.fromOffset(0, 20),
-                Size = UDim2.new(1, 0, 0, 30),
-                BackgroundTransparency = 1,
-                Text = o.Content or "",
-                Font = Enum.Font.Gotham,
-                TextSize = 10,
-                TextColor3 = COL.Sub,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextWrapped = true,
-            }, notifFrame)
-
-            local sc = make("UIScale", {Scale = 0}, notifFrame)
-            TS:Create(sc, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Scale = 1}):Play()
-            task.wait((o.Duration or 3) + 0.4)
-            TS:Create(sc, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Scale = 0}):Play()
-            task.delay(0.35, function() pcall(function() notifFrame:Destroy() end) end)
-            task.wait(0.4)
-        end
-        notifActive = false
-    end)
+-- ระบบเปลี่ยนสีธีม
+local accents={}
+local function onAccent(fn) accents[#accents+1]=fn fn(COL.Purple,COL.Pink) end
+local function setAccent(a,b) COL.Purple=a COL.Pink=b for _,fn in ipairs(accents) do fn(a,b) end end
+local function glow(o,t)
+ local s=make("UIStroke",{Thickness=t or 1.5,Color=Color3.new(1,1,1),ApplyStrokeMode=Enum.ApplyStrokeMode.Border},o)
+ local g=make("UIGradient",{},s)
+ onAccent(function(a,b) g.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,a),ColorSequenceKeypoint.new(.5,b),ColorSequenceKeypoint.new(1,a)}) end)
+ TS:Create(g,TweenInfo.new(4,LIN,Enum.EasingDirection.In,-1),{Rotation=360}):Play()
+ return s
 end
 
--- ============================================================
--- SECTION 3: Core logic จาก Mystrix Hub (ไม่มี WindUI)
--- ============================================================
+-- สายฟ้าสีขาว: วาดจากเส้นหักมุม + ชั้นเรืองแสง แล้วค่อยๆ จางหาย
+local WHITE=Color3.new(1,1,1)
+local function bolt(par,x0,y0,x1,y1,o)
+ o=o or {}
+ local segs,jit,th=o.segs or 9,o.jit or 26,o.th or 2
+ local z=o.z or 6
+ local list={}
+ local function line(ax,ay,bx,by,t)
+  local dx,dy=bx-ax,by-ay
+  local len=math.sqrt(dx*dx+dy*dy)
+  local ang=math.deg(math.atan2(dy,dx))
+  for _,l in ipairs({{t*4,.82},{t,0}}) do
+   local f=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromOffset((ax+bx)/2,(ay+by)/2),Size=UDim2.fromOffset(len+l[1]*.5,l[1]),Rotation=ang,BackgroundColor3=WHITE,BackgroundTransparency=l[2],BorderSizePixel=0,ZIndex=z},par)
+   list[#list+1]={f,l[2]}
+  end
+ end
+ local px,py=x0,y0
+ for i=1,segs do
+  local t=i/segs
+  local nx=x0+(x1-x0)*t
+  local ny=y0+(y1-y0)*t
+  if i<segs then nx+=math.random(-jit,jit) ny+=math.random(-jit,jit)*.25 end
+  line(px,py,nx,ny,th)
+  if (o.branch~=false) and i>1 and i<segs and math.random()<.35 then
+   line(nx,ny,nx+math.random(-jit*2,jit*2),ny+math.random(jit,jit*3)*((y1>=y0) and 1 or -1),math.max(th*.6,1))
+  end
+  px,py=nx,ny
+ end
+ task.delay(o.hold or .08,function()
+  local fade=o.fade or .35
+  for _,v in ipairs(list) do
+   if v[1].Parent then TS:Create(v[1],TweenInfo.new(fade),{BackgroundTransparency=1}):Play() end
+  end
+  task.delay(fade+.05,function() for _,v in ipairs(list) do v[1]:Destroy() end end)
+ end)
+end
+
+local parent=(gethui and gethui()) or game:GetService("CoreGui")
+if parent:FindFirstChild("NexoraHubUI") then parent.NexoraHubUI:Destroy() end
+if parent:FindFirstChild("NexoraLoading") then parent.NexoraLoading:Destroy() end
+
+-- อ่านภาษาที่บันทึกไว้ (ไว้ใช้กับหน้าโหลด)
+local savedLang="TH"
+pcall(function()
+ if isfile and isfile(CFG.SETTINGS_FILE) then
+  local d=game:GetService("HttpService"):JSONDecode(readfile(CFG.SETTINGS_FILE))
+  if d.lang=="EN" or d.lang=="TH" then savedLang=d.lang end
+  if type(d.accent)=="number" and PRESETS[d.accent] then COL.Purple=PRESETS[d.accent][1] COL.Pink=PRESETS[d.accent][2] end
+ end
+end)
+
+------------------------------------------------------------------
+-- หน้าโหลด
+------------------------------------------------------------------
+local Loader={ready=false,done=false}
+function Loader.finish(cb) Loader.cb=cb Loader.ready=true end
+do
+ local TH=(savedLang=="TH")
+ local cam=workspace.CurrentCamera
+ local vp=cam and cam.ViewportSize or Vector2.new(800,500)
+ local kk=math.clamp(math.min(vp.X/820,vp.Y/520),.6,1.15)
+ local CY=.42
+ local ld=make("ScreenGui",{Name="NexoraLoading",ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=999999,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parent)
+ pcall(function() ld.ScreenInsets=Enum.ScreenInsets.None end)
+ local root=make("CanvasGroup",{Position=UDim2.fromScale(0,0),Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0},ld)
+ local bgl=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,Active=true},root)
+ make("UIGradient",{Color=ColorSequence.new(COL.Purple:Lerp(Color3.new(),.76),Color3.new(0,0,0)),Rotation=90},bgl)
+
+ -- เนบิวลา
+ local function neb(x,y,s,col,dx,dy,t)
+  local h=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(x,y),Size=UDim2.fromOffset(s,s),BackgroundTransparency=1},root)
+  for i=1,4 do
+   local k=1-(i-1)*.2
+   local f=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromScale(k,k),BackgroundColor3=col,BackgroundTransparency=.93,BorderSizePixel=0},h)
+   make("UICorner",{CornerRadius=UDim.new(.5,0)},f)
+  end
+  TS:Create(h,TweenInfo.new(t,SINE,IO,-1,true),{Position=UDim2.fromScale(x+dx,y+dy)}):Play()
+ end
+ neb(.2,.25,520,COL.Pink:Lerp(Color3.new(),.38),.06,.08,8)
+ neb(.8,.75,560,COL.Purple:Lerp(Color3.new(),.18),-.07,-.06,10)
+ neb(.75,.15,380,COL.Pink:Lerp(Color3.new(),.14),-.05,.08,7)
+
+ -- ดาว
+ for i=1,90 do
+  local sz=math.random(1,3)
+  local s=make("Frame",{Position=UDim2.fromScale(math.random(),math.random()),Size=UDim2.fromOffset(sz,sz),BackgroundColor3=(math.random()<.3) and COL.Pink or Color3.new(1,1,1),BackgroundTransparency=math.random(30,70)/100,BorderSizePixel=0},root)
+  make("UICorner",{CornerRadius=UDim.new(.5,0)},s)
+  TS:Create(s,TweenInfo.new(math.random(8,25)/10,SINE,IO,-1,true),{BackgroundTransparency=.95}):Play()
+ end
+
+ -- ลำแสงหมุนด้านหลัง
+ local rayHold=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,CY),Size=UDim2.fromOffset(10,10),BackgroundTransparency=1},root)
+ for i=1,12 do
+  local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset((i%2==0) and 3 or 2,1800),BackgroundColor3=(i%2==0) and COL.Pink or COL.Purple,BorderSizePixel=0,Rotation=i*15},rayHold)
+  make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(.5,.8),NumberSequenceKeypoint.new(1,1)})},r)
+ end
+ TS:Create(rayHold,TweenInfo.new(20,LIN,Enum.EasingDirection.In,-1),{Rotation=360}):Play()
+
+ -- อนุภาคลอยขึ้น
+ task.spawn(function()
+  while ld.Parent do
+   local sz=math.random(2,4)
+   local x=math.random()
+   local p=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(x,0,1,10),Size=UDim2.fromOffset(sz,sz),BackgroundColor3=(math.random()<.5) and COL.Pink or Color3.new(1,1,1),BackgroundTransparency=.3,BorderSizePixel=0},root)
+   make("UICorner",{CornerRadius=UDim.new(.5,0)},p)
+   local dur=math.random(30,60)/10
+   TS:Create(p,TweenInfo.new(dur,LIN),{Position=UDim2.new(math.clamp(x+(math.random()-.5)*.1,0,1),0,-.05,0),BackgroundTransparency=1}):Play()
+   task.delay(dur+.1,function() p:Destroy() end)
+   task.wait(.1)
+  end
+ end)
+
+ -- สายฟ้าขาวฟาดทั้งหน้าจอ + แฟลช
+ local lflash=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=WHITE,BackgroundTransparency=1,BorderSizePixel=0,ZIndex=2},root)
+ task.spawn(function()
+  task.wait(.4)
+  while ld.Parent do
+   local W,H=vp.X,vp.Y
+   local x=math.random(math.floor(W*.1),math.floor(W*.9))
+   bolt(root,x,-10,x+math.random(-120,120),H*math.random(45,85)/100,{segs=11,jit=34,th=2.5,z=4,hold=.1,fade=.4})
+   lflash.BackgroundTransparency=.9
+   TS:Create(lflash,TweenInfo.new(.35),{BackgroundTransparency=1}):Play()
+   task.wait(math.random(6,15)/10)
+  end
+ end)
+
+ -- มุมกรอบ HUD
+ local function bracket(ax,ay)
+  local f=make("Frame",{AnchorPoint=Vector2.new(ax,ay),Position=UDim2.new(ax,(ax==0) and 20 or -20,ay,(ay==0) and 20 or -20),Size=UDim2.fromOffset(34,34),BackgroundTransparency=1,ZIndex=3},root)
+  make("Frame",{AnchorPoint=Vector2.new(ax,ay),Position=UDim2.fromScale(ax,ay),Size=UDim2.new(1,0,0,2),BackgroundColor3=COL.Pink,BorderSizePixel=0},f)
+  make("Frame",{AnchorPoint=Vector2.new(ax,ay),Position=UDim2.fromScale(ax,ay),Size=UDim2.new(0,2,1,0),BackgroundColor3=COL.Pink,BorderSizePixel=0},f)
+  TS:Create(f,TweenInfo.new(1.2,SINE,IO,-1,true),{BackgroundTransparency=1}):Play()
+ end
+ bracket(0,0) bracket(1,0) bracket(0,1) bracket(1,1)
+
+ -- กลุ่มกลาง
+ local ctr=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,CY),Size=UDim2.fromOffset(340,340),BackgroundTransparency=1,ZIndex=5},root)
+ local csc=make("UIScale",{Scale=kk},ctr)
+ for i=1,4 do
+  local sz=150+i*38
+  local h=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(sz,sz),BackgroundColor3=(i%2==0) and COL.Pink or COL.Purple,BackgroundTransparency=.9},ctr)
+  make("UICorner",{CornerRadius=UDim.new(.5,0)},h)
+  TS:Create(h,TweenInfo.new(1.4+i*.25,SINE,IO,-1,true),{Size=UDim2.fromOffset(sz+30,sz+30),BackgroundTransparency=.96}):Play()
+ end
+ local function ring(sz,th,c1,c2,speed,rev)
+  local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(sz,sz),BackgroundTransparency=1},ctr)
+  make("UICorner",{CornerRadius=UDim.new(.5,0)},r)
+  local s=make("UIStroke",{Thickness=th,Color=Color3.new(1,1,1)},r)
+  local g=make("UIGradient",{Color=ColorSequence.new(c1,c2),Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(.5,.15),NumberSequenceKeypoint.new(.62,1),NumberSequenceKeypoint.new(1,1)})},s)
+  TS:Create(g,TweenInfo.new(speed,LIN,Enum.EasingDirection.In,-1),{Rotation=rev and -360 or 360}):Play()
+ end
+ ring(170,4,COL.Pink,COL.Purple,1.5,false)
+ ring(208,2.5,COL.Pink,COL.Purple,2.4,true)
+ ring(250,1.5,COL.Purple,COL.Pink,4,false)
+
+ -- จุดโคจร
+ local dots={}
+ for i=1,8 do
+  local sz=(i%2==0) and 6 or 4
+  local d=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(sz,sz),BackgroundColor3=(i%2==0) and COL.Pink or Color3.new(1,1,1),BorderSizePixel=0},ctr)
+  make("UICorner",{CornerRadius=UDim.new(.5,0)},d)
+  dots[i]=d
+ end
+ local orb=RS.RenderStepped:Connect(function()
+  local t=os.clock()
+  for i,d in ipairs(dots) do
+   local a=t*(.9+(i%3)*.35)*((i%2==0) and 1 or -1)+i*(math.pi*2/8)
+   local r=130+math.sin(t*1.5+i)*8
+   d.Position=UDim2.new(.5,math.cos(a)*r,.5,math.sin(a)*r)
+  end
+ end)
+
+ -- โลโก้กลาง
+ local lgo=make("ImageLabel",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(128,128),BackgroundColor3=COL.Side},ctr)
+ round(lgo,64)
+ make("UIStroke",{Color=Color3.new(1,1,1),Thickness=2,Transparency=.5},lgo)
+ setImg(lgo,CFG.LOGO_ID)
+ lgo.ImageColor3=CFG.LOGO_DARK
+ local ls=make("UIScale",{Scale=0},lgo)
+ TS:Create(ls,TweenInfo.new(.8,Enum.EasingStyle.Back),{Scale=1}):Play()
+ task.delay(.9,function()
+  if ld.Parent then TS:Create(ls,TweenInfo.new(1.1,SINE,IO,-1,true),{Scale=1.07}):Play() end
+ end)
+
+ -- ระลอกคลื่น
+ task.spawn(function()
+  task.wait(.5)
+  while ld.Parent do
+   local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(128,128),BackgroundTransparency=1},ctr)
+   make("UICorner",{CornerRadius=UDim.new(.5,0)},r)
+   local s=make("UIStroke",{Color=COL.Pink,Thickness=2,Transparency=.2},r)
+   TS:Create(r,TweenInfo.new(1.8,Enum.EasingStyle.Quint),{Size=UDim2.fromOffset(330,330)}):Play()
+   TS:Create(s,TweenInfo.new(1.8),{Transparency=1}):Play()
+   task.delay(1.9,function() r:Destroy() end)
+   task.wait(.9)
+  end
+ end)
+ local function shock()
+  local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(128,128),BackgroundTransparency=1},ctr)
+  make("UICorner",{CornerRadius=UDim.new(.5,0)},r)
+  local s=make("UIStroke",{Color=Color3.new(1,1,1),Thickness=4},r)
+  TS:Create(r,TweenInfo.new(.7,Enum.EasingStyle.Quint),{Size=UDim2.fromOffset(1800,1800)}):Play()
+  TS:Create(s,TweenInfo.new(.7),{Transparency=1}):Play()
+ end
+
+ -- ชื่อ + แถบโหลด
+ local bot=make("Frame",{AnchorPoint=Vector2.new(.5,0),Position=UDim2.new(.5,0,CY,math.floor(168*kk)),Size=UDim2.fromOffset(340,90),BackgroundTransparency=1,ZIndex=5},root)
+ make("UIScale",{Scale=kk},bot)
+ local spaced=(CFG.NAME:gsub("(.)","%1 "))
+ local ttl=make("TextLabel",{Size=UDim2.new(1,0,0,30),BackgroundTransparency=1,Text=spaced,MaxVisibleGraphemes=0,Font=Enum.Font.GothamBlack,TextSize=26,TextColor3=Color3.new(1,1,1)},bot)
+ local tg=make("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,COL.Purple),ColorSequenceKeypoint.new(.5,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,COL.Pink)}),Offset=Vector2.new(-1,0)},ttl)
+ TS:Create(tg,TweenInfo.new(1.6,LIN,Enum.EasingDirection.In,-1),{Offset=Vector2.new(1,0)}):Play()
+ task.spawn(function()
+  for i=0,#spaced do
+   if not ld.Parent then return end
+   ttl.MaxVisibleGraphemes=i
+   task.wait(.07)
+  end
+ end)
+ local barBg=make("Frame",{Position=UDim2.fromOffset(0,42),Size=UDim2.new(1,0,0,8),BackgroundColor3=COL.Chip,BorderSizePixel=0},bot)
+ round(barBg,4)
+ make("UIStroke",{Color=COL.Pink,Thickness=1,Transparency=.6},barBg)
+ local barFill=make("Frame",{Size=UDim2.fromScale(0,1),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ClipsDescendants=true},barBg)
+ round(barFill,4)
+ make("UIGradient",{Color=ColorSequence.new(COL.Purple,COL.Pink)},barFill)
+ local bsh=make("Frame",{Size=UDim2.fromScale(.3,1),Position=UDim2.fromScale(-.4,0),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.55,BorderSizePixel=0},barFill)
+ TS:Create(bsh,TweenInfo.new(1,Enum.EasingStyle.Quad,IO,-1),{Position=UDim2.fromScale(1.2,0)}):Play()
+ local st=make("TextLabel",{Position=UDim2.fromOffset(0,56),Size=UDim2.new(1,-60,0,14),BackgroundTransparency=1,Text="",Font=Enum.Font.Gotham,TextSize=11,TextColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Left},bot)
+ local pc=make("TextLabel",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,56),Size=UDim2.fromOffset(56,14),BackgroundTransparency=1,Text="0%",Font=Enum.Font.GothamBold,TextSize=12,TextColor3=COL.Pink,TextXAlignment=Enum.TextXAlignment.Right},bot)
+
+ local flash=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=20},root)
+
+ local texts=TH and {"กำลังเริ่มระบบ...","กำลังโหลดทรัพยากร...","กำลังสร้างหน้าต่าง...","กำลังเชื่อมต่อ...","ใกล้เสร็จแล้ว..."} or {"Initializing...","Loading assets...","Building interface...","Connecting services...","Almost ready..."}
+ task.spawn(function()
+  local t0=os.clock()
+  local cur=0
+  while ld.Parent do
+   local dt=RS.RenderStepped:Wait()
+   local el=os.clock()-t0
+   local goal=math.min(el/3,1)*92
+   if (Loader.ready and el>=3) or el>25 then goal=100 end
+   cur+=(goal-cur)*math.min(dt*5,1)
+   if goal==100 and cur>99.5 then cur=100 end
+   barFill.Size=UDim2.fromScale(cur/100,1)
+   pc.Text=math.floor(cur).."%"
+   st.Text=texts[math.clamp(math.floor(cur/20)+1,1,5)]
+   if cur>=100 then break end
+  end
+  st.Text=TH and "พร้อมแล้ว ✔" or "Ready ✔"
+  task.wait(.35)
+  Loader.done=true
+  shock()
+  TS:Create(flash,TweenInfo.new(.15),{BackgroundTransparency=.6}):Play()
+  TS:Create(csc,TweenInfo.new(.7,Enum.EasingStyle.Back,Enum.EasingDirection.In),{Scale=kk*1.6}):Play()
+  task.wait(.15)
+  TS:Create(flash,TweenInfo.new(.5),{BackgroundTransparency=1}):Play()
+  TS:Create(root,TweenInfo.new(.6,Enum.EasingStyle.Quad),{GroupTransparency=1}):Play()
+  task.wait(.7)
+  orb:Disconnect()
+  ld:Destroy()
+  if Loader.cb then task.spawn(Loader.cb) end
+ end)
+end
+
+------------------------------------------------------------------
+-- หน้าต่างหลัก
+------------------------------------------------------------------
+local state={scale=.9,alpha=0,key=true,lang=savedLang,fx=true}
+
+local gui=make("ScreenGui",{Name="NexoraHubUI",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parent)
+
+local win=make("CanvasGroup",{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(540,376),Position=UDim2.new(.5,0,.5,0),BackgroundTransparency=1,GroupTransparency=1,Visible=false},gui)
+round(win,26)
+local bgf=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(1,1,1)},win)
+round(bgf,26) glow(bgf,1.5)
+local bgg=make("UIGradient",{Rotation=90},bgf)
+onAccent(function(a) bgg.Color=ColorSequence.new(a:Lerp(Color3.new(),.8),a:Lerp(Color3.new(),.97)) end)
+local sc=make("UIScale",{Scale=.05},win)
+
+local lang=savedLang
+local labels={}
+local langHooks={}
+local function L(o,en,th)
+ labels[#labels+1]={o,en,th}
+ o.Text=(lang=="TH" and th) and th or en
+ return o
+end
+
+-- ===== เอฟเฟกต์อวกาศ =====
+local space=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ClipsDescendants=true},bgf)
+local spaceOn=true
+do
+ local function blob(x,y,s,col,dx,dy,t)
+  local h=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(x,y),Size=UDim2.fromOffset(s,s),BackgroundTransparency=1},space)
+  local cs={}
+  for i=1,4 do
+   local k=1-(i-1)*.2
+   local c=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromScale(k,k),BackgroundTransparency=.93,BorderSizePixel=0},h)
+   make("UICorner",{CornerRadius=UDim.new(.5,0)},c)
+   cs[i]=c
+  end
+  onAccent(function(a,b) local cc=col(a,b) for _,c in ipairs(cs) do c.BackgroundColor3=cc end end)
+  TS:Create(h,TweenInfo.new(t,SINE,IO,-1,true),{Position=UDim2.fromScale(x+dx,y+dy)}):Play()
+ end
+ blob(.15,.25,280,function(a,b) return b:Lerp(Color3.new(),.38) end,.08,.1,9)
+ blob(.85,.8,320,function(a,b) return a:Lerp(Color3.new(),.18) end,-.1,-.08,11)
+ blob(.6,.1,220,function(a,b) return b:Lerp(Color3.new(),.14) end,-.06,.12,8)
+
+ for i=1,52 do
+  local sz=math.random(1,2)+((math.random()<.12) and 1 or 0)
+  local s=make("Frame",{Position=UDim2.fromScale(math.random(),math.random()),Size=UDim2.fromOffset(sz,sz),BackgroundColor3=(math.random()<.3) and COL.Pink or Color3.new(1,1,1),BackgroundTransparency=math.random(30,70)/100,BorderSizePixel=0},space)
+  make("UICorner",{CornerRadius=UDim.new(.5,0)},s)
+  TS:Create(s,TweenInfo.new(math.random(8,25)/10,SINE,IO,-1,true),{BackgroundTransparency=.95}):Play()
+ end
+
+ local planet=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.95,.07),Size=UDim2.fromOffset(60,60),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.3},space)
+ make("UICorner",{CornerRadius=UDim.new(.5,0)},planet)
+ local pg=make("UIGradient",{Rotation=45},planet)
+ onAccent(function(a,b) pg.Color=ColorSequence.new(b:Lerp(Color3.new(1,1,1),.1),a:Lerp(Color3.new(),.82)) end)
+ local ringp=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(104,26),BackgroundTransparency=1,Rotation=-22},planet)
+ make("UICorner",{CornerRadius=UDim.new(.5,0)},ringp)
+ local rps=make("UIStroke",{Color=COL.Pink,Thickness=2,Transparency=.5},ringp)
+ onAccent(function(_,b) rps.Color=b end)
+ TS:Create(planet,TweenInfo.new(7,SINE,IO,-1,true),{Position=UDim2.fromScale(.95,.1)}):Play()
+
+ task.spawn(function()
+  while gui:IsDescendantOf(game) do
+   task.wait(math.random(25,60)/10)
+   if spaceOn and win.Visible then
+    local x,y=math.random(5,60)/100,math.random(0,30)/100
+    local s=make("Frame",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.fromScale(x,y),Size=UDim2.fromOffset(64,2),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,Rotation=35},space)
+    make("UIGradient",{Transparency=NumberSequence.new(1,0)},s)
+    TS:Create(s,TweenInfo.new(.8,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromScale(x+.35,y+.4)}):Play()
+    task.delay(.9,function() s:Destroy() end)
+   end
+  end
+ end)
+end
+task.spawn(function()
+ while gui:IsDescendantOf(game) do
+  task.wait(math.random(15,40)/10)
+  if spaceOn and win.Visible then
+   local x=math.random(40,500)
+   bolt(space,x,-6,x+math.random(-70,70),math.random(120,300),{segs=8,jit=22,th=1.6,z=2,hold=.07,fade=.3})
+  end
+ end
+end)
+local function setSpace(v) spaceOn=v space.Visible=v end
+
+-- ===== แถบบน =====
+local top=make("Frame",{Size=UDim2.new(1,0,0,46),BackgroundTransparency=1},win)
+local lg=make("ImageLabel",{Size=UDim2.fromOffset(30,30),Position=UDim2.fromOffset(14,8),BackgroundColor3=COL.Side},top)
+round(lg,15) glow(lg,1.5)
+setImg(lg,CFG.LOGO_ID)
+lg.ImageColor3=CFG.LOGO_DARK
+local title=make("TextLabel",{Position=UDim2.fromOffset(52,4),Size=UDim2.fromOffset(150,20),BackgroundTransparency=1,Text=CFG.NAME,Font=Enum.Font.GothamBlack,TextSize=16,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Left},top)
+local tg=make("UIGradient",{Offset=Vector2.new(-1,0)},title)
+onAccent(function(a,b) tg.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,a),ColorSequenceKeypoint.new(.5,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,b)}) end)
+TS:Create(tg,TweenInfo.new(2.2,LIN,Enum.EasingDirection.In,-1,false,1.2),{Offset=Vector2.new(1,0)}):Play()
+local sub=make("TextLabel",{Position=UDim2.fromOffset(52,24),Size=UDim2.new(1,-260,0,12),BackgroundTransparency=1,Text=game.Name,Font=Enum.Font.Gotham,TextSize=10,TextColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},top)
+
+-- ตัวสลับภาษา (ใหญ่ ชัด มีไอคอนโลก)
+local langF=make("Frame",{Size=UDim2.fromOffset(112,26),Position=UDim2.new(1,-190,0,10),BackgroundColor3=COL.Side},top)
+round(langF,13)
+local lfs=make("UIStroke",{Color=COL.Pink,Thickness=1,Transparency=.4},langF)
+onAccent(function(a,b) lfs.Color=b end)
+make("TextLabel",{Position=UDim2.fromOffset(6,0),Size=UDim2.fromOffset(18,26),BackgroundTransparency=1,Text="🌐",TextSize=13},langF)
+local function lbtn(x,t)
+ local b=make("TextButton",{Position=UDim2.fromOffset(x,3),Size=UDim2.fromOffset(40,20),BackgroundColor3=COL.Chip,Text=t,Font=Enum.Font.GothamBlack,TextSize=11,TextColor3=COL.Sub,AutoButtonColor=false},langF)
+ round(b,10)
+ return b
+end
+local thB=lbtn(26,"ไทย")
+local enB=lbtn(68,"EN")
+local curAcc=COL.Purple
+local function paintLang()
+ local th=(lang=="TH")
+ TS:Create(thB,TweenInfo.new(.2),{BackgroundColor3=th and curAcc or COL.Chip,TextColor3=th and Color3.new(1,1,1) or COL.Sub}):Play()
+ TS:Create(enB,TweenInfo.new(.2),{BackgroundColor3=(not th) and curAcc or COL.Chip,TextColor3=(not th) and Color3.new(1,1,1) or COL.Sub}):Play()
+end
+onAccent(function(a) curAcc=a paintLang() end)
+local function setLang(l)
+ lang=l state.lang=l
+ for _,v in ipairs(labels) do v[1].Text=(l=="TH" and v[3]) and v[3] or v[2] end
+ paintLang()
+ for _,fn in ipairs(langHooks) do pcall(fn,l) end
+ local n=getgenv().NX
+ if n and n.save then n.save() end
+end
+thB.MouseButton1Click:Connect(function() setLang("TH") end)
+enB.MouseButton1Click:Connect(function() setLang("EN") end)
+
+local function tbtn(x,txt,col)
+ local b=make("TextButton",{Size=UDim2.fromOffset(26,26),Position=UDim2.new(1,x,0,10),BackgroundColor3=col,Text=txt,Font=Enum.Font.GothamBold,TextSize=14,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},top)
+ round(b,13)
+ b.MouseEnter:Connect(function() TS:Create(b,TweenInfo.new(.15),{Size=UDim2.fromOffset(30,30),Position=UDim2.new(1,x-2,0,8)}):Play() end)
+ b.MouseLeave:Connect(function() TS:Create(b,TweenInfo.new(.15),{Size=UDim2.fromOffset(26,26),Position=UDim2.new(1,x,0,10)}):Play() end)
+ return b
+end
+local minB=tbtn(-68,"–",COL.Purple)
+local clsB=tbtn(-36,"X",COL.Red)
+onAccent(function(a) minB.BackgroundColor3=a end)
+
+-- ===== เมนูข้าง + หน้า =====
+local side=make("Frame",{Position=UDim2.fromOffset(10,50),Size=UDim2.new(0,112,1,-60),BackgroundColor3=COL.Side,BackgroundTransparency=.45},win)
+round(side,20)
+local menu=make("Frame",{Size=UDim2.new(1,0,1,-56),BackgroundTransparency=1},side)
+make("UIListLayout",{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},menu)
+make("UIPadding",{PaddingTop=UDim.new(0,10),PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8)},menu)
+local content=make("Frame",{Position=UDim2.fromOffset(130,50),Size=UDim2.new(1,-140,1,-60),BackgroundTransparency=1,ClipsDescendants=true},win)
+
+local pages,btns,ord={}, {},0
+local TI=TweenInfo.new(.3,Enum.EasingStyle.Quint)
+local function selectPage(name)
+ for n,p in pairs(pages) do
+  if n==name then
+   if not p.Visible then
+    p.Visible=true p.Position=UDim2.fromOffset(18,0)
+    TS:Create(p,TI,{Position=UDim2.new()}):Play()
+   end
+  else p.Visible=false end
+ end
+ for n,b in pairs(btns) do TS:Create(b,TI,{BackgroundTransparency=(n==name) and 0 or 1}):Play() end
+end
+local function section(en,th)
+ ord+=1
+ L(make("TextLabel",{LayoutOrder=ord,Size=UDim2.new(1,0,0,14),BackgroundTransparency=1,Font=Enum.Font.GothamBold,TextSize=9,TextColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Left},menu),en,th)
+end
+local function addPage(name,icon,en,th)
+ ord+=1
+ local b=make("TextButton",{LayoutOrder=ord,Size=UDim2.new(1,0,0,32),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=1,Text="",AutoButtonColor=false},menu)
+ round(b,16)
+ local g=make("UIGradient",{},b)
+ onAccent(function(a,c2) g.Color=ColorSequence.new(a,c2) end)
+ make("TextLabel",{Position=UDim2.fromOffset(8,0),Size=UDim2.fromOffset(20,32),BackgroundTransparency=1,Text=icon,TextSize=14},b)
+ L(make("TextLabel",{Position=UDim2.fromOffset(32,0),Size=UDim2.new(1,-36,1,0),BackgroundTransparency=1,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Left},b),en,th)
+ local p=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false},content)
+ pages[name]=p btns[name]=b
+ b.MouseButton1Click:Connect(function() selectPage(name) end)
+ return p
+end
+section("MAIN","หลัก")
+addPage("home","⌂","HOME","HOME")
+section("SYSTEM","ระบบ")
+addPage("settings","☼","SETTINGS","SETTINGS")
+selectPage("home")
+
+-- ===== โลโก้ลอย + เอฟเฟกต์ =====
+local LS=52
+local logo=make("ImageButton",{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(0,0),Position=UDim2.new(0,42,.5,0),BackgroundColor3=COL.Bg,Image="",AutoButtonColor=false},gui)
+round(logo,26)
+glow(logo,1.5)
+setImg(logo,CFG.LOGO_ID)
+logo.ImageColor3=CFG.LOGO_DARK
+TS:Create(make("UIScale",{},logo),TweenInfo.new(1.8,SINE,IO,-1,true),{Scale=1.06}):Play()
+
+local fxOn=true
+local fxObjs={}
+-- วงแหวนนีออนหมุนรอบโลโก้ (เห็นชัด เข้าใจง่าย)
+local function fxRing(extra,th,speed,rev)
+ local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.new(1,extra,1,extra),BackgroundTransparency=1},logo)
+ make("UICorner",{CornerRadius=UDim.new(.5,0)},r)
+ local s=make("UIStroke",{Thickness=th,Color=Color3.new(1,1,1)},r)
+ local g=make("UIGradient",{Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(.45,.1),NumberSequenceKeypoint.new(.6,1),NumberSequenceKeypoint.new(1,1)})},s)
+ onAccent(function(a,b) g.Color=ColorSequence.new(b,a) end)
+ TS:Create(g,TweenInfo.new(speed,LIN,Enum.EasingDirection.In,-1),{Rotation=rev and -360 or 360}):Play()
+ fxObjs[#fxObjs+1]=r
+end
+fxRing(12,3,1.4,false)
+fxRing(26,2,2.2,true)
+local function setLogoFx(v)
+ fxOn=v
+ for _,r in ipairs(fxObjs) do r.Visible=v end
+end
+logo.MouseEnter:Connect(function() TS:Create(logo,TweenInfo.new(.2,Enum.EasingStyle.Back),{Size=UDim2.fromOffset(LS+8,LS+8)}):Play() end)
+logo.MouseLeave:Connect(function() TS:Create(logo,TweenInfo.new(.2,Enum.EasingStyle.Back),{Size=UDim2.fromOffset(LS,LS)}):Play() end)
+
+local function ripple()
+ local r=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromScale(1,1),BackgroundTransparency=1},logo)
+ make("UICorner",{CornerRadius=UDim.new(.5,0)},r)
+ local s=make("UIStroke",{Color=COL.Pink,Thickness=1.5,Transparency=.2},r)
+ TS:Create(r,TweenInfo.new(1.4,Enum.EasingStyle.Quint),{Size=UDim2.fromScale(2.4,2.4)}):Play()
+ TS:Create(s,TweenInfo.new(1.4),{Transparency=1}):Play()
+ task.delay(1.5,function() r:Destroy() end)
+end
+local function burst()
+ for i=1,10 do
+  local a=math.rad(i*36)
+  local d=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(5,5),BackgroundColor3=(i%2==0) and COL.Pink or COL.Purple},logo)
+  make("UICorner",{CornerRadius=UDim.new(.5,0)},d)
+  TS:Create(d,TweenInfo.new(.7,Enum.EasingStyle.Quint),{Position=UDim2.new(.5,math.cos(a)*48,.5,math.sin(a)*48),BackgroundTransparency=1,Size=UDim2.fromOffset(2,2)}):Play()
+  task.delay(.8,function() d:Destroy() end)
+ end
+end
+
+local open,busy=false,false
+local winPos=UDim2.new(.5,0,.5,0)
+local function setOpen(v)
+ if busy or v==open then return end
+ busy=true open=v
+ burst()
+ logo.Rotation=0
+ TS:Create(logo,TweenInfo.new(.6,Enum.EasingStyle.Back),{Rotation=360}):Play()
+ task.delay(.65,function() logo.Rotation=0 busy=false end)
+ if v then
+  -- จำตำแหน่งเดิม และกันหลุดนอกจอ
+  local av=gui.AbsoluteSize
+  local hw,hh=540*state.scale/2,376*state.scale/2
+  local ax=math.clamp(winPos.X.Scale*av.X+winPos.X.Offset,math.min(hw,av.X/2),math.max(av.X-hw,av.X/2))
+  local ay=math.clamp(winPos.Y.Scale*av.Y+winPos.Y.Offset,math.min(hh,av.Y/2),math.max(av.Y-hh,av.Y/2))
+  winPos=UDim2.fromOffset(ax,ay)
+  win.Visible=true
+  win.Position=logo.Position
+  sc.Scale=.05 win.GroupTransparency=1
+  local ti=TweenInfo.new(.55,Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+  TS:Create(win,ti,{Position=winPos,GroupTransparency=state.alpha}):Play()
+  TS:Create(sc,ti,{Scale=state.scale}):Play()
+ else
+  local ti=TweenInfo.new(.38,Enum.EasingStyle.Quint,Enum.EasingDirection.In)
+  TS:Create(win,ti,{Position=logo.Position,GroupTransparency=1}):Play()
+  TS:Create(sc,ti,{Scale=.05}):Play()
+  task.delay(.4,function() if not open then win.Visible=false end end)
+ end
+end
+local function resetPos()
+ winPos=UDim2.new(.5,0,.5,0)
+ logo.Position=UDim2.new(0,42,.5,0)
+ if open then win.Position=winPos end
+end
+
+local function drag(handle,target,onClick,onEnd)
+ local d,ds,sp,moved
+ handle.InputBegan:Connect(function(i)
+  if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+   d=true moved=false ds=i.Position sp=target.Position
+   i.Changed:Connect(function()
+    if i.UserInputState==Enum.UserInputState.End then
+     d=false
+     if onEnd then onEnd() end
+     if onClick and not moved then onClick() end
+    end
+   end)
+  end
+ end)
+ UIS.InputChanged:Connect(function(i)
+  if d and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+   local v=i.Position-ds
+   if v.Magnitude>6 then moved=true end
+   target.Position=UDim2.new(sp.X.Scale,sp.X.Offset+v.X,sp.Y.Scale,sp.Y.Offset+v.Y)
+  end
+ end)
+end
+drag(top,win,nil,function() if open and not busy then winPos=win.Position end end)
+drag(logo,logo,function() setOpen(not open) end)
+minB.MouseButton1Click:Connect(function() setOpen(false) end)
+clsB.MouseButton1Click:Connect(function() gui:Destroy() end)
+UIS.InputBegan:Connect(function(i,gp)
+ if not gp and state.key and i.KeyCode==Enum.KeyCode.RightShift then setOpen(not open) end
+end)
+
+task.spawn(function()
+ while gui:IsDescendantOf(game) do
+  if not open and fxOn then
+   ripple()
+   local a=math.rad(math.random(0,359))
+   local c=LS/2
+   bolt(logo,c+math.cos(a)*c*.9,c+math.sin(a)*c*.9,c+math.cos(a)*(c+34),c+math.sin(a)*(c+34),{segs=4,jit=8,th=1.4,z=3,hold=.06,fade=.25,branch=false})
+  end
+  task.wait(2.4)
+ end
+end)
+
+getgenv().NX={COL=COL,make=make,round=round,glow=glow,L=L,setLang=setLang,getLang=function() return lang end,
+ onLang=function(fn) langHooks[#langHooks+1]=fn end,
+ content=content,sub=sub,side=side,pages=pages,onAccent=onAccent,setAccent=setAccent,setSpace=setSpace,
+ setLogoFx=setLogoFx,resetPos=resetPos,setImg=setImg,CFG=CFG,gui=gui,
+ state=state,win=win,sc=sc,setOpen=setOpen,isOpen=function() return open end}
+
+------------------------------------------------------------------
+-- หน้า HOME
+------------------------------------------------------------------
+do
+local NX=getgenv().NX
+local COL,make,round,glow,L=NX.COL,NX.make,NX.round,NX.glow,NX.L
+local Players=game:GetService("Players")
+local TS=game:GetService("TweenService")
+local RS=game:GetService("RunService")
+local Stats=game:GetService("Stats")
+local MPS=game:GetService("MarketplaceService")
+local lp=Players.LocalPlayer
+local TI=TweenInfo.new(.35,Enum.EasingStyle.Quint)
+local c=NX.pages.home
+local CEN=Enum.TextXAlignment.Center
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
+
+local function txt(p,props)
+ props.BackgroundTransparency=1
+ props.Font=props.Font or Enum.Font.GothamBold
+ props.TextColor3=props.TextColor3 or COL.Text
+ props.TextXAlignment=props.TextXAlignment or Enum.TextXAlignment.Left
+ return make("TextLabel",props,p)
+end
+local function pop(o,d)
+ local s=make("UIScale",{Scale=0},o)
+ task.delay(d,function() TS:Create(s,TweenInfo.new(.45,Enum.EasingStyle.Back),{Scale=1}):Play() end)
+end
+local function tag(p,props)
+ props.AutomaticSize=Enum.AutomaticSize.X
+ props.Size=UDim2.fromOffset(0,16)
+ props.BackgroundColor3=COL.Bg
+ props.BackgroundTransparency=.35
+ props.Font=Enum.Font.GothamBold
+ props.TextSize=9
+ props.TextColor3=COL.Text
+ local t=make("TextLabel",props,p)
+ round(t,8)
+ make("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8)},t)
+ return t
+end
+
+-- แถวหัวข้อ + แท็ก
+local th=make("Frame",{Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},c)
+local tl=L(txt(th,{Position=UDim2.fromOffset(2,0),Size=UDim2.fromOffset(110,20),Font=Enum.Font.GothamBlack,TextSize=17,TextColor3=Color3.new(1,1,1)}),"HOME","หน้าหลัก")
+local tlg=make("UIGradient",{},tl)
+NX.onAccent(function(a,b) tlg.Color=ColorSequence.new(a,b) end)
+local tr=make("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,2),Size=UDim2.new(.7,0,0,16),BackgroundTransparency=1},th)
+make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},tr)
+L(tag(tr,{LayoutOrder=1}),"🎂 "..lp.AccountAge.." days","🎂 "..lp.AccountAge.." วัน")
+tag(tr,{LayoutOrder=2,Text="🆔 "..lp.UserId})
+
+-- โปรไฟล์
+local pg=make("Frame",{Position=UDim2.fromOffset(0,26),Size=UDim2.new(1,-156,0,58),BackgroundTransparency=1},c)
+local ring=make("Frame",{Position=UDim2.fromOffset(0,2),Size=UDim2.fromOffset(54,54),BackgroundTransparency=1},pg)
+round(ring,27) glow(ring,1.5)
+TS:Create(make("UIScale",{},ring),TweenInfo.new(1.6,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{Scale=1.07}):Play()
+local av=make("ImageLabel",{Size=UDim2.fromOffset(46,46),Position=UDim2.fromOffset(4,6),BackgroundColor3=COL.Side},pg)
+round(av,23)
+task.spawn(function()
+ local ok,img=pcall(function() return Players:GetUserThumbnailAsync(lp.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size150x150) end)
+ if ok then av.Image=img end
+end)
+local nm=txt(pg,{Position=UDim2.fromOffset(66,4),Size=UDim2.new(1,-66,0,18),Text=lp.DisplayName,Font=Enum.Font.GothamBlack,TextSize=15,TextColor3=Color3.new(1,1,1),TextTruncate=Enum.TextTruncate.AtEnd})
+local ng=make("UIGradient",{},nm)
+NX.onAccent(function(a,b) ng.Color=ColorSequence.new(b,a) end)
+txt(pg,{Position=UDim2.fromOffset(66,22),Size=UDim2.new(1,-66,0,12),Text="@"..lp.Name,Font=Enum.Font.Gotham,TextSize=10,TextColor3=COL.Sub,TextTruncate=Enum.TextTruncate.AtEnd})
+local hpBack=make("Frame",{Position=UDim2.fromOffset(66,38),Size=UDim2.new(1,-66,0,16),BackgroundColor3=COL.Chip,BackgroundTransparency=.3},pg)
+round(hpBack,8)
+local fill=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=COL.Green,ClipsDescendants=true},hpBack)
+round(fill,8)
+local shine=make("Frame",{Size=UDim2.fromScale(.25,1),Position=UDim2.fromScale(-.3,0),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.7,BorderSizePixel=0},fill)
+round(shine,8)
+TS:Create(shine,TweenInfo.new(1.6,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,false,1),{Position=UDim2.fromScale(1.05,0)}):Play()
+local hpTxt=txt(hpBack,{Size=UDim2.fromScale(1,1),Text="❤ -- / --",TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=CEN,ZIndex=2})
+pop(pg,.05)
+
+local function bindChar(ch)
+ local hum=ch:WaitForChild("Humanoid",5)
+ if not hum then return end
+ local function upd()
+  local r=math.clamp(hum.Health/math.max(hum.MaxHealth,1),0,1)
+  TS:Create(fill,TI,{Size=UDim2.fromScale(r,1),BackgroundColor3=COL.Red:Lerp(COL.Green,r)}):Play()
+  hpTxt.Text="❤ "..math.floor(hum.Health).." / "..math.floor(hum.MaxHealth)
+ end
+ hum.HealthChanged:Connect(upd)
+ hum:GetPropertyChangedSignal("MaxHealth"):Connect(upd)
+ upd()
+end
+if lp.Character then task.spawn(bindChar,lp.Character) end
+lp.CharacterAdded:Connect(bindChar)
+
+-- ข้อมูลตัวละครฝั่งขวา
+local rp=make("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,26),Size=UDim2.fromOffset(148,58),BackgroundTransparency=1},c)
+local function pill(y,icon)
+ local p=make("Frame",{Position=UDim2.fromOffset(0,y),Size=UDim2.new(1,0,0,26),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},rp)
+ round(p,13) glow(p,1)
+ return txt(p,{Size=UDim2.fromScale(1,1),TextSize=10,TextXAlignment=CEN,Text=icon.." --"})
+end
+local spdL=pill(0,"🏃")
+local posL=pill(32,"📍")
+pop(rp,.1)
+
+-- กราฟ FPS / Ping
+local N,W,H=26,144,30
+local function chart(i,en,th2,unit,maxLbl,midLbl)
+ local f=make("Frame",{Position=UDim2.new(i*.5,i*4,0,90),Size=UDim2.new(.5,-4,0,78),BackgroundColor3=COL.Chip,BackgroundTransparency=.35},c)
+ round(f,18) glow(f,1.6)
+ L(txt(f,{Position=UDim2.fromOffset(12,6),Size=UDim2.new(.5,0,0,10),TextSize=9,TextColor3=COL.Sub}),en,th2)
+ local avg=txt(f,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-12,0,6),Size=UDim2.new(.5,0,0,10),TextSize=9,TextColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Right})
+ local v=txt(f,{Position=UDim2.fromOffset(12,15),Size=UDim2.new(.7,0,0,18),TextSize=16,Text="--"})
+ local gf=make("Frame",{Position=UDim2.fromOffset(10,36),Size=UDim2.new(1,-20,0,38),BackgroundColor3=COL.Bg,BackgroundTransparency=.2},f)
+ round(gf,10)
+ local gs=make("UIStroke",{Color=COL.Pink,Thickness=1.4,Transparency=.05},gf)
+ NX.onAccent(function(a,b) gs.Color=b end)
+ local area=make("Frame",{Position=UDim2.fromOffset(26,4),Size=UDim2.fromOffset(W,H),BackgroundTransparency=1},gf)
+ for g=0,2 do
+  make("Frame",{Position=UDim2.new(0,0,g/2,g==2 and -1 or 0),Size=UDim2.new(1,0,0,1),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.78,BorderSizePixel=0},area)
+  txt(gf,{Position=UDim2.fromOffset(3,4+g*H/2-5),Size=UDim2.fromOffset(22,10),Font=Enum.Font.Gotham,TextSize=7,TextColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Right,Text=(g==0) and maxLbl or ((g==1) and midLbl or "0")})
+ end
+ for g=1,3 do
+  make("Frame",{Position=UDim2.new(g/4,0,0,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.9,BorderSizePixel=0},area)
+ end
+ local cols,segs={},{}
+ for k=1,N do
+  cols[k]=make("Frame",{AnchorPoint=Vector2.new(.5,1),Position=UDim2.fromOffset((k-1)/(N-1)*W,H),Size=UDim2.fromOffset(math.ceil(W/N),0),BackgroundColor3=COL.Purple,BorderSizePixel=0},area)
+  make("UIGradient",{Rotation=90,Transparency=NumberSequence.new(.5,1)},cols[k])
+ end
+ for k=1,N-1 do
+  segs[k]=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(0,2),BackgroundColor3=COL.Purple,BorderSizePixel=0},area)
+ end
+ local dot=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Size=UDim2.fromOffset(7,7),Position=UDim2.fromOffset(W,H),BackgroundColor3=Color3.new(1,1,1)},area)
+ round(dot,4)
+ pop(f,.15+i*.1)
+ local vals,norm={},{}
+ for k=1,N do vals[k]=0 norm[k]=0 end
+ local ti=TweenInfo.new(.35,Enum.EasingStyle.Quint)
+ return function(val,n,good)
+  table.remove(vals,1) table.insert(vals,val)
+  table.remove(norm,1) table.insert(norm,n)
+  local s,cnt=0,0
+  for _,x in ipairs(vals) do if x>0 then s+=x cnt+=1 end end
+  avg.Text="avg "..math.floor(s/math.max(cnt,1))
+  v.Text=val..unit
+  local col=COL.Red:Lerp(COL.Green,good)
+  TS:Create(v,ti,{TextColor3=col}):Play()
+  local px,py={},{}
+  for k=1,N do
+   px[k]=(k-1)/(N-1)*W
+   py[k]=H-math.max(norm[k],.05)*H
+   cols[k].BackgroundColor3=col
+   TS:Create(cols[k],ti,{Size=UDim2.fromOffset(math.ceil(W/N),H-py[k])}):Play()
+  end
+  for k=1,N-1 do
+   local dx,dy=px[k+1]-px[k],py[k+1]-py[k]
+   segs[k].BackgroundColor3=col
+   TS:Create(segs[k],ti,{Position=UDim2.fromOffset(px[k]+dx/2,py[k]+dy/2),Size=UDim2.fromOffset(math.sqrt(dx*dx+dy*dy)+1.5,2),Rotation=math.deg(math.atan2(dy,dx))}):Play()
+  end
+  dot.BackgroundColor3=col
+  TS:Create(dot,ti,{Position=UDim2.fromOffset(W,py[N])}):Play()
+ end
+end
+local updFps=chart(0,"⚡ FPS","⚡ FPS","","60","30")
+local updPing=chart(1,"📡 Ping","📡 ปิง"," ms","300","150")
+
+local frames,acc=0,0
+local conn
+conn=RS.RenderStepped:Connect(function(dt)
+ if not c:IsDescendantOf(game) then conn:Disconnect() return end
+ frames+=1 acc+=dt
+ if acc<.6 then return end
+ local fps=math.floor(frames/acc+.5)
+ frames,acc=0,0
+ local r=math.clamp(fps/60,0,1)
+ updFps(fps,r,r)
+ local ok,ms=pcall(function() return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
+ if ok and ms then
+  ms=math.floor(ms)
+  local q=math.clamp(ms/300,0,1)
+  updPing(ms,q,1-q)
+ end
+end)
+
+-- ปกแมพ
+local mp=make("Frame",{Position=UDim2.fromOffset(0,174),Size=UDim2.new(1,0,0,64),BackgroundTransparency=1,ClipsDescendants=true},c)
+round(mp,20) glow(mp,1.6)
+local aur=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0},mp)
+round(aur,20)
+local ag=make("UIGradient",{},aur)
+NX.onAccent(function(a,b) ag.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,a:Lerp(Color3.new(),.35)),ColorSequenceKeypoint.new(.5,a:Lerp(Color3.new(),.87)),ColorSequenceKeypoint.new(1,b:Lerp(Color3.new(),.18))}) end)
+TS:Create(ag,TweenInfo.new(6,Enum.EasingStyle.Linear,Enum.EasingDirection.In,-1),{Rotation=360}):Play()
+local img=make("ImageLabel",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ImageTransparency=1,ScaleType=Enum.ScaleType.Crop},mp)
+round(img,20)
+local ov=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(0,0,0),BorderSizePixel=0},mp)
+round(ov,20)
+make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,.8),NumberSequenceKeypoint.new(.5,.6),NumberSequenceKeypoint.new(1,.1)})},ov)
+local sh=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(-.2,0,.5,0),Size=UDim2.new(0,28,2,0),Rotation=20,BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.88,BorderSizePixel=0},mp)
+TS:Create(sh,TweenInfo.new(2.2,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,false,1.5),{Position=UDim2.new(1.2,0,.5,0)}):Play()
+L(txt(mp,{Position=UDim2.fromOffset(14,8),Size=UDim2.new(1,-190,0,12),Font=Enum.Font.Gotham,TextSize=10,TextColor3=COL.Pink}),"🗺 Current map","🗺 แมพที่เล่นอยู่")
+local mn=txt(mp,{Position=UDim2.fromOffset(14,28),Size=UDim2.new(1,-28,0,28),Text=game.Name,Font=Enum.Font.GothamBlack,TextSize=17,TextTruncate=Enum.TextTruncate.AtEnd})
+local mt=make("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-10,0,7),Size=UDim2.new(0,180,0,16),BackgroundTransparency=1},mp)
+make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},mt)
+local pl=tag(mt,{LayoutOrder=1,Text="👥 -- / --"})
+local tm=tag(mt,{LayoutOrder=2,Text="⏱ 00:00:00"})
+pop(mp,.3)
+
+local srcs={
+ "rbxthumb://type=GameIcon&id="..game.GameId.."&w=256&h=256",
+ "rbxthumb://type=GameIcon&id="..game.GameId.."&w=150&h=150",
+ "rbxthumb://type=Asset&id="..game.PlaceId.."&w=420&h=420",
+}
+task.spawn(function()
+ for _,s in ipairs(srcs) do
+  img.Image=s
+  local t=0
+  while not img.IsLoaded and t<3 do task.wait(.2) t+=.2 end
+  if img.IsLoaded then TS:Create(img,TweenInfo.new(.8),{ImageTransparency=0}):Play() return end
+ end
+ img.Image=""
+end)
+task.spawn(function()
+ local ok,info=pcall(function() return MPS:GetProductInfo(game.PlaceId) end)
+ if ok and info then mn.Text=info.Name NX.sub.Text=info.Name end
+end)
+
+-- ชิปข้อมูลด้านล่าง (กดคัดลอกได้)
+local cr=make("Frame",{Position=UDim2.fromOffset(0,244),Size=UDim2.new(1,0,0,22),BackgroundTransparency=1},c)
+make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder},cr)
+local function chipBtn(i,text,copyVal)
+ local b=make("TextButton",{LayoutOrder=i,Size=UDim2.new(1/3,-3,1,0),BackgroundColor3=COL.Chip,BackgroundTransparency=.4,AutoButtonColor=false,Text=text,Font=Enum.Font.GothamBold,TextSize=9,TextColor3=COL.Text},cr)
+ round(b,11) glow(b,1)
+ if copyVal then
+  b.MouseButton1Click:Connect(function()
+   pcall(function() setclipboard(copyVal) end)
+   local old=b.Text
+   b.Text="✔ copied"
+   task.delay(1,function() b.Text=old end)
+  end)
+ end
+ pop(b,.4+i*.05)
+ return b
+end
+local memB=chipBtn(1,"🧠 -- MB")
+chipBtn(2,"📍 "..game.PlaceId,tostring(game.PlaceId))
+chipBtn(3,"🔗 "..string.sub(game.JobId,1,8),game.JobId)
+
+-- ปุ่มคัดลอกลิงก์ Discord
+local dc=make("TextButton",{Position=UDim2.fromOffset(0,272),Size=UDim2.new(1,0,0,38),BackgroundColor3=Color3.new(1,1,1),AutoButtonColor=false,Text="",ClipsDescendants=true},c)
+round(dc,14)
+local dcg=make("UIGradient",{Rotation=0},dc)
+NX.onAccent(function(a,b) dcg.Color=ColorSequence.new(a:Lerp(Color3.new(),.73),a) end)
+make("UIStroke",{Color=Color3.new(1,1,1),Transparency=.75,Thickness=1},dc)
+local dci=make("ImageLabel",{Position=UDim2.fromOffset(9,5),Size=UDim2.fromOffset(28,28),BackgroundTransparency=1,ScaleType=Enum.ScaleType.Fit},dc)
+NX.setImg(dci,NX.CFG.DISCORD_ICON_ID)
+txt(dc,{Position=UDim2.fromOffset(46,4),Size=UDim2.new(1,-140,0,16),Text="Discord",Font=Enum.Font.GothamBlack,TextSize=14,TextColor3=Color3.new(1,1,1)})
+local dsub=L(txt(dc,{Position=UDim2.fromOffset(46,21),Size=UDim2.new(1,-140,0,12),Font=Enum.Font.Gotham,TextSize=9,TextColor3=Color3.fromRGB(225,225,225),TextTruncate=Enum.TextTruncate.AtEnd}),"Copy invite link","คัดลอกลิงก์เชิญ")
+local dp=make("Frame",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-8,.5,0),Size=UDim2.fromOffset(84,24),BackgroundColor3=Color3.new(0,0,0),BackgroundTransparency=.55},dc)
+round(dp,12)
+local dbl=L(txt(dp,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=CEN}),"Copy","คัดลอก")
+local dsh=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(-.2,0,.5,0),Size=UDim2.new(0,26,2,0),Rotation=20,BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.8,BorderSizePixel=0},dc)
+TS:Create(dsh,TweenInfo.new(1.8,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,false,2),{Position=UDim2.new(1.2,0,.5,0)}):Play()
+dc.MouseButton1Click:Connect(function()
+ local ok=pcall(function() setclipboard(NX.CFG.DISCORD_LINK) end)
+ dbl.Text=ok and T("✔ Copied","✔ คัดลอกแล้ว") or T("✖ Failed","✖ ไม่รองรับ")
+ if not ok then dsub.Text=NX.CFG.DISCORD_LINK end
+ task.delay(1.6,function()
+  dbl.Text=T("Copy","คัดลอก")
+  dsub.Text=T("Copy invite link","คัดลอกลิงก์เชิญ")
+ end)
+end)
+pop(dc,.55)
+
+-- สถานะใต้เมนูข้าง
+local st=make("Frame",{AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,8,1,-8),Size=UDim2.new(1,-16,0,42),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},NX.side)
+round(st,16)
+local dot=make("Frame",{Position=UDim2.fromOffset(10,8),Size=UDim2.fromOffset(7,7),BackgroundColor3=COL.Green},st)
+round(dot,4)
+TS:Create(dot,TweenInfo.new(.9,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=.8}):Play()
+L(txt(st,{Position=UDim2.fromOffset(22,4),Size=UDim2.new(1,-26,0,14),TextSize=10,TextColor3=COL.Green}),"Online","ออนไลน์")
+local clk=txt(st,{Position=UDim2.fromOffset(10,20),Size=UDim2.new(1,-14,0,16),TextSize=14,Text=os.date("%H:%M:%S")})
+
+-- ลูปอัปเดตสด
+task.spawn(function()
+ while c:IsDescendantOf(game) do
+  local t=math.floor(workspace.DistributedGameTime)
+  tm.Text=string.format("⏱ %02d:%02d:%02d",math.floor(t/3600),math.floor(t%3600/60),t%60)
+  pl.Text="👥 "..#Players:GetPlayers().." / "..Players.MaxPlayers
+  clk.Text=os.date("%H:%M:%S")
+  local ok,mem=pcall(function() return math.floor(Stats:GetTotalMemoryUsageMb()) end)
+  if ok then memB.Text="🧠 "..mem.." MB" end
+  task.wait(1)
+ end
+end)
+task.spawn(function()
+ while c:IsDescendantOf(game) do
+  local ch=lp.Character
+  local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+  local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+  if hum then spdL.Text="🏃 "..(math.floor(hum.WalkSpeed*10)/10).." speed" end
+  if hrp then
+   local p=hrp.Position
+   posL.Text=string.format("📍 %d, %d, %d",math.floor(p.X),math.floor(p.Y),math.floor(p.Z))
+  end
+  task.wait(.25)
+ end
+end)
+end
+
+------------------------------------------------------------------
+-- หน้า SETTINGS
+------------------------------------------------------------------
+do
+local NX=getgenv().NX
+local COL,make,round,L=NX.COL,NX.make,NX.round,NX.L
+local TS=game:GetService("TweenService")
+local UIS=game:GetService("UserInputService")
+local HttpService=game:GetService("HttpService")
+local TeleportService=game:GetService("TeleportService")
+local Lighting=game:GetService("Lighting")
+local Players=game:GetService("Players")
+local lp=Players.LocalPlayer
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local S=NX.state
+local DEF={scale=.9,alpha=0,accent=1,space=true,afk=false,fps=0,key=true,fx=true,fov=70,fovOn=false,fullbright=false,boost=false}
+for k,v in pairs(DEF) do if S[k]==nil then S[k]=v end end
+
+-- โหลด/บันทึกการตั้งค่า (ถ้า executor รองรับ)
+local FILE=NX.CFG.SETTINGS_FILE
+pcall(function()
+ if isfile and isfile(FILE) then
+  for k,v in pairs(HttpService:JSONDecode(readfile(FILE))) do S[k]=v end
+ end
+end)
+S.scale=.9 -- เริ่มที่ 90% ทุกครั้ง
+local function save() pcall(function() if writefile then writefile(FILE,HttpService:JSONEncode(S)) end end) end
+NX.save=save
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
+
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},NX.pages.settings)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local ord=0
+local ctrls={}
+
+local function txt(p,props)
+ props.BackgroundTransparency=1
+ props.Font=props.Font or Enum.Font.GothamBold
+ props.TextColor3=props.TextColor3 or COL.Text
+ props.TextXAlignment=props.TextXAlignment or Enum.TextXAlignment.Left
+ return make("TextLabel",props,p)
+end
+local function header(en,th,big)
+ ord+=1
+ local l=txt(sf,{LayoutOrder=ord,Size=UDim2.new(1,0,0,big and 22 or 16),Font=big and Enum.Font.GothamBlack or Enum.Font.GothamBold,TextSize=big and 17 or 10,TextColor3=big and Color3.new(1,1,1) or COL.Pink})
+ if big then
+  local g=make("UIGradient",{},l)
+  NX.onAccent(function(a,b) g.Color=ColorSequence.new(a,b) end)
+ end
+ L(l,en,th)
+end
+local function row(h)
+ ord+=1
+ local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf)
+ round(r,14)
+ local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+ NX.onAccent(function(a,b) s.Color=b end)
+ return r
+end
+local function titles(r,en,th,dEn,dTh,w)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,w or -80,0,16),TextSize=12}),en,th)
+ if dEn then L(txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,w or -80,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),dEn,dTh) end
+end
+
+local function toggle(key,en,th,dEn,dTh,cb)
+ local r=row(42)
+ titles(r,en,th,dEn,dTh)
+ local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
+ round(sw,10)
+ local knob=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw)
+ round(knob,7)
+ local function set(v,fire)
+  S[key]=v
+  TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play()
+  TS:Create(knob,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
+  if fire then cb(v) save() end
+ end
+ sw.MouseButton1Click:Connect(function() set(not S[key],true) end)
+ set(S[key],false)
+ NX.onAccent(function() sw.BackgroundColor3=S[key] and COL.Purple or COL.Bg end)
+ ctrls[key]=set
+end
+
+local function button(en,th,dEn,dTh,bEn,bTh,cb,dyn)
+ local r=row(42)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-110,0,16),TextSize=12}),en,th)
+ local d=txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-110,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub,TextTruncate=Enum.TextTruncate.AtEnd})
+ if dyn then d.Text=T(dEn,dTh) else L(d,dEn,dTh) end
+ local b=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
+ round(b,13)
+ NX.onAccent(function(a) b.BackgroundColor3=a end)
+ local bl=L(txt(b,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),bEn,bTh)
+ b.MouseButton1Click:Connect(function() cb(d,bl,b) end)
+ return d,bl
+end
+
+local function slider(key,en,th,min,max,fmt,onRelease,cb)
+ local r=row(50)
+ titles(r,en,th,nil,nil,-90)
+ local vl=txt(r,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-14,0,6),Size=UDim2.fromOffset(70,16),TextSize=11,TextColor3=COL.Pink,TextXAlignment=Enum.TextXAlignment.Right})
+ local track=make("Frame",{Position=UDim2.new(0,14,0,34),Size=UDim2.new(1,-28,0,6),BackgroundColor3=COL.Bg},r)
+ round(track,3)
+ local fill=make("Frame",{Size=UDim2.fromScale(0,1),BackgroundColor3=COL.Purple},track)
+ round(fill,3)
+ local knob=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(0,.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=Color3.new(1,1,1)},track)
+ round(knob,7)
+ NX.onAccent(function(a) fill.BackgroundColor3=a end)
+ local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,14,0,22),Size=UDim2.new(1,-28,0,26)},r)
+ local function show(v)
+  local t=(v-min)/(max-min)
+  fill.Size=UDim2.fromScale(t,1) knob.Position=UDim2.fromScale(t,.5)
+  vl.Text=fmt(v)
+ end
+ local function set(v,fire)
+  v=math.clamp(v,min,max) S[key]=v show(v)
+  if fire then cb(v) end
+ end
+ local dragging=false
+ local function fromX(x)
+  local t=math.clamp((x-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
+  local v=min+(max-min)*t
+  S[key]=v show(v)
+  if not onRelease then cb(v) end
+ end
+ local function isPtr(i) return i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch end
+ hit.InputBegan:Connect(function(i) if isPtr(i) then dragging=true fromX(i.Position.X) end end)
+ UIS.InputChanged:Connect(function(i)
+  if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromX(i.Position.X) end
+ end)
+ UIS.InputEnded:Connect(function(i)
+  if dragging and isPtr(i) then
+   dragging=false
+   if onRelease then cb(S[key]) end
+   save()
+  end
+ end)
+ show(S[key])
+ ctrls[key]=set
+end
+
+-- ตัวเลือกหลายปุ่ม (ล็อก FPS)
+local function segmented(key,en,th,opts,cb)
+ local r=row(56)
+ titles(r,en,th)
+ local holder=make("Frame",{Position=UDim2.fromOffset(14,26),Size=UDim2.new(1,-28,0,24),BackgroundTransparency=1},r)
+ make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,5)},holder)
+ local bs={}
+ local function mark()
+  for v,b in pairs(bs) do
+   TS:Create(b,TI,{BackgroundColor3=(S[key]==v) and COL.Purple or COL.Bg}):Play()
+  end
+ end
+ for _,o in ipairs(opts) do
+  local b=make("TextButton",{Size=UDim2.new(1/#opts,-4,1,0),BackgroundColor3=COL.Bg,Text=o[2],Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Text,AutoButtonColor=false},holder)
+  round(b,12)
+  bs[o[1]]=b
+  b.MouseButton1Click:Connect(function() S[key]=o[1] mark() cb(o[1]) save() end)
+ end
+ mark()
+ NX.onAccent(function() mark() end)
+ ctrls[key]=function(v,fire) S[key]=v mark() if fire then cb(v) end end
+end
+
+-- เลือกภาษา (ปุ่มใหญ่ ชัดเจน)
+local function langRow()
+ local r=row(60)
+ titles(r,"Language","ภาษา (Language)")
+ local holder=make("Frame",{Position=UDim2.fromOffset(14,26),Size=UDim2.new(1,-28,0,28),BackgroundTransparency=1},r)
+ make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,8)},holder)
+ local bs={}
+ local function mark()
+  for v,b in pairs(bs) do
+   local on=(NX.getLang()==v)
+   TS:Create(b,TI,{BackgroundColor3=on and COL.Purple or COL.Bg,TextColor3=on and Color3.new(1,1,1) or COL.Sub}):Play()
+  end
+ end
+ for _,o in ipairs({{"TH","🌐 ไทย"},{"EN","🌐 English"}}) do
+  local b=make("TextButton",{Size=UDim2.new(.5,-4,1,0),BackgroundColor3=COL.Bg,Text=o[2],Font=Enum.Font.GothamBlack,TextSize=12,TextColor3=COL.Sub,AutoButtonColor=false},holder)
+  round(b,14)
+  bs[o[1]]=b
+  b.MouseButton1Click:Connect(function() NX.setLang(o[1]) end)
+ end
+ NX.onLang(mark)
+ NX.onAccent(function() mark() end)
+end
+
+-- เลือกสีธีม
+local function colorRow()
+ local r=row(56)
+ titles(r,"Theme color","สีธีม")
+ local holder=make("Frame",{Position=UDim2.fromOffset(14,26),Size=UDim2.new(1,-28,0,24),BackgroundTransparency=1},r)
+ make("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,10)},holder)
+ local sts={}
+ local function mark()
+  for i,s in ipairs(sts) do s.Transparency=(S.accent==i) and 0 or 1 end
+ end
+ for i,p in ipairs(PRESETS) do
+  local b=make("TextButton",{Size=UDim2.fromOffset(24,24),BackgroundColor3=p[1],Text="",AutoButtonColor=false},holder)
+  round(b,12)
+  make("UIGradient",{Color=ColorSequence.new(p[1],p[2]),Rotation=45},b)
+  sts[i]=make("UIStroke",{Color=Color3.new(1,1,1),Thickness=2,Transparency=1},b)
+  b.MouseButton1Click:Connect(function() S.accent=i mark() NX.setAccent(p[1],p[2]) save() end)
+ end
+ mark()
+ ctrls.accent=function(i) if not PRESETS[i] then i=1 end S.accent=i mark() NX.setAccent(PRESETS[i][1],PRESETS[i][2]) end
+end
+
+-- ===== ค้นหาเซิร์ฟเวอร์ =====
+local function httpGet(url)
+ local ok,res=pcall(function() return game:HttpGet(url) end)
+ if ok and res and #res>0 then return res end
+ local req=(syn and syn.request) or (http and http.request) or http_request or request
+ if req then
+  local ok2,r=pcall(req,{Url=url,Method="GET"})
+  if ok2 and r and r.Body then return r.Body end
+ end
+end
+local function findLow(status)
+ local best,cursor
+ for page=1,5 do
+  status("🔎 "..T("Searching... page ","กำลังค้นหา... หน้า ")..page)
+  local url="https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"..(cursor and ("&cursor="..cursor) or "")
+  local body=httpGet(url)
+  if not body then return nil,"http" end
+  local ok,data=pcall(function() return HttpService:JSONDecode(body) end)
+  if not ok or not data or not data.data then return nil,"parse" end
+  for _,s in ipairs(data.data) do
+   if s.id~=game.JobId and s.playing and s.playing<s.maxPlayers then
+    if s.playing<=1 then return s end
+    if not best or s.playing<best.playing then best=s end
+   end
+  end
+  cursor=data.nextPageCursor
+  if not cursor then break end
+  task.wait(.5)
+ end
+ return nil,"none",best
+end
+local function findRandom()
+ local body=httpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100")
+ if not body then return nil,"http" end
+ local ok,data=pcall(function() return HttpService:JSONDecode(body) end)
+ if not ok or not data or not data.data then return nil,"parse" end
+ local list={}
+ for _,s in ipairs(data.data) do
+  if s.id~=game.JobId and s.playing and s.playing<s.maxPlayers then list[#list+1]=s end
+ end
+ if #list==0 then return nil,"none" end
+ return list[math.random(#list)]
+end
+
+-- ===== ฟังก์ชันเสริม =====
+local afkConn
+local function setAFK(v)
+ if afkConn then afkConn:Disconnect() afkConn=nil end
+ if v then
+  local VU=game:GetService("VirtualUser")
+  afkConn=lp.Idled:Connect(function() VU:CaptureController() VU:ClickButton2(Vector2.new()) end)
+ end
+end
+
+local lightBackup
+local function setFull(v)
+ pcall(function()
+  if v then
+   if not lightBackup then
+    lightBackup={Brightness=Lighting.Brightness,ClockTime=Lighting.ClockTime,FogEnd=Lighting.FogEnd,GlobalShadows=Lighting.GlobalShadows,Ambient=Lighting.Ambient,OutdoorAmbient=Lighting.OutdoorAmbient}
+   end
+   Lighting.Brightness=2
+   Lighting.ClockTime=14
+   Lighting.FogEnd=1e6
+   Lighting.GlobalShadows=false
+   Lighting.Ambient=Color3.fromRGB(180,180,180)
+   Lighting.OutdoorAmbient=Color3.fromRGB(180,180,180)
+  elseif lightBackup then
+   for k,val in pairs(lightBackup) do Lighting[k]=val end
+   lightBackup=nil
+  end
+ end)
+end
+
+local boostedFx,boostQ={},nil
+local function setBoost(v)
+ if v then
+  pcall(function()
+   if not boostQ then boostQ=settings().Rendering.QualityLevel end
+   settings().Rendering.QualityLevel=Enum.QualityLevel.Level01
+  end)
+  pcall(function()
+   for _,o in ipairs(workspace:GetDescendants()) do
+    if (o:IsA("ParticleEmitter") or o:IsA("Trail") or o:IsA("Smoke") or o:IsA("Fire") or o:IsA("Sparkles") or o:IsA("Beam")) and o.Enabled then
+     o.Enabled=false
+     boostedFx[#boostedFx+1]=o
+    end
+   end
+  end)
+ else
+  pcall(function()
+   if boostQ then settings().Rendering.QualityLevel=boostQ boostQ=nil end
+  end)
+  for _,o in ipairs(boostedFx) do pcall(function() o.Enabled=true end) end
+  boostedFx={}
+ end
+end
+
+local origFov
+local function applyFov(v)
+ local cam=workspace.CurrentCamera
+ if cam then cam.FieldOfView=v end
+end
+local function setFovOn(v)
+ local cam=workspace.CurrentCamera
+ if not cam then return end
+ if v then
+  origFov=origFov or cam.FieldOfView
+  cam.FieldOfView=S.fov
+ elseif origFov then
+  cam.FieldOfView=origFov
+  origFov=nil
+ end
+end
+
+------------------------------------------------------------------
+-- สร้างเมนูตั้งค่า
+------------------------------------------------------------------
+header("SETTINGS","ตั้งค่า",true)
+
+header("LANGUAGE","ภาษา")
+langRow()
+
+header("SERVER","เซิร์ฟเวอร์")
+local pending,searching
+button("Find empty server","หาเซิร์ฟเวอร์คนน้อย","Find a server with 0-1 players and join","ค้นหาเซิร์ฟที่มี 0–1 คน แล้ววาร์ปไป","Search","ค้นหา",function(d,bl)
+ if searching then return end
+ if pending then
+  d.Text="🚀 "..T("Teleporting...","กำลังวาร์ป...")
+  pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId,pending.id,lp) end)
+  return
+ end
+ searching=true
+ task.spawn(function()
+  local s,err,best=findLow(function(t) d.Text=t end)
+  searching=false
+  if s then
+   d.Text="✅ "..T("Found ","พบเซิร์ฟ ")..s.playing..T(" player, joining..."," คน กำลังวาร์ป...")
+   pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId,s.id,lp) end)
+  elseif best then
+   pending=best
+   d.Text="⚠ "..T("None with 0-1. Lowest: ","ไม่พบ 0–1 คน ต่ำสุดคือ ")..best.playing..T(" - press again to join"," คน กดอีกครั้งเพื่อไป")
+   bl.Text=T("Join","ไป")
+  else
+   d.Text="❌ "..((err=="none") and T("No server found","ไม่พบเซิร์ฟเวอร์") or T("Request failed (HttpGet blocked?)","เรียกข้อมูลไม่ได้ (executor อาจไม่รองรับ)"))
+  end
+ end)
+end,true)
+local hopping
+button("Server hop","สุ่มเปลี่ยนเซิร์ฟเวอร์","Join a random different server","สุ่มเข้าเซิร์ฟเวอร์อื่น","Hop","สลับ",function(d)
+ if hopping then return end
+ hopping=true
+ d.Text="🔎 "..T("Searching...","กำลังค้นหา...")
+ task.spawn(function()
+  local s,err=findRandom()
+  hopping=false
+  if s then
+   d.Text="🚀 "..T("Teleporting...","กำลังวาร์ป...")
+   pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId,s.id,lp) end)
+  else
+   d.Text="❌ "..((err=="none") and T("No server found","ไม่พบเซิร์ฟเวอร์") or T("Request failed","เรียกข้อมูลไม่ได้"))
+  end
+ end)
+end,true)
+button("Rejoin","รีจอยเซิร์ฟเวอร์นี้","Rejoin the current server","เข้าเซิร์ฟเวอร์เดิมใหม่","Rejoin","รีจอย",function()
+ if #Players:GetPlayers()<=1 then
+  pcall(function() TeleportService:Teleport(game.PlaceId,lp) end)
+ else
+  pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId,game.JobId,lp) end)
+ end
+end)
+button("Copy Job ID","คัดลอก Job ID","Copy this server's ID","คัดลอกไอดีเซิร์ฟเวอร์นี้","Copy","คัดลอก",function(d,bl)
+ pcall(function() setclipboard(game.JobId) end)
+ local o=bl.Text bl.Text="✔"
+ task.delay(1,function() bl.Text=o end)
+end)
+button("Copy game link","คัดลอกลิงก์เกม","Copy this game's Roblox link","คัดลอกลิงก์เกมนี้","Copy","คัดลอก",function(d,bl)
+ pcall(function() setclipboard("https://www.roblox.com/games/"..game.PlaceId) end)
+ local o=bl.Text bl.Text="✔"
+ task.delay(1,function() bl.Text=o end)
+end)
+
+header("APPEARANCE","หน้าตา GUI")
+slider("scale","GUI size","ขนาด GUI",.7,1.3,function(v) return math.floor(v*100+.5).."%" end,true,function(v)
+ if NX.isOpen() then TS:Create(NX.sc,TweenInfo.new(.25,Enum.EasingStyle.Quint),{Scale=v}):Play() end
+end)
+slider("alpha","Transparency","ความโปร่งใส",0,.6,function(v) return math.floor(v*100+.5).."%" end,false,function(v)
+ if NX.isOpen() then NX.win.GroupTransparency=v end
+end)
+colorRow()
+toggle("space","Space effects","เอฟเฟกต์อวกาศ","Stars, nebula, shooting stars","ดาว เนบิวลา ดาวตก",function(v) NX.setSpace(v) end)
+toggle("fx","Logo effects","เอฟเฟกต์โลโก้","Orbit, shine and ripple on the logo","วงโคจร แสงวิบ และระลอกที่โลโก้",function(v) NX.setLogoFx(v) end)
+button("Reset GUI position","รีเซ็ตตำแหน่ง GUI","Move window and logo back to default","ย้ายหน้าต่างและโลโก้กลับที่เดิม","Reset","รีเซ็ต",function(d,bl)
+ NX.resetPos()
+ local o=bl.Text bl.Text="✔"
+ task.delay(1,function() bl.Text=o end)
+end)
+
+header("GRAPHICS","กราฟิก")
+do
+ local r=row(58)
+ L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-150,0,16),TextSize=12}),"Field of view (FOV)","มุมมอง (FOV)")
+ local vl=txt(r,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-100,0,6),Size=UDim2.fromOffset(50,16),TextSize=11,TextColor3=COL.Pink,TextXAlignment=Enum.TextXAlignment.Right})
+ local st=txt(r,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-58,0,7),Size=UDim2.fromOffset(30,14),Font=Enum.Font.GothamBlack,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right})
+ local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,0,5),BackgroundColor3=COL.Bg},r)
+ round(sw,10)
+ local sk=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw)
+ round(sk,7)
+ local track=make("Frame",{Position=UDim2.new(0,14,0,40),Size=UDim2.new(1,-28,0,6),BackgroundColor3=COL.Bg},r)
+ round(track,3)
+ local fill=make("Frame",{Size=UDim2.fromScale(0,1),BackgroundColor3=COL.Purple},track)
+ round(fill,3)
+ local knob=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(0,.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=Color3.new(1,1,1)},track)
+ round(knob,7)
+ NX.onAccent(function(a) fill.BackgroundColor3=a if S.fovOn then sw.BackgroundColor3=a end end)
+ local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,14,0,28),Size=UDim2.new(1,-28,0,26)},r)
+ local function showV(v)
+  local t=(v-50)/70
+  fill.Size=UDim2.fromScale(t,1) knob.Position=UDim2.fromScale(t,.5)
+  vl.Text=math.floor(v+.5).."°"
+ end
+ local function setV(v,fire)
+  v=math.clamp(v,50,120) S.fov=v showV(v)
+  if fire and S.fovOn then applyFov(v) end
+ end
+ local function setOn(v,fire)
+  S.fovOn=v
+  TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play()
+  TS:Create(sk,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
+  TS:Create(fill,TI,{BackgroundTransparency=v and 0 or .6}):Play()
+  st.Text=v and "ON" or "OFF"
+  st.TextColor3=v and COL.Green or COL.Sub
+  if fire then setFovOn(v) save() end
+ end
+ sw.MouseButton1Click:Connect(function() setOn(not S.fovOn,true) end)
+ local dragging=false
+ local function isPtr(i) return i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch end
+ local function fromX(x)
+  local t=math.clamp((x-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
+  setV(50+70*t,true)
+ end
+ hit.InputBegan:Connect(function(i) if isPtr(i) then dragging=true fromX(i.Position.X) end end)
+ UIS.InputChanged:Connect(function(i)
+  if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromX(i.Position.X) end
+ end)
+ UIS.InputEnded:Connect(function(i)
+  if dragging and isPtr(i) then dragging=false save() end
+ end)
+ setV(S.fov,false) setOn(S.fovOn,false)
+ ctrls.fov=setV ctrls.fovOn=setOn
+end
+toggle("fullbright","Fullbright","แสงสว่างเต็มที่","Remove darkness and fog","ลบความมืดและหมอก",setFull)
+toggle("boost","FPS booster","เพิ่ม FPS","Lower quality + disable particles","ลดกราฟิกและปิดพาร์ติเคิล",setBoost)
+
+header("GENERAL","ทั่วไป")
+toggle("afk","Anti-AFK","กันหลุดเมื่อ AFK","Prevents idle kick (20 min)","กันโดนเตะเมื่อไม่ขยับ",setAFK)
+segmented("fps","FPS cap","ล็อก FPS",{{30,"30"},{60,"60"},{120,"120"},{240,"240"},{0,"∞"}},function(v)
+ pcall(function() if setfpscap then setfpscap(v==0 and 999 or v) end end)
+end)
+toggle("key","Hotkey (RightShift)","คีย์ลัด (RightShift)","Show / hide GUI with RightShift","ซ่อน/แสดง GUI ด้วย RightShift",function(v) S.key=v end)
+button("Reset character","รีเซ็ตตัวละคร","Respawn your character","เกิดใหม่","Reset","รีเซ็ต",function()
+ local ch=lp.Character
+ local h=ch and ch:FindFirstChildOfClass("Humanoid")
+ if h then h.Health=0 end
+end)
+
+header("COMMUNITY","ชุมชน")
+button("Discord","ดิสคอส","Copy the Discord invite link","คัดลอกลิงก์เชิญดิสคอส","Copy","คัดลอก",function(d,bl)
+ local ok=pcall(function() setclipboard(NX.CFG.DISCORD_LINK) end)
+ local o=bl.Text bl.Text=ok and "✔" or "✖"
+ task.delay(1,function() bl.Text=o end)
+end)
+
+header("MANAGE","จัดการ")
+button("Reset settings","รีเซ็ตการตั้งค่า","Restore default GUI settings","คืนค่าตั้งต้นของ GUI","Reset","รีเซ็ต",function()
+ for k,v in pairs(DEF) do S[k]=v end
+ for k,v in pairs(DEF) do
+  if ctrls[k] then ctrls[k](v,true) end
+ end
+ save()
+end)
+button("Unload GUI","ปิดสคริปต์","Remove the GUI and undo changes","ลบ GUI และคืนค่าที่แก้ไว้","Unload","ปิด",function()
+ setFull(false) setBoost(false) setAFK(false) setFovOn(false)
+ NX.gui:Destroy()
+end)
+
+-- ใช้ค่าที่บันทึกไว้ตอนเริ่ม
+ctrls.accent(S.accent)
+NX.setSpace(S.space)
+NX.setLogoFx(S.fx)
+setAFK(S.afk)
+pcall(function() if setfpscap and S.fps~=0 then setfpscap(S.fps) end end)
+if S.fullbright then setFull(true) end
+if S.boost then setBoost(true) end
+if S.fovOn then setFovOn(true) end
+task.spawn(function()
+ while NX.gui.Parent do
+  if S.fovOn and S.fov then applyFov(S.fov) end
+  task.wait(.5)
+ end
+end)
+end
+
+------------------------------------------------------------------
+-- เริ่มทำงาน: รอหน้าโหลดจบ แล้วเด้งโลโก้ + เปิดหน้าต่าง
+------------------------------------------------------------------
+
+
+-- ================================================================
+-- BFE CORE: MystrixHub Logic
+-- ================================================================
 
 if getgenv().MystrixHub then
     if MystrixHub.ConnectionController and MystrixHub.ConnectionController.Connections then
-        for k, v1 in next, MystrixHub.ConnectionController.Connections, nil do
-            pcall(function() v1:Disconnect() end)
-            MystrixHub.ConnectionController.Connections[k] = nil
-        end
+        for k,v in next,MystrixHub.ConnectionController.Connections do pcall(function() v:Disconnect() end) MystrixHub.ConnectionController.Connections[k]=nil end
     end
     if MystrixHub.TasksController and MystrixHub.TasksController.Tasks then
-        for k1, v2 in next, MystrixHub.TasksController.Tasks, nil do
-            pcall(function() task.cancel(v2) end)
-            MystrixHub.TasksController.Tasks[k1] = nil
-        end
+        for k,v in next,MystrixHub.TasksController.Tasks do pcall(function() task.cancel(v) end) MystrixHub.TasksController.Tasks[k]=nil end
     end
-    getgenv().MystrixHub = nil
-    task.wait(0.2)
+    getgenv().MystrixHub=nil task.wait(0.1)
 end
 
-local v3 = setmetatable({}, {
-    __index = function(_, arg2) return cloneref(game:GetService(arg2)) end,
-})
-local Players = v3.Players
-local RunService = v3.RunService
-local HttpService = v3.HttpService
-local MarketplaceService = v3.MarketplaceService
-local CoreGui = v3.CoreGui
-local LocalPlayer = Players.LocalPlayer
-local v4 = syn and syn.request or http_request or request
+local _svc=setmetatable({},{__index=function(_,s) return cloneref(game:GetService(s)) end})
+local _Players=_svc.Players
+local _HTTP=_svc.HttpService
+local _MPS=_svc.MarketplaceService
+local _LP=_Players.LocalPlayer
+local _req=syn and syn.request or http_request or request
 
-makefolder("WindUI")
-makefolder("WindUI/BikeForEggs")
+makefolder("WindUI") makefolder("WindUI/BikeForEggs")
 
-local v5 = getgenv()
-local tbl = {
-    Version = "v1.0", Discord = "46JkThWjPB", Logo = "rbxassetid://85997568026025",
-    FolderName = "BikeForEggs", FolderPath = "WindUI/BikeForEggs",
-    ExecDataFile = "WindUI/NebulAuth_ExecData.json", GameName = "Unknown Game",
-    ServerName = "Mystrix Hub", MemberCount = "Fetching...", OnlineCount = "Fetching...",
+getgenv().MystrixHub={
+    Meta={Version="v1.0",Discord="46JkThWjPB",FolderName="BikeForEggs",FolderPath="WindUI/BikeForEggs",GameName="Unknown Game",ServerName="Mystrix Hub",MemberCount="...",OnlineCount="..."},
+    Auth={BaseURL="https://api.nebulauth.com",ApiToken="mk_at_mqRNTHJ9GG0Xc7A1pWPb_OoCpshPMW-OSymq1encWnk",SigningSecret="mk_sig_0GCXObajBi8W5Sv4PjJkvrieyXBOAiwehA-iD94OMHA",UseKeySystem=false,KeyResult=nil,KeyError=nil},
+    TimeController={CachedOffset=nil,LastSync=0},
+    PlayerController={Player=_LP,PlayerGui=_LP.PlayerGui,HWID=nil},
+    UIController={Tabs={},Drops={}},
+    FarmController={Enabled=false,Running=false,Loop=nil,SpecificEggNames={},SelectedRarities={},SelectedAreas={},AreasNameById={},EggLookup={},FailCounts={},LastTargetUid=nil},
+    SellController={SelectedEggCategories={},SelectedPetCategories={},AutoEggsRunning=false,AutoEggsLoop=nil,AutoPetsRunning=false,AutoPetsLoop=nil,Deps={}},
+    ShopController={AutoTrailRunning=false,AutoTrailLoop=nil,AutoBikeRunning=false,AutoBikeLoop=nil,AutoTreadmillRunning=false,AutoTreadmillLoop=nil,AutoPlotRunning=false,AutoPlotLoop=nil},
+    PlotController={HatchSelectedEggs={"All"},PlaceSelectedEggs={"Best"},AutoHatchRunning=false,AutoHatchLoop=nil,AutoPlaceRunning=false,AutoPlaceLoop=nil,AutoTreadmillRunning=false,AutoTreadmillLoop=nil,AutoClaimRunning=false,AutoClaimLoop=nil},
+    ConnectionController={Connections={}},
+    TasksController={Tasks={}},
+    Functions={},
 }
-local tbl1 = {
-    BaseURL = "https://api.nebulauth.com",
-    ApiToken = "mk_at_mqRNTHJ9GG0Xc7A1pWPb_OoCpshPMW-OSymq1encWnk",
-    SigningSecret = "mk_sig_0GCXObajBi8W5Sv4PjJkvrieyXBOAiwehA-iD94OMHA",
-    UseKeySystem = false,
-}
-tbl1.KeyResult = nil
-tbl1.KeyError = nil
-local tbl2 = {}
-tbl2.CachedOffset = nil
-tbl2.LastSync = 0
-local tbl3 = {Player = LocalPlayer, PlayerGui = LocalPlayer.PlayerGui}
-tbl3.HWID = nil
-local tbl4 = {}
-tbl4.Tabs = {}
-tbl4.Drops = {}
-local tbl5 = {Cache = {}}
-tbl5.SelectedConfig = nil
-tbl5.NameInput = "MystrixHub"
-tbl5.LastConfigFile = "WindUI/BikeForEggs/LastConfig.txt"
-tbl5.AutoLoadFile = "WindUI/BikeForEggs/AutoLoad.txt"
-tbl5.ImportData = ""
-local tbl6 = {
-    StatusText = "Verified", KeyIdText = "N/A", KeyLabelText = "N/A", ExpiryText = "N/A",
-    TimeLeftText = "Unlimited", HwidDisplay = "N/A", ResetText = "No", ExecCountStr = "INF",
-}
-local tbl7 = {Enabled = false, Running = false}
-tbl7.Loop = nil
-tbl7.SpecificEggNames = {}
-tbl7.SelectedRarities = {}
-tbl7.SelectedAreas = {}
-tbl7.AreasNameById = {}
-tbl7.EggLookup = {}
-tbl7.FailCounts = {}
-tbl7.LastTargetUid = nil
-local tbl8 = {SelectedEggCategories = {}, SelectedPetCategories = {}, AutoEggsRunning = false}
-tbl8.AutoEggsLoop = nil
-tbl8.AutoPetsRunning = false
-tbl8.AutoPetsLoop = nil
-tbl8.Deps = {}
-local tbl9 = {AutoTrailRunning = false}
-tbl9.AutoTrailLoop = nil
-tbl9.AutoBikeRunning = false
-tbl9.AutoBikeLoop = nil
-tbl9.AutoTreadmillRunning = false
-tbl9.AutoTreadmillLoop = nil
-tbl9.AutoPlotRunning = false
-tbl9.AutoPlotLoop = nil
-local tbl10 = {HatchSelectedEggs = {"All"}, PlaceSelectedEggs = {"Best"}, AutoHatchRunning = false}
-tbl10.AutoHatchLoop = nil
-tbl10.AutoPlaceRunning = false
-tbl10.AutoPlaceLoop = nil
-tbl10.AutoTreadmillRunning = false
-tbl10.AutoTreadmillLoop = nil
-tbl10.AutoClaimRunning = false
-tbl10.AutoClaimLoop = nil
-tbl10.AutoPlaceBestPetsRunning = false
-tbl10.AutoPlaceBestPetsLoop = nil
+local MH=MystrixHub
+MH.ConnectionController.Insert=function(c) table.insert(MH.ConnectionController.Connections,c) end
+MH.TasksController.Insert=function(c) table.insert(MH.TasksController.Tasks,c) end
 
-v5.MystrixHub = {
-    Meta = tbl, Auth = tbl1, TimeController = tbl2, PlayerController = tbl3,
-    UIController = tbl4, ConfigController = tbl5, KeyDisplay = tbl6,
-    FarmController = tbl7, SellController = tbl8, ShopController = tbl9,
-    PlotController = tbl10, ConnectionController = {Connections = {}},
-    TasksController = {Tasks = {}}, Functions = {},
-}
-
-local v6 = MystrixHub
-v6.ConnectionController.Insert = function(arg1)
-    table.insert(MystrixHub.ConnectionController.Connections, arg1)
-end
-v6.TasksController.Insert = function(arg1)
-    table.insert(MystrixHub.TasksController.Tasks, arg1)
-end
-
--- ===== ฟังก์ชัน Utility (Crypto, Time, Network) =====
-v6.Functions.HexToBytes = function(arg1)
-    return (arg1:gsub("..", function(a) return string.char(tonumber(a, 16)) end))
-end
-v6.Functions.BytesToHex = function(arg1)
-    return (arg1:gsub(".", function(a) return string.format("%02x", string.byte(a)) end))
-end
-v6.Functions.IsHex = function(arg1, arg2)
-    if not arg1 then return false end
-    if arg2 and #arg1 ~= arg2 then return false end
-    return arg1:match("^[0-9a-fA-F]+$") ~= nil
-end
-v6.Functions.NormaliseSHA256 = function(arg1)
-    if not arg1 or arg1 == "" then return nil end
-    if #arg1 == 64 and MystrixHub.Functions.IsHex(arg1, 64) then
-        return MystrixHub.Functions.HexToBytes(arg1)
-    end
-    if #arg1 == 32 then return arg1 end
-    if MystrixHub.Functions.IsHex(arg1) then return MystrixHub.Functions.HexToBytes(arg1) end
-    return arg1
-end
-v6.Functions.SHA256Bytes = function(arg1)
-    local v1, v2 = pcall(function() return crypt and crypt.hash and crypt.hash(arg1, "sha256") end)
-    if v1 and v2 and v2 ~= "" then
-        local v3 = MystrixHub.Functions.NormaliseSHA256(v2)
-        if v3 then return v3 end
-    end
-    local v4, v5 = pcall(function() return HttpService:SHA256(arg1) end)
-    if v4 and v5 and v5 ~= "" then
-        local v6 = MystrixHub.Functions.NormaliseSHA256(v5)
-        if v6 then return v6 end
-    end
-    return nil
-end
-v6.Functions.SHA256 = function(arg1)
-    local v1 = MystrixHub.Functions.SHA256Bytes(arg1)
-    if not v1 then return "" end
-    return MystrixHub.Functions.BytesToHex(v1)
-end
-v6.Functions.HMACSHA256 = function(arg1, arg2)
-    local v1 = #arg1 > 64 and MystrixHub.Functions.SHA256Bytes(arg1) or arg1
-    if not v1 then return "" end
-    while #v1 < 64 do v1 = v1 .. "\0" end
-    local t1, t2 = {}, {}
-    for i = 1, 64 do
-        local v2 = string.byte(v1, i)
-        t1[i] = string.char(bit32.bxor(v2, 54))
-        t2[i] = string.char(bit32.bxor(v2, 92))
-    end
-    local v3 = MystrixHub.Functions.SHA256Bytes(table.concat(t1) .. arg2)
-    if not v3 then return "" end
-    return MystrixHub.Functions.SHA256(table.concat(t2) .. v3)
-end
-v6.Functions.CleanKey = function(arg1)
-    if not arg1 then return "" end
-    return (tostring(arg1):match("^%s*(.-)%s*$"):gsub("[%z\1-\8\11\12\14-\31\127]", ""):gsub("​", ""):gsub(" ", ""):gsub("\239\187\191", ""):gsub("[^%w%-_]", ""))
-end
-v6.Functions.MakeRawRequest = function(arg1, arg2, arg3, arg4)
-    local t = {Url = arg1, Method = arg2 or "GET"}
-    if arg3 then t.Headers = arg3 end
-    if arg4 then t.Body = arg4 end
-    if v4 then
-        local v1, v2 = pcall(v4, t)
-        if v1 and v2 then return v2 end
-    end
-    if syn and syn.request then
-        local v3, v5 = pcall(syn.request, t)
-        if v3 and v5 then return v5 end
-    end
-    if http and http.request then
-        local v6, v7 = pcall(http.request, t)
-        if v6 and v7 then return v7 end
-    end
-    return nil
-end
-v6.Functions.TryParseUnixMs = function(arg1)
-    if not (arg1 and arg1.Body) then return nil end
-    local v1, v2 = pcall(function() return HttpService:JSONDecode(arg1.Body) end)
-    if not v1 or not v2 then return nil end
-    if v2.unixtime then return math.floor(v2.unixtime * 1000) end
-    if v2.now then return math.floor(v2.now * 1000) end
-    if v2.dateTime then
-        local v3, v4 = pcall(function() return DateTime.fromIsoDate(v2.dateTime) end)
-        if v3 and v4 then return v4.UnixTimestampMillis end
-    end
-    if v2.utc_datetime then
-        local v5, v6 = pcall(function() return DateTime.fromIsoDate(v2.utc_datetime) end)
-        if v5 and v6 then return v6.UnixTimestampMillis end
-    end
-    return nil
-end
-v6.Functions.SyncServerTime = function()
-    local TC = MystrixHub.TimeController
-    if TC.CachedOffset ~= nil and os.time() - TC.LastSync < 60 then return true end
-    for _, url in ipairs({"https://worldtimeapi.org/api/timezone/Etc/UTC", "https://timeapi.io/api/Time/current/zone?timeZone=UTC"}) do
-        local v2, v3 = pcall(MystrixHub.Functions.MakeRawRequest, url, "GET", {Accept = "application/json"}, nil)
-        if v2 and v3 then
-            local v4 = MystrixHub.Functions.TryParseUnixMs(v3)
-            if v4 then
-                TC.CachedOffset = v4 - DateTime.now().UnixTimestampMillis
-                TC.LastSync = os.time()
-                return true
-            end
-        end
-    end
-    TC.CachedOffset = 0
-    TC.LastSync = os.time()
-    return false
-end
-v6.Functions.GetAccurateTimestampMs = function(arg1)
-    local TC = MystrixHub.TimeController
-    if TC.CachedOffset == nil then MystrixHub.Functions.SyncServerTime() end
-    return tostring(DateTime.now().UnixTimestampMillis + (TC.CachedOffset or 0) + (arg1 or 0))
-end
-v6.Functions.GetHWID = function()
-    local str
-    for _, fn in ipairs({
-        function() return gethwid and gethwid() end,
-        function() return game:GetService("RbxAnalyticsService"):GetClientId() end,
-        function() return game:GetService("UserIdService"):GetUserId() end,
-    }) do
-        local v2, v3 = pcall(fn)
-        if v2 and v3 and v3 ~= "" then str = tostring(v3) break end
-    end
-    if not str or str == "" then
-        str = MystrixHub.Functions.SHA256("USER_" .. (LocalPlayer and LocalPlayer.UserId or 0) .. "_" .. game.PlaceId):sub(1, 32)
-    end
-    return str
-end
-
--- ===== ฟังก์ชัน Farm =====
-v6.Functions.Farm_GetAssets = function()
-    local Directory = game:GetService("ReplicatedStorage"):FindFirstChild("Directory")
-    local v1 = Directory and Directory:FindFirstChild("Assets")
-    if not v1 or not v1:IsA("ModuleScript") then return nil end
-    local v2, v3 = pcall(require, v1)
-    if v2 and type(v3) == "table" and type(v3.Directory) == "table" then return v3 end
-    return nil
-end
-v6.Functions.Farm_GetEggCmds = function()
-    local Library = game:GetService("ReplicatedStorage"):FindFirstChild("Library")
-    local v1 = Library and Library:FindFirstChild("Client")
-    local v2 = v1 and v1:FindFirstChild("EggCmds")
-    if not v2 or not v2:IsA("ModuleScript") then return nil end
-    local v3, v4 = pcall(require, v2)
-    if v3 and type(v4) == "table" then return v4 end
-    return nil
-end
-v6.Functions.Farm_GetPlotCmds = function()
-    local Library = game:GetService("ReplicatedStorage"):FindFirstChild("Library")
-    local v1 = Library and Library:FindFirstChild("Client")
-    local v2 = v1 and v1:FindFirstChild("PlotCmds")
-    if not v2 or not v2:IsA("ModuleScript") then return nil end
-    local v3, v4 = pcall(require, v2)
-    if v3 and type(v4) == "table" then return v4 end
-    return nil
-end
-v6.Functions.Farm_Teleport = function(arg1)
-    local Character = LocalPlayer.Character
-    local HRP = Character and Character:FindFirstChild("HumanoidRootPart")
-    if not HRP then return end
-    pcall(function()
-        HRP.CFrame = CFrame.new(arg1)
-        HRP.AssemblyLinearVelocity = Vector3.zero
-        HRP.AssemblyAngularVelocity = Vector3.zero
+-- Notify helper
+local function Notify(t)
+    local NX=getgenv().NX
+    if not NX or not NX.gui or not NX.gui.Parent then return end
+    local iconMap={["circle-check"]="✅",["circle-alert"]="⚠️",["circle-x"]="❌",["triangle-alert"]="⚠️"}
+    local ico=iconMap[t.Icon or ""] or "ℹ️"
+    local sg=NX.gui
+    local make2=NX.make
+    local COLn=NX.COL
+    local f=make2("Frame",{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-10,0,10),Size=UDim2.fromOffset(260,52),BackgroundColor3=COLn.Side,ZIndex=999,ClipsDescendants=true},sg)
+    local function rr(o,r) make2("UICorner",{CornerRadius=UDim.new(0,r)},o) end rr(f,14)
+    make2("UIStroke",{Color=COLn.Pink,Thickness=1,Transparency=0.5},f)
+    make2("TextLabel",{Position=UDim2.fromOffset(10,6),Size=UDim2.new(1,-20,0,16),BackgroundTransparency=1,Text=ico.."  "..(t.Title or ""),Font=Enum.Font.GothamBlack,TextSize=12,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Left},f)
+    make2("TextLabel",{Position=UDim2.fromOffset(10,22),Size=UDim2.new(1,-20,0,24),BackgroundTransparency=1,Text=t.Content or "",Font=Enum.Font.Gotham,TextSize=9,TextColor3=COLn.Sub,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true},f)
+    local sc=make2("UIScale",{Scale=0},f)
+    local TS2=game:GetService("TweenService")
+    TS2:Create(sc,TweenInfo.new(0.4,Enum.EasingStyle.Back),{Scale=1}):Play()
+    task.delay((t.Duration or 3)+0.4,function()
+        TS2:Create(sc,TweenInfo.new(0.3,Enum.EasingStyle.Quint),{Scale=0}):Play()
+        task.delay(0.35,function() pcall(function() f:Destroy() end) end)
     end)
 end
-v6.Functions.Farm_IsCarrying = function()
-    local v1 = MystrixHub.Functions.Farm_GetEggCmds()
-    if not v1 then return false end
-    local v2, v3 = pcall(function() return v1.GetAreaEggSnapshot() end)
-    if not v2 or type(v3) ~= "table" then return false end
-    for _, v4 in ipairs(v3.Records) do
-        if v4.CarrierUserId == LocalPlayer.UserId then return true end
-    end
-    return false
+MH.Functions.Notify=Notify
+
+-- Utility
+MH.Functions.HexToBytes=function(h) return (h:gsub("..",function(a) return string.char(tonumber(a,16)) end)) end
+MH.Functions.BytesToHex=function(b) return (b:gsub(".",function(a) return string.format("%02x",string.byte(a)) end)) end
+MH.Functions.SHA256=function(s)
+    local ok,r=pcall(function() return crypt and crypt.hash and crypt.hash(s,"sha256") end)
+    if ok and r and r~="" then return r end
+    local ok2,r2=pcall(function() return _HTTP:SHA256(s) end)
+    if ok2 and r2 and r2~="" then return r2 end
+    return ""
 end
-v6.Functions.Farm_FindEggModel = function(arg1)
-    for _, v1 in ipairs(workspace:GetDescendants()) do
-        if v1:IsA("Model") then
-            local v2 = v1:GetAttribute("EggUid") or v1:GetAttribute("Uid")
-            if tostring(v2) == tostring(arg1) then return v1 end
-        end
+MH.Functions.GetHWID=function()
+    local h
+    for _,fn in ipairs({function() return gethwid and gethwid() end,function() return game:GetService("RbxAnalyticsService"):GetClientId() end}) do
+        local ok,r=pcall(fn) if ok and r and r~="" then h=tostring(r) break end
     end
+    if not h or h=="" then h=MH.Functions.SHA256("USER_"..(_LP and _LP.UserId or 0).."_"..game.PlaceId):sub(1,32) end
+    return h
+end
+MH.Functions.MakeRawRequest=function(url,method,headers,body)
+    local t={Url=url,Method=method or "GET"}
+    if headers then t.Headers=headers end if body then t.Body=body end
+    if _req then local ok,r=pcall(_req,t) if ok and r then return r end end
     return nil
 end
-v6.Functions.Farm_GetRarityName = function(arg1, arg2)
-    if not arg2 or not arg2.Directory or not arg2.Directory[arg1] then return "Unknown", 0 end
-    local Rarity = arg2.Directory[arg1].Rarity
-    if type(Rarity) == "table" then
-        return Rarity.DisplayName or Rarity._id or Rarity.Name or "Unknown", tonumber(Rarity.RarityNumber) or 0
-    end
-    return "Unknown", 0
-end
-v6.Functions.Farm_GetEggsList = function()
-    local v1 = MystrixHub.Functions.Farm_GetAssets()
-    if not v1 then return {} end
-    local tbl = {}
-    for k, v2 in pairs(v1.Directory) do
-        if type(k) == "string" and type(v2) == "table" and v2.Egg ~= nil and type(v2.Rarity) == "table" then
-            local num = tonumber(v2.Rarity.RarityNumber) or 0
-            local str = v2.Rarity.DisplayName or v2.Rarity._id or v2.Rarity.Name or "Unknown"
-            table.insert(tbl, {name = k, rarity = str, rarityNum = num})
-        end
-    end
-    table.sort(tbl, function(a, b)
-        if a.rarityNum ~= b.rarityNum then return a.rarityNum > b.rarityNum end
-        return a.name < b.name
-    end)
-    local result = {}
-    for _, v3 in ipairs(tbl) do
-        table.insert(result, "[" .. v3.rarity .. "] " .. v3.name)
-    end
-    return result
-end
-v6.Functions.Farm_GetRaritiesList = function()
-    local v1 = MystrixHub.Functions.Farm_GetAssets()
-    if not v1 then return {} end
-    local seen, result = {}, {}
-    for _, v2 in pairs(v1.Directory) do
-        if type(v2) == "table" and type(v2.Rarity) == "table" then
-            local name = v2.Rarity.DisplayName or v2.Rarity._id or v2.Rarity.Name
-            if name and not seen[name] then
-                seen[name] = true
-                table.insert(result, name)
+MH.Functions.SyncServerTime=function()
+    local TC=MH.TimeController
+    if TC.CachedOffset~=nil and os.time()-TC.LastSync<60 then return true end
+    for _,url in ipairs({"https://worldtimeapi.org/api/timezone/Etc/UTC","https://timeapi.io/api/Time/current/zone?timeZone=UTC"}) do
+        local ok,res=pcall(MH.Functions.MakeRawRequest,url,"GET",{Accept="application/json"},nil)
+        if ok and res and res.Body then
+            local ok2,data=pcall(function() return _HTTP:JSONDecode(res.Body) end)
+            if ok2 and data then
+                local ms=(data.unixtime and math.floor(data.unixtime*1000)) or (data.now and math.floor(data.now*1000))
+                if ms then TC.CachedOffset=ms-DateTime.now().UnixTimestampMillis TC.LastSync=os.time() return true end
             end
         end
     end
-    table.sort(result)
-    return result
+    TC.CachedOffset=0 TC.LastSync=os.time() return false
 end
-v6.Functions.Farm_GetAreasList = function()
-    local v1 = MystrixHub.Functions.Farm_GetEggCmds()
-    if not v1 then return {} end
-    local v2, v3 = pcall(function() return v1.GetAreaEggSnapshot() end)
-    if not v2 or type(v3) ~= "table" then return {} end
-    local seen, result = {}, {}
-    for _, v4 in ipairs(v3.Records) do
-        local AreaId = v4.AreaId
-        if AreaId and not seen[AreaId] then
-            seen[AreaId] = true
-            local name = MystrixHub.FarmController.AreasNameById[AreaId] or AreaId
-            table.insert(result, name)
-            MystrixHub.FarmController.AreasNameById[AreaId] = name
+MH.Functions.FetchDiscordInfo=function()
+    local ok,res=pcall(MH.Functions.MakeRawRequest,"https://discord.com/api/v9/invites/"..MH.Meta.Discord.."?with_counts=true","GET",{Accept="application/json"},nil)
+    if ok and res and res.Body then
+        local ok2,data=pcall(function() return _HTTP:JSONDecode(res.Body) end)
+        if ok2 and data then
+            if data.guild and data.guild.name then MH.Meta.ServerName=data.guild.name end
+            MH.Meta.MemberCount=data.approximate_member_count and tostring(data.approximate_member_count) or "N/A"
+            MH.Meta.OnlineCount=data.approximate_presence_count and tostring(data.approximate_presence_count) or "N/A"
+            return true
         end
     end
-    table.sort(result)
-    return result
+    MH.Meta.MemberCount="N/A" MH.Meta.OnlineCount="N/A" return false
 end
-v6.Functions.Farm_FindBestTarget = function()
-    local FarmController = MystrixHub.FarmController
-    local v1 = MystrixHub.Functions.Farm_GetEggCmds()
-    if not v1 then return nil end
-    local v2, v3 = pcall(function() return v1.GetAreaEggSnapshot() end)
-    if not v2 or type(v3) ~= "table" then return nil end
-    local Assets = MystrixHub.Functions.Farm_GetAssets()
-    local tbl = {}
-    for _, v5 in ipairs(v3.Records) do
-        if v5.CarrierUserId == nil then
-            if v5.State == "Slot" or v5.State == "Dropped" then
-                local _, v6 = MystrixHub.Functions.Farm_GetRarityName(v5.AssetCategory, Assets)
-                table.insert(tbl, {Record = v5, RarityNum = v6, Uid = v5.Uid})
+
+-- Farm
+MH.Functions.Farm_GetAssets=function()
+    local D=game:GetService("ReplicatedStorage"):FindFirstChild("Directory")
+    local A=D and D:FindFirstChild("Assets")
+    if not A or not A:IsA("ModuleScript") then return nil end
+    local ok,m=pcall(require,A)
+    if ok and type(m)=="table" and type(m.Directory)=="table" then return m end
+    return nil
+end
+MH.Functions.Farm_GetEggCmds=function()
+    local L=game:GetService("ReplicatedStorage"):FindFirstChild("Library")
+    local C=L and L:FindFirstChild("Client")
+    local E=C and C:FindFirstChild("EggCmds")
+    if not E or not E:IsA("ModuleScript") then return nil end
+    local ok,m=pcall(require,E)
+    if ok and type(m)=="table" then return m end return nil
+end
+MH.Functions.Farm_GetPlotCmds=function()
+    local L=game:GetService("ReplicatedStorage"):FindFirstChild("Library")
+    local C=L and L:FindFirstChild("Client")
+    local P=C and C:FindFirstChild("PlotCmds")
+    if not P or not P:IsA("ModuleScript") then return nil end
+    local ok,m=pcall(require,P)
+    if ok and type(m)=="table" then return m end return nil
+end
+MH.Functions.Farm_Teleport=function(pos)
+    local ch=_LP.Character
+    local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    pcall(function() hrp.CFrame=CFrame.new(pos) hrp.AssemblyLinearVelocity=Vector3.zero hrp.AssemblyAngularVelocity=Vector3.zero end)
+end
+MH.Functions.Farm_IsCarrying=function()
+    local ec=MH.Functions.Farm_GetEggCmds()
+    if not ec then return false end
+    local ok,snap=pcall(function() return ec.GetAreaEggSnapshot() end)
+    if not ok or type(snap)~="table" then return false end
+    for _,r in ipairs(snap.Records) do if r.CarrierUserId==_LP.UserId then return true end end
+    return false
+end
+MH.Functions.Farm_GetRarityNum=function(cat,assets)
+    if not assets or not assets.Directory[cat] then return 0 end
+    local R=assets.Directory[cat].Rarity
+    if type(R)=="table" then return tonumber(R.RarityNumber) or 0 end
+    return 0
+end
+MH.Functions.Farm_GetRarityName=function(cat,assets)
+    if not assets or not assets.Directory[cat] then return "Unknown" end
+    local R=assets.Directory[cat].Rarity
+    if type(R)=="table" then return R.DisplayName or R._id or R.Name or "Unknown" end
+    return "Unknown"
+end
+MH.Functions.Farm_GetEggsList=function()
+    local assets=MH.Functions.Farm_GetAssets()
+    if not assets then return {} end
+    local t={}
+    for k,v in pairs(assets.Directory) do
+        if type(k)=="string" and type(v)=="table" and v.Egg~=nil and type(v.Rarity)=="table" then
+            table.insert(t,{name=k,rarity=v.Rarity.DisplayName or v.Rarity._id or "Unknown",rarityNum=tonumber(v.Rarity.RarityNumber) or 0})
+        end
+    end
+    table.sort(t,function(a,b) return a.rarityNum~=b.rarityNum and a.rarityNum>b.rarityNum or a.name<b.name end)
+    local r={} for _,v in ipairs(t) do table.insert(r,"["..v.rarity.."] "..v.name) end return r
+end
+MH.Functions.Farm_GetRaritiesList=function()
+    local assets=MH.Functions.Farm_GetAssets()
+    if not assets then return {} end
+    local seen,r={},{}
+    for _,v in pairs(assets.Directory) do
+        if type(v)=="table" and type(v.Rarity)=="table" then
+            local n=v.Rarity.DisplayName or v.Rarity._id or v.Rarity.Name
+            if n and not seen[n] then seen[n]=true table.insert(r,n) end
+        end
+    end
+    table.sort(r) return r
+end
+MH.Functions.Farm_GetAreasList=function()
+    local ec=MH.Functions.Farm_GetEggCmds()
+    if not ec then return {} end
+    local ok,snap=pcall(function() return ec.GetAreaEggSnapshot() end)
+    if not ok or type(snap)~="table" then return {} end
+    local seen,r={},{}
+    for _,rec in ipairs(snap.Records) do
+        local id=rec.AreaId
+        if id and not seen[id] then
+            seen[id]=true
+            local name=MH.FarmController.AreasNameById[id] or id
+            MH.FarmController.AreasNameById[id]=name
+            table.insert(r,name)
+        end
+    end
+    table.sort(r) return r
+end
+MH.Functions.Farm_FindBestTarget=function()
+    local FC=MH.FarmController
+    local ec=MH.Functions.Farm_GetEggCmds()
+    if not ec then return nil end
+    local ok,snap=pcall(function() return ec.GetAreaEggSnapshot() end)
+    if not ok or type(snap)~="table" then return nil end
+    local assets=MH.Functions.Farm_GetAssets()
+    local all={}
+    for _,rec in ipairs(snap.Records) do
+        if rec.CarrierUserId==nil and (rec.State=="Slot" or rec.State=="Dropped") then
+            if (FC.FailCounts[rec.Uid] or 0)<2 then
+                table.insert(all,{Record=rec,RarityNum=MH.Functions.Farm_GetRarityNum(rec.AssetCategory,assets),Uid=rec.Uid})
             end
         end
     end
-    if #tbl == 0 then return nil end
-    local filtered = {}
-    for _, v8 in ipairs(tbl) do
-        if (FarmController.FailCounts[v8.Uid] or 0) < 2 then
-            table.insert(filtered, v8)
-        end
-    end
-    if #filtered == 0 then
-        FarmController.FailCounts = {}
-        filtered = tbl
-    end
+    if #all==0 then FC.FailCounts={} return nil end
     local function best(arr)
-        if #arr == 0 then return nil end
-        local v1 = arr[1]
-        for i = 2, #arr do
-            local v2 = arr[i]
-            if v2.RarityNum > v1.RarityNum then
-                v1 = v2
-            elseif v2.RarityNum == v1.RarityNum and tostring(v2.Uid) < tostring(v1.Uid) then
-                v1 = v2
-            end
-        end
-        return v1
+        if #arr==0 then return nil end
+        local b=arr[1]
+        for i=2,#arr do local v=arr[i] if v.RarityNum>b.RarityNum then b=v end end
+        return b
     end
-    if #FarmController.SpecificEggNames > 0 then
-        local names = {}
-        for _, n in ipairs(FarmController.SpecificEggNames) do names[n] = true end
-        local sub = {}
-        for _, v10 in ipairs(filtered) do
-            if names[v10.Record.AssetCategory] then table.insert(sub, v10) end
-        end
-        if #sub > 0 then return best(sub) end
+    if #FC.SpecificEggNames>0 then
+        local names={} for _,n in ipairs(FC.SpecificEggNames) do names[n]=true end
+        local sub={} for _,v in ipairs(all) do if names[v.Record.AssetCategory] then table.insert(sub,v) end end
+        if #sub>0 then return best(sub) end
     end
-    if #FarmController.SelectedRarities > 0 then
-        local rar = {}
-        for _, r in ipairs(FarmController.SelectedRarities) do rar[r] = true end
-        local sub = {}
-        for _, v12 in ipairs(filtered) do
-            if rar[MystrixHub.Functions.Farm_GetRarityName(v12.Record.AssetCategory, Assets)] then
-                table.insert(sub, v12)
-            end
-        end
-        if #sub > 0 then return best(sub) end
+    if #FC.SelectedRarities>0 then
+        local rars={} for _,r in ipairs(FC.SelectedRarities) do rars[r]=true end
+        local sub={} for _,v in ipairs(all) do if rars[MH.Functions.Farm_GetRarityName(v.Record.AssetCategory,assets)] then table.insert(sub,v) end end
+        if #sub>0 then return best(sub) end
     end
-    if #FarmController.SelectedAreas > 0 then
-        local areas = {}
-        for _, a in ipairs(FarmController.SelectedAreas) do areas[a] = true end
-        local sub = {}
-        for _, v14 in ipairs(filtered) do
-            local AreaId = v14.Record.AreaId
-            local aname = FarmController.AreasNameById[AreaId] or AreaId
-            if aname and areas[aname] then table.insert(sub, v14) end
-        end
-        if #sub > 0 then return best(sub) end
-    end
-    return nil
+    return best(all)
 end
-v6.Functions.Farm_StealEgg = function(arg1)
-    if not arg1 or not arg1.Uid then return false end
-    local FC = MystrixHub.FarmController
-    FC.FailCounts = FC.FailCounts or {}
-    local v1 = MystrixHub.Functions.Farm_GetEggCmds()
-    if not v1 then return false end
-    local v2, v3 = pcall(function() return v1.GetAreaEggSnapshot() end)
-    if not v2 or type(v3) ~= "table" then return false end
-    local pos, canSteal = nil, false
-    for _, v4 in ipairs(v3.Records) do
-        if v4.Uid == arg1.Uid then
-            if v4.CarrierUserId == nil and (v4.State == "Slot" or v4.State == "Dropped") then
-                canSteal = true
-                if v4.BottomCFrame then
-                    local ok, p = pcall(function() return v4.BottomCFrame.Position end)
-                    if ok and p then pos = p end
-                end
+MH.Functions.Farm_StealEgg=function(rec)
+    if not rec or not rec.Uid then return false end
+    local FC=MH.FarmController
+    local ec=MH.Functions.Farm_GetEggCmds()
+    if not ec then return false end
+    local ok,snap=pcall(function() return ec.GetAreaEggSnapshot() end)
+    if not ok or type(snap)~="table" then return false end
+    local pos,canSteal=nil,false
+    for _,r in ipairs(snap.Records) do
+        if r.Uid==rec.Uid then
+            if r.CarrierUserId==nil and (r.State=="Slot" or r.State=="Dropped") then
+                canSteal=true
+                if r.BottomCFrame then local ok2,p=pcall(function() return r.BottomCFrame.Position end) if ok2 and p then pos=p end end
             end
             break
         end
     end
-    if not canSteal then FC.FailCounts[arg1.Uid] = 999 return false end
-    if not pos then
-        local model = MystrixHub.Functions.Farm_FindEggModel(arg1.Uid)
-        if model then
-            local ok, p = pcall(function() return model:GetPivot().Position end)
-            if ok and p then pos = p end
-        end
+    if not canSteal then FC.FailCounts[rec.Uid]=999 return false end
+    if not pos then return false end
+    MH.Functions.Farm_Teleport(pos+Vector3.new(0,2,0))
+    pcall(function() ec.RequestCarryAreaEgg(rec.Uid) end)
+    local t=tick()+1.5
+    while tick()<t do
+        if MH.Functions.Farm_IsCarrying() then FC.FailCounts[rec.Uid]=nil return true end
+        task.wait(0.05)
+    end
+    FC.FailCounts[rec.Uid]=(FC.FailCounts[rec.Uid] or 0)+1
+    return false
+end
+MH.Functions.Farm_ReturnToBase=function()
+    local pc2=MH.Functions.Farm_GetPlotCmds()
+    if not pc2 then return false end
+    local ok,pd=pcall(function() return pc2.GetPlotData() end)
+    if not ok or type(pd)~="table" then return false end
+    local pos
+    if pd.PetArea and pd.PetArea.Position then pos=pd.PetArea.Position
+    elseif pd.CenterPoint then
+        if pd.CenterPoint.CFrame then pos=pd.CenterPoint.CFrame.Position
+        elseif pd.CenterPoint.Position then pos=pd.CenterPoint.Position end
     end
     if not pos then return false end
-    FC.LastTargetUid = arg1.Uid
-    MystrixHub.Functions.Farm_Teleport(pos + Vector3.new(0, 2, 0))
-    pcall(function() v1.RequestCarryAreaEgg(arg1.Uid) end)
-    local model2 = MystrixHub.Functions.Farm_FindEggModel(arg1.Uid)
-    if model2 and fireproximityprompt then
-        local pp = model2:FindFirstChild("CarryAreaEgg", true)
-        if pp and pp:IsA("ProximityPrompt") then pcall(fireproximityprompt, pp) end
-    end
-    local deadline = tick() + 1
-    while tick() < deadline do
-        if MystrixHub.Functions.Farm_IsCarrying() then
-            FC.FailCounts[arg1.Uid] = nil
-            return true
-        end
-        task.wait(0.03)
-    end
-    MystrixHub.Functions.Farm_Teleport(pos + Vector3.new(0, 2, 0))
-    pcall(function() v1.RequestCarryAreaEgg(arg1.Uid) end)
-    if model2 and fireproximityprompt then
-        local pp2 = model2:FindFirstChild("CarryAreaEgg", true)
-        if pp2 and pp2:IsA("ProximityPrompt") then pcall(fireproximityprompt, pp2) end
-    end
-    local deadline2 = tick() + 0.5
-    while tick() < deadline2 do
-        if MystrixHub.Functions.Farm_IsCarrying() then
-            FC.FailCounts[arg1.Uid] = nil
-            return true
-        end
-        task.wait(0.03)
-    end
-    if not MystrixHub.Functions.Farm_IsCarrying() then
-        FC.FailCounts[arg1.Uid] = (FC.FailCounts[arg1.Uid] or 0) + 1
-    end
-    return MystrixHub.Functions.Farm_IsCarrying()
-end
-v6.Functions.Farm_ReturnToBase = function()
-    local v1 = MystrixHub.Functions.Farm_GetPlotCmds()
-    if not v1 then return false end
-    local v2, v3 = pcall(function() return v1.GetPlotData() end)
-    if not v2 or type(v3) ~= "table" then return false end
-    local Position
-    if v3.PetArea and v3.PetArea.Position then
-        Position = v3.PetArea.Position
-    elseif v3.CenterPoint and v3.CenterPoint.CFrame then
-        Position = v3.CenterPoint.CFrame.Position
-    elseif v3.CenterPoint and v3.CenterPoint.Position then
-        Position = v3.CenterPoint.Position
-    end
-    if not Position then return false end
-    MystrixHub.Functions.Farm_Teleport(Position + Vector3.new(0, 5, 0))
-    task.wait(0.03)
-    if MystrixHub.Functions.Farm_IsCarrying() then
-        MystrixHub.Functions.Farm_Teleport(Position + Vector3.new(0, 5, 0))
-    end
+    MH.Functions.Farm_Teleport(pos+Vector3.new(0,5,0))
+    task.wait(0.05)
     return true
 end
-v6.Functions.Farm_WaitClaim = function()
-    local deadline = tick() + 2.5
-    while tick() < deadline do
-        if not MystrixHub.Functions.Farm_IsCarrying() then return true end
-        task.wait(0.03)
+MH.Functions.Farm_WaitClaim=function()
+    local t=tick()+3
+    while tick()<t do
+        if not MH.Functions.Farm_IsCarrying() then return true end
+        task.wait(0.05)
     end
-    return not MystrixHub.Functions.Farm_IsCarrying()
+    return not MH.Functions.Farm_IsCarrying()
 end
-v6.Functions.Farm_RunOnce = function()
-    if not MystrixHub.FarmController.Enabled then return false, "disabled" end
-    if MystrixHub.Functions.Farm_IsCarrying() then
-        MystrixHub.Functions.Farm_ReturnToBase()
-        MystrixHub.Functions.Farm_WaitClaim()
-        return true, "claimed"
+MH.Functions.Farm_RunOnce=function()
+    local FC=MH.FarmController
+    if not FC.Enabled then return false end
+    if MH.Functions.Farm_IsCarrying() then
+        MH.Functions.Farm_ReturnToBase()
+        MH.Functions.Farm_WaitClaim()
+        return true
     end
-    local target = MystrixHub.Functions.Farm_FindBestTarget()
-    if not target then return false, "no target" end
-    if MystrixHub.Functions.Farm_StealEgg(target.Record) then
-        MystrixHub.Functions.Farm_ReturnToBase()
-        MystrixHub.Functions.Farm_WaitClaim()
-        return true, "stolen"
+    local target=MH.Functions.Farm_FindBestTarget()
+    if not target then return false end
+    if MH.Functions.Farm_StealEgg(target.Record) then
+        MH.Functions.Farm_ReturnToBase()
+        MH.Functions.Farm_WaitClaim()
+        return true
     end
-    return false, "steal failed"
+    return false
 end
-v6.Functions.StartAutoFarm = function()
-    local FC = MystrixHub.FarmController
+MH.Functions.StartAutoFarm=function()
+    local FC=MH.FarmController
     if FC.Running then return end
-    FC.FailCounts = {}
-    FC.Enabled = true
-    FC.Running = true
-    FC.Loop = task.spawn(function()
-        while FC.Enabled do
-            local v1, v2 = pcall(MystrixHub.Functions.Farm_RunOnce)
-            if not v1 then task.wait(0.2)
-            elseif v2 == false then task.wait(0.1) end
-            task.wait(0.03)
-        end
-        FC.Running = false
+    FC.FailCounts={} FC.Enabled=true FC.Running=true
+    FC.Loop=task.spawn(function()
+        while FC.Enabled do pcall(MH.Functions.Farm_RunOnce) task.wait(0.1) end
+        FC.Running=false
     end)
-    MystrixHub.TasksController.Insert(FC.Loop)
+    MH.TasksController.Insert(FC.Loop)
 end
-v6.Functions.StopAutoFarm = function()
-    local FC = MystrixHub.FarmController
-    FC.Enabled = false
-    FC.Running = false
-    FC.FailCounts = {}
-    FC.LastTargetUid = nil
-    if FC.Loop then task.cancel(FC.Loop) FC.Loop = nil end
+MH.Functions.StopAutoFarm=function()
+    local FC=MH.FarmController
+    FC.Enabled=false FC.Running=false FC.FailCounts={} FC.LastTargetUid=nil
+    if FC.Loop then task.cancel(FC.Loop) FC.Loop=nil end
 end
 
--- ===== ฟังก์ชัน Sell =====
-v6.Functions.Sell_LoadDeps = function()
-    local Deps = MystrixHub.SellController.Deps
-    if Deps.Save and Deps.Network and Deps.EggItemUtil and Deps.AssetItemSerialization and Deps.GetPriceValueForItem then
-        return Deps
-    end
-    local Library = game:GetService("ReplicatedStorage"):FindFirstChild("Library")
-    local v1 = Library and Library:FindFirstChild("Client")
-    local v2 = Library and Library:FindFirstChild("Util")
-    if not Deps.Save and v1 then
-        local Save = v1:FindFirstChild("Save")
-        if Save and Save:IsA("ModuleScript") then
-            local ok, m = pcall(require, Save)
-            if ok and type(m) == "table" and type(m.Get) == "function" then Deps.Save = m end
-        end
-    end
-    if not Deps.Network and v1 then
-        local Network = v1:FindFirstChild("Network")
-        if Network and Network:IsA("ModuleScript") then
-            local ok, m = pcall(require, Network)
-            if ok and type(m) == "table" then Deps.Network = m end
-        end
-    end
-    if not Deps.EggItemUtil and v2 then
-        local EggItemUtil = v2:FindFirstChild("EggItemUtil")
-        if EggItemUtil and EggItemUtil:IsA("ModuleScript") then
-            local ok, m = pcall(require, EggItemUtil)
-            if ok and type(m) == "table" then Deps.EggItemUtil = m end
-        end
-    end
-    if not Deps.AssetItemSerialization and v2 then
-        local AIS = v2:FindFirstChild("AssetItemSerialization")
-        if AIS and AIS:IsA("ModuleScript") then
-            local ok, m = pcall(require, AIS)
-            if ok and type(m) == "table" then Deps.AssetItemSerialization = m end
-        end
-    end
-    if not Deps.GetPriceValueForItem and v2 then
-        local GPVFI = v2:FindFirstChild("GetPriceValueForItem")
-        if GPVFI and GPVFI:IsA("ModuleScript") then
-            local ok, m = pcall(require, GPVFI)
-            if ok and type(m) == "function" then Deps.GetPriceValueForItem = m end
-        end
-    end
+-- Sell
+MH.Functions.Sell_LoadDeps=function()
+    local Deps=MH.SellController.Deps
+    local RS2=game:GetService("ReplicatedStorage")
+    local lib=RS2:FindFirstChild("Library")
+    local cli=lib and lib:FindFirstChild("Client")
+    local util=lib and lib:FindFirstChild("Util")
+    if not Deps.Save and cli then local m=cli:FindFirstChild("Save") if m then local ok,r=pcall(require,m) if ok and type(r)=="table" then Deps.Save=r end end end
+    if not Deps.Network and cli then local m=cli:FindFirstChild("Network") if m then local ok,r=pcall(require,m) if ok and type(r)=="table" then Deps.Network=r end end end
+    if not Deps.EggItemUtil and util then local m=util:FindFirstChild("EggItemUtil") if m then local ok,r=pcall(require,m) if ok and type(r)=="table" then Deps.EggItemUtil=r end end end
+    if not Deps.AssetItemSerialization and util then local m=util:FindFirstChild("AssetItemSerialization") if m then local ok,r=pcall(require,m) if ok and type(r)=="table" then Deps.AssetItemSerialization=r end end end
+    if not Deps.GetPriceValueForItem and util then local m=util:FindFirstChild("GetPriceValueForItem") if m then local ok,r=pcall(require,m) if ok and type(r)=="function" then Deps.GetPriceValueForItem=r end end end
     return Deps
 end
-v6.Functions.Sell_GetSellableEggs = function()
-    local v1 = MystrixHub.Functions.Sell_LoadDeps()
-    if not v1.Save or not v1.EggItemUtil then return {} end
-    local ok, saveData = pcall(function() return v1.Save.Get() end)
-    if not ok or type(saveData) ~= "table" then return {} end
-    local inventory = saveData.EggInventory or {}
-    local Assets = MystrixHub.Functions.Farm_GetAssets()
-    local result = {}
-    for k, v6 in pairs(inventory) do
-        if type(v6) == "table" and v6.Placement == nil then
-            local ok2, egg = pcall(function() return v1.EggItemUtil.DeserializeSavedEgg(v6) end)
-            if ok2 and type(egg) == "table" then
-                local cat = egg.AssetCategory
-                local ok3, price = pcall(function() return v1.EggItemUtil.GetSellPrice(egg) end)
-                local rarity, rarityNum = "Unknown", 0
-                if Assets and Assets.Directory[cat] then
-                    local R = Assets.Directory[cat].Rarity
-                    if type(R) == "table" then
-                        rarity = R.DisplayName or R._id or R.Name or "Unknown"
-                        rarityNum = tonumber(R.RarityNumber) or 0
-                    end
-                end
-                table.insert(result, {uid = k, category = cat, price = ok3 and math.floor(price) or 0, rarity = rarity, rarityNum = rarityNum})
-            end
+MH.Functions.Sell_GetAllEggCategories=function()
+    local a=MH.Functions.Farm_GetAssets()
+    if not a then return {} end
+    local t={}
+    for k,v in pairs(a.Directory) do
+        if type(k)=="string" and type(v)=="table" and v.Egg~=nil and type(v.Rarity)=="table" then
+            table.insert(t,{name=k,rarity=v.Rarity.DisplayName or v.Rarity._id or "Unknown",rarityNum=tonumber(v.Rarity.RarityNumber) or 0})
         end
     end
-    return result
+    table.sort(t,function(a2,b) return a2.rarityNum~=b.rarityNum and a2.rarityNum>b.rarityNum or a2.name<b.name end)
+    local r={} for _,v in ipairs(t) do table.insert(r,"["..v.rarity.."] "..v.name) end return r
 end
-v6.Functions.Sell_GetSellablePets = function()
-    local v1 = MystrixHub.Functions.Sell_LoadDeps()
-    if not v1.Save or not v1.AssetItemSerialization or not v1.GetPriceValueForItem then return {} end
-    local ok, saveData = pcall(function() return v1.Save.Get() end)
-    if not ok or type(saveData) ~= "table" then return {} end
-    local inventory = saveData.Inventory or {}
-    local equipped = saveData.EquippedAssets or {}
-    local favorites = saveData.FavoriteAssets or {}
-    local Assets = MystrixHub.Functions.Farm_GetAssets()
-    local mult = LocalPlayer:GetAttribute("VIP") and 2 or 1
-    local result = {}
-    for k, v9 in pairs(inventory) do
-        if type(v9) == "table" then
-            if not table.find(equipped, k) and not favorites[k] then
-                local ok2, item = pcall(function() return v1.AssetItemSerialization.Deserialize(v9) end)
-                if ok2 and type(item) == "table" then
-                    if not item.IsFavorite and not item.InFuse then
-                        local cat = item.Category
-                        local ok3, price = pcall(function() return v1.GetPriceValueForItem(v9) * 1.33 * mult end)
-                        local rarity, rarityNum = "Unknown", 0
-                        if Assets and Assets.Directory[cat] then
-                            local R = Assets.Directory[cat].Rarity
-                            if type(R) == "table" then
-                                rarity = R.DisplayName or R._id or R.Name or "Unknown"
-                                rarityNum = tonumber(R.RarityNumber) or 0
-                            end
-                        end
-                        table.insert(result, {uid = k, category = cat, price = ok3 and math.floor(price) or 0, rarity = rarity, rarityNum = rarityNum})
-                    end
-                end
-            end
+MH.Functions.Sell_GetAllPetCategories=function()
+    local a=MH.Functions.Farm_GetAssets()
+    if not a then return {} end
+    local t={}
+    for k,v in pairs(a.Directory) do
+        if type(k)=="string" and type(v)=="table" and v.Egg==nil and type(v.Rarity)=="table" and (v.DisplayName~=nil or v.Icon~=nil) then
+            table.insert(t,{name=k,rarity=v.Rarity.DisplayName or v.Rarity._id or "Unknown",rarityNum=tonumber(v.Rarity.RarityNumber) or 0})
         end
     end
-    return result
+    table.sort(t,function(a2,b) return a2.rarityNum~=b.rarityNum and a2.rarityNum>b.rarityNum or a2.name<b.name end)
+    local r={} for _,v in ipairs(t) do table.insert(r,"["..v.rarity.."] "..v.name) end return r
 end
-v6.Functions.Sell_GetAllEggCategories = function()
-    local v1 = MystrixHub.Functions.Farm_GetAssets()
-    if not v1 then return {} end
-    local tbl = {}
-    for k, v2 in pairs(v1.Directory) do
-        if type(k) == "string" and type(v2) == "table" and v2.Egg ~= nil and type(v2.Rarity) == "table" then
-            local num = tonumber(v2.Rarity.RarityNumber)
-            table.insert(tbl, {name = k, rarity = v2.Rarity.DisplayName or v2.Rarity._id or v2.Rarity.Name or "Unknown", rarityNum = num or 0})
-        end
-    end
-    table.sort(tbl, function(a, b)
-        if a.rarityNum ~= b.rarityNum then return a.rarityNum > b.rarityNum end
-        return a.name < b.name
-    end)
-    local result = {}
-    for _, v3 in ipairs(tbl) do table.insert(result, "[" .. v3.rarity .. "] " .. v3.name) end
-    return result
-end
-v6.Functions.Sell_GetAllPetCategories = function()
-    local v1 = MystrixHub.Functions.Farm_GetAssets()
-    if not v1 then return {} end
-    local tbl = {}
-    for k, v2 in pairs(v1.Directory) do
-        if type(k) == "string" and type(v2) == "table" and v2.Egg == nil and type(v2.Rarity) == "table" then
-            if v2.DisplayName ~= nil or v2.Icon ~= nil then
-                local num = tonumber(v2.Rarity.RarityNumber)
-                table.insert(tbl, {name = k, rarity = v2.Rarity.DisplayName or v2.Rarity._id or v2.Rarity.Name or "Unknown", rarityNum = num or 0})
-            end
-        end
-    end
-    table.sort(tbl, function(a, b)
-        if a.rarityNum ~= b.rarityNum then return a.rarityNum > b.rarityNum end
-        return a.name < b.name
-    end)
-    local result = {}
-    for _, v3 in ipairs(tbl) do table.insert(result, "[" .. v3.rarity .. "] " .. v3.name) end
-    return result
-end
-v6.Functions.Sell_SellEgg = function(arg1)
-    local Deps = MystrixHub.Functions.Sell_LoadDeps()
-    if not Deps.Network or not Deps.EggItemUtil then return false end
-    local ok, saveData = pcall(function() return Deps.Save.Get() end)
-    if not ok or type(saveData) ~= "table" then return false end
-    local eggData = saveData.EggInventory and saveData.EggInventory[arg1]
-    if not eggData then return false end
-    local ok2, egg = pcall(function() return Deps.EggItemUtil.DeserializeSavedEgg(eggData) end)
-    if not ok2 then return false end
-    local SellEgg = Deps.Network.NET_MAP and Deps.Network.NET_MAP.Eggs and Deps.Network.NET_MAP.Eggs.SELL_EGG
-    if not SellEgg then return false end
-    local ok3 = pcall(function() Deps.Network.Invoke(SellEgg, arg1) end)
-    return ok3
-end
-v6.Functions.Sell_SellPet = function(arg1)
-    local Deps = MystrixHub.Functions.Sell_LoadDeps()
-    if not Deps.Network then return false end
-    local SellPet = Deps.Network.NET_MAP and Deps.Network.NET_MAP.Assets and Deps.Network.NET_MAP.Assets.SELL_ASSET
-    if not SellPet then return false end
-    local ok = pcall(function() Deps.Network.Invoke(SellPet, arg1) end)
-    return ok
-end
-v6.Functions.Sell_AllEggs = function()
-    local SC = MystrixHub.SellController
-    local eggs = MystrixHub.Functions.Sell_GetSellableEggs()
-    local catMap = {}
-    for _, c in ipairs(SC.SelectedEggCategories) do catMap[c] = true end
-    local count = 0
-    for _, egg in ipairs(eggs) do
-        if catMap[egg.category] then
-            if MystrixHub.Functions.Sell_SellEgg(egg.uid) then
-                count += 1
-                task.wait(0.1)
+MH.Functions.Sell_AllEggs=function()
+    local SC=MH.SellController
+    local Deps=MH.Functions.Sell_LoadDeps()
+    if not Deps.Save or not Deps.Network then return 0 end
+    local ok,saveData=pcall(function() return Deps.Save.Get() end)
+    if not ok or type(saveData)~="table" then return 0 end
+    local inv=saveData.EggInventory or {}
+    local catMap={} for _,c in ipairs(SC.SelectedEggCategories) do catMap[c]=true end
+    local SellEgg=Deps.Network.NET_MAP and Deps.Network.NET_MAP.Eggs and Deps.Network.NET_MAP.Eggs.SELL_EGG
+    if not SellEgg then return 0 end
+    local count=0
+    for k,v in pairs(inv) do
+        if type(v)=="table" and v.Placement==nil then
+            if catMap[v.AssetCategory or ""] then
+                local ok2=pcall(function() Deps.Network.Invoke(SellEgg,k) end)
+                if ok2 then count+=1 task.wait(0.1) end
             end
         end
     end
     return count
 end
-v6.Functions.Sell_AllPets = function()
-    local SC = MystrixHub.SellController
-    local pets = MystrixHub.Functions.Sell_GetSellablePets()
-    local catMap = {}
-    for _, c in ipairs(SC.SelectedPetCategories) do catMap[c] = true end
-    local count = 0
-    for _, pet in ipairs(pets) do
-        if catMap[pet.category] then
-            if MystrixHub.Functions.Sell_SellPet(pet.uid) then
-                count += 1
-                task.wait(0.1)
+MH.Functions.Sell_AllPets=function()
+    local SC=MH.SellController
+    local Deps=MH.Functions.Sell_LoadDeps()
+    if not Deps.Save or not Deps.Network or not Deps.AssetItemSerialization then return 0 end
+    local ok,saveData=pcall(function() return Deps.Save.Get() end)
+    if not ok or type(saveData)~="table" then return 0 end
+    local inv=saveData.Inventory or {}
+    local equipped=saveData.EquippedAssets or {}
+    local favs=saveData.FavoriteAssets or {}
+    local catMap={} for _,c in ipairs(SC.SelectedPetCategories) do catMap[c]=true end
+    local SellPet=Deps.Network.NET_MAP and Deps.Network.NET_MAP.Assets and Deps.Network.NET_MAP.Assets.SELL_ASSET
+    if not SellPet then return 0 end
+    local count=0
+    for k,v in pairs(inv) do
+        if type(v)=="table" and not table.find(equipped,k) and not favs[k] then
+            local ok2,item=pcall(function() return Deps.AssetItemSerialization.Deserialize(v) end)
+            if ok2 and type(item)=="table" and not item.IsFavorite and not item.InFuse then
+                if catMap[item.Category or ""] then
+                    local ok3=pcall(function() Deps.Network.Invoke(SellPet,k) end)
+                    if ok3 then count+=1 task.wait(0.1) end
+                end
             end
         end
     end
     return count
 end
-v6.Functions.Sell_StartAutoEggs = function()
-    local SC = MystrixHub.SellController
+MH.Functions.Sell_StartAutoEggs=function()
+    local SC=MH.SellController
     if SC.AutoEggsRunning then return end
-    SC.AutoEggsRunning = true
-    SC.AutoEggsLoop = task.spawn(function()
-        while SC.AutoEggsRunning do
-            pcall(MystrixHub.Functions.Sell_AllEggs)
-            task.wait(5)
-        end
-    end)
-    MystrixHub.TasksController.Insert(SC.AutoEggsLoop)
+    SC.AutoEggsRunning=true
+    SC.AutoEggsLoop=task.spawn(function() while SC.AutoEggsRunning do pcall(MH.Functions.Sell_AllEggs) task.wait(5) end end)
+    MH.TasksController.Insert(SC.AutoEggsLoop)
 end
-v6.Functions.Sell_StopAutoEggs = function()
-    local SC = MystrixHub.SellController
-    SC.AutoEggsRunning = false
-    if SC.AutoEggsLoop then task.cancel(SC.AutoEggsLoop) SC.AutoEggsLoop = nil end
+MH.Functions.Sell_StopAutoEggs=function()
+    local SC=MH.SellController SC.AutoEggsRunning=false
+    if SC.AutoEggsLoop then task.cancel(SC.AutoEggsLoop) SC.AutoEggsLoop=nil end
 end
-v6.Functions.Sell_StartAutoPets = function()
-    local SC = MystrixHub.SellController
+MH.Functions.Sell_StartAutoPets=function()
+    local SC=MH.SellController
     if SC.AutoPetsRunning then return end
-    SC.AutoPetsRunning = true
-    SC.AutoPetsLoop = task.spawn(function()
-        while SC.AutoPetsRunning do
-            pcall(MystrixHub.Functions.Sell_AllPets)
-            task.wait(5)
-        end
-    end)
-    MystrixHub.TasksController.Insert(SC.AutoPetsLoop)
+    SC.AutoPetsRunning=true
+    SC.AutoPetsLoop=task.spawn(function() while SC.AutoPetsRunning do pcall(MH.Functions.Sell_AllPets) task.wait(5) end end)
+    MH.TasksController.Insert(SC.AutoPetsLoop)
 end
-v6.Functions.Sell_StopAutoPets = function()
-    local SC = MystrixHub.SellController
-    SC.AutoPetsRunning = false
-    if SC.AutoPetsLoop then task.cancel(SC.AutoPetsLoop) SC.AutoPetsLoop = nil end
+MH.Functions.Sell_StopAutoPets=function()
+    local SC=MH.SellController SC.AutoPetsRunning=false
+    if SC.AutoPetsLoop then task.cancel(SC.AutoPetsLoop) SC.AutoPetsLoop=nil end
 end
 
--- ===== ฟังก์ชัน Shop =====
-v6.Functions.Shop_GetSaveModule = function()
-    local Library = game:GetService("ReplicatedStorage"):FindFirstChild("Library")
-    local v1 = Library and Library:FindFirstChild("Client")
-    local v2 = v1 and v1:FindFirstChild("Save")
-    if not v2 or not v2:IsA("ModuleScript") then return nil end
-    local ok, m = pcall(require, v2)
-    if ok and type(m) == "table" then return m end
-    return nil
+-- Shop
+MH.Functions.Shop_GetSaveModule=function()
+    local lib=game:GetService("ReplicatedStorage"):FindFirstChild("Library")
+    local cli=lib and lib:FindFirstChild("Client")
+    local m=cli and cli:FindFirstChild("Save")
+    if not m then return nil end
+    local ok,r=pcall(require,m) if ok and type(r)=="table" then return r end return nil
 end
-v6.Functions.Shop_GetNetworkModule = function()
-    local Library = game:GetService("ReplicatedStorage"):FindFirstChild("Library")
-    local v1 = Library and Library:FindFirstChild("Client")
-    local v2 = v1 and v1:FindFirstChild("Network")
-    if not v2 or not v2:IsA("ModuleScript") then return nil end
-    local ok, m = pcall(require, v2)
-    if ok and type(m) == "table" then return m end
-    return nil
+MH.Functions.Shop_GetNetworkModule=function()
+    local lib=game:GetService("ReplicatedStorage"):FindFirstChild("Library")
+    local cli=lib and lib:FindFirstChild("Client")
+    local m=cli and cli:FindFirstChild("Network")
+    if not m then return nil end
+    local ok,r=pcall(require,m) if ok and type(r)=="table" then return r end return nil
 end
-v6.Functions.Shop_GetTrailsData = function()
-    local Directory = game:GetService("ReplicatedStorage"):FindFirstChild("Directory")
-    local v1 = Directory and Directory:FindFirstChild("Trails")
-    if not v1 or not v1:IsA("ModuleScript") then return nil end
-    local ok, m = pcall(require, v1)
-    if ok and type(m) == "table" then return m end
-    return nil
+MH.Functions.Shop_GetBikeShopRequest=function()
+    local OBS=game:GetService("ReplicatedStorage"):FindFirstChild("OurBikeSystem")
+    if not OBS then return nil end
+    local m=OBS:FindFirstChild("ShopRequest") or OBS:WaitForChild("ShopRequest",5)
+    if m and m:IsA("RemoteFunction") then return m end return nil
 end
-v6.Functions.Shop_GetBikeCatalog = function()
-    local OurBikeSystem = game:GetService("ReplicatedStorage"):FindFirstChild("OurBikeSystem")
-    if not OurBikeSystem then return nil end
-    local v1 = OurBikeSystem:FindFirstChild("BikeCatalog")
-    if not v1 or not v1:IsA("ModuleScript") then return nil end
-    local ok, m = pcall(require, v1)
-    if ok and type(m) == "table" and #m > 0 then return m end
-    return nil
-end
-v6.Functions.Shop_GetBikeShopRequest = function()
-    local OurBikeSystem = game:GetService("ReplicatedStorage"):FindFirstChild("OurBikeSystem")
-    if not OurBikeSystem then return nil end
-    local v1 = OurBikeSystem:FindFirstChild("ShopRequest") or OurBikeSystem:WaitForChild("ShopRequest", 5)
-    if v1 and v1:IsA("RemoteFunction") then return v1 end
-    return nil
-end
-v6.Functions.Shop_BuyBestTrail = function()
-    local v1 = MystrixHub.Functions.Shop_GetTrailsData()
-    local v2 = MystrixHub.Functions.Shop_GetSaveModule()
-    local v3 = MystrixHub.Functions.Shop_GetNetworkModule()
-    if not v1 or not v2 or not v3 then return false, "missing" end
-    if not v3.NET_MAP or not v3.NET_MAP.Trails then return false, "no netmap" end
-    local ok, saveData = pcall(function() return v2.Get() end)
-    if not ok or type(saveData) ~= "table" then return false, "no save" end
-    local money = tonumber(saveData.Money) or 0
-    local trailInv = saveData.TrailInventory or {}
-    local EquippedTrail = saveData.EquippedTrail
-    local bestOwned, bestOwnedSpeed = nil, 0
-    for k, _ in pairs(trailInv) do
-        if v1.Directory[k] then
-            local spd = tonumber(v1.Directory[k].SpeedMultiplier) or 1
-            if spd > bestOwnedSpeed then bestOwnedSpeed = spd bestOwned = k end
-        end
-    end
-    local bestBuy, bestBuySpeed = nil, bestOwnedSpeed
-    for k, v in pairs(v1.Directory) do
-        if type(k) == "string" and type(v) == "table" then
-            if v.DisplayInShop and not v.RobuxOnly and not trailInv[k] then
-                local price = tonumber(v.Price) or 0
-                local spd = tonumber(v.SpeedMultiplier) or 1
-                if price > 0 and price <= money and spd > bestBuySpeed then
-                    bestBuySpeed = spd
-                    bestBuy = {Id = k, Data = v}
-                end
-            end
-        end
-    end
-    local Trails = v3.NET_MAP.Trails
-    if bestBuy then
-        pcall(function() v3.Invoke(Trails.REQUEST_PURCHASE, bestBuy.Id) end)
-        task.wait(0.35)
-        pcall(function() v3.Invoke(Trails.REQUEST_SELECT, bestBuy.Id) end)
-        return true, "bought " .. bestBuy.Id
-    end
-    if bestOwned and EquippedTrail ~= bestOwned then
-        pcall(function() v3.Invoke(Trails.REQUEST_SELECT, bestOwned) end)
-        return true, "equipped " .. bestOwned
-    end
-    return false, "up to date"
-end
-v6.Functions.Shop_BuyBestBike = function()
-    local catalog = MystrixHub.Functions.Shop_GetBikeCatalog()
-    local shopReq = MystrixHub.Functions.Shop_GetBikeShopRequest()
-    local saveModule = MystrixHub.Functions.Shop_GetSaveModule()
-    if not catalog or not shopReq then return false, "missing" end
-    local money = 0
-    if saveModule then
-        local ok, saveData = pcall(function() return saveModule.Get() end)
-        if ok and type(saveData) == "table" then money = tonumber(saveData.Money) or 0 end
-    end
-    local ok2, state = pcall(function() return shopReq:InvokeServer("State") end)
-    if not ok2 or type(state) ~= "table" then return false, "state failed" end
-    local owned = state.Owned or {}
-    local equipped = state.Equipped or "Bicycle"
-    if type(state.Money) == "number" and state.Money > money then money = state.Money end
-    local bikes = {}
-    for _, b in ipairs(catalog) do
-        if type(b) == "table" and type(b.Id) == "string" and not b.AdminOnly and not b.RobuxOnly then
-            table.insert(bikes, b)
-        end
-    end
-    table.sort(bikes, function(a, b) return (tonumber(a.SpeedMultiplier) or 1) > (tonumber(b.SpeedMultiplier) or 1) end)
-    local bestOwnedSpeed = 1
-    for _, bike in ipairs(bikes) do
-        if owned[bike.Id] == true then
-            local spd = tonumber(bike.SpeedMultiplier) or 1
-            if spd > bestOwnedSpeed then bestOwnedSpeed = spd end
-        end
-    end
-    for _, bike in ipairs(bikes) do
-        local spd = tonumber(bike.SpeedMultiplier) or 1
-        local price = tonumber(bike.Price) or 0
-        if not owned[bike.Id] and spd > bestOwnedSpeed and price > 0 and price <= money then
-            local ok3, res = pcall(function() return shopReq:InvokeServer("Buy", bike.Id) end)
-            if ok3 and type(res) == "table" and res.Ok then
-                Notify({Title = "Bike Shop", Content = "Bought: " .. bike.Id, Duration = 3, Icon = "circle-check"})
-                return true, "bought " .. bike.Id
+MH.Functions.Shop_BuyBestBike=function()
+    local shopReq=MH.Functions.Shop_GetBikeShopRequest()
+    if not shopReq then return false,"missing" end
+    local ok,state=pcall(function() return shopReq:InvokeServer("State") end)
+    if not ok or type(state)~="table" then return false,"state failed" end
+    local owned=state.Owned or {}
+    local equipped=state.Equipped or ""
+    local money=tonumber(state.Money) or 0
+    local OBS=game:GetService("ReplicatedStorage"):FindFirstChild("OurBikeSystem")
+    local catMod=OBS and OBS:FindFirstChild("BikeCatalog")
+    if not catMod then return false,"no catalog" end
+    local ok2,catalog=pcall(require,catMod)
+    if not ok2 or type(catalog)~="table" then return false,"catalog failed" end
+    table.sort(catalog,function(a,b) return (tonumber(a.SpeedMultiplier) or 1)>(tonumber(b.SpeedMultiplier) or 1) end)
+    local bestOwnedSpd=1
+    for _,b in ipairs(catalog) do if owned[b.Id] then bestOwnedSpd=math.max(bestOwnedSpd,tonumber(b.SpeedMultiplier) or 1) end end
+    for _,b in ipairs(catalog) do
+        local spd=tonumber(b.SpeedMultiplier) or 1
+        local price=tonumber(b.Price) or 0
+        if not owned[b.Id] and not b.AdminOnly and not b.RobuxOnly and spd>bestOwnedSpd and price>0 and price<=money then
+            local ok3,res=pcall(function() return shopReq:InvokeServer("Buy",b.Id) end)
+            if ok3 and type(res)=="table" and res.Ok then
+                Notify({Title="Shop",Content="ซื้อ Bike: "..b.Id,Duration=3,Icon="circle-check"})
+                return true,"bought "..b.Id
             end
             task.wait(0.2)
         end
     end
-    local bestId, bestSpd = nil, 1
-    for _, bike in ipairs(bikes) do
-        if owned[bike.Id] == true then
-            local spd = tonumber(bike.SpeedMultiplier) or 1
-            if spd > bestSpd then bestSpd = spd bestId = bike.Id end
-        end
+    local bestId,bestSpd=nil,1
+    for _,b in ipairs(catalog) do
+        if owned[b.Id] and (tonumber(b.SpeedMultiplier) or 1)>bestSpd then bestSpd=tonumber(b.SpeedMultiplier) or 1 bestId=b.Id end
     end
-    if bestId and equipped ~= bestId then
-        pcall(function() return shopReq:InvokeServer("Equip", bestId) end)
-        return true, "equipped " .. bestId
-    end
-    return false, "up to date"
+    if bestId and equipped~=bestId then pcall(function() shopReq:InvokeServer("Equip",bestId) end) return true,"equipped "..bestId end
+    return false,"up to date"
 end
-v6.Functions.Shop_StartAutoTrail = function()
-    local SC = MystrixHub.ShopController
-    if SC.AutoTrailRunning then return end
-    SC.AutoTrailRunning = true
-    SC.AutoTrailLoop = task.spawn(function()
-        while SC.AutoTrailRunning do
-            pcall(MystrixHub.Functions.Shop_BuyBestTrail)
-            task.wait(5)
-        end
-    end)
-    MystrixHub.TasksController.Insert(SC.AutoTrailLoop)
-end
-v6.Functions.Shop_StopAutoTrail = function()
-    local SC = MystrixHub.ShopController
-    SC.AutoTrailRunning = false
-    if SC.AutoTrailLoop then task.cancel(SC.AutoTrailLoop) SC.AutoTrailLoop = nil end
-end
-v6.Functions.Shop_StartAutoBike = function()
-    local SC = MystrixHub.ShopController
-    if SC.AutoBikeRunning then return end
-    SC.AutoBikeRunning = true
-    SC.AutoBikeLoop = task.spawn(function()
-        while SC.AutoBikeRunning do
-            pcall(MystrixHub.Functions.Shop_BuyBestBike)
-            task.wait(5)
-        end
-    end)
-    MystrixHub.TasksController.Insert(SC.AutoBikeLoop)
-end
-v6.Functions.Shop_StopAutoBike = function()
-    local SC = MystrixHub.ShopController
-    SC.AutoBikeRunning = false
-    if SC.AutoBikeLoop then task.cancel(SC.AutoBikeLoop) SC.AutoBikeLoop = nil end
-end
-v6.Functions.Shop_UpgradeTreadmill = function()
-    local Library = game:GetService("ReplicatedStorage"):FindFirstChild("Library")
-    local v1 = Library and Library:FindFirstChild("Client")
-    local v2 = v1 and v1:FindFirstChild("BaseUpgradeClient")
-    if not v2 or not v2:IsA("ModuleScript") then return false end
-    local ok, m = pcall(require, v2)
-    if not ok or type(m) ~= "table" then return false end
-    local net = MystrixHub.Functions.Shop_GetNetworkModule()
+MH.Functions.Shop_UpgradeTreadmill=function()
+    local net=MH.Functions.Shop_GetNetworkModule()
     if not net or not net.NET_MAP or not net.NET_MAP.Treadmills then return false end
-    pcall(function() net.Invoke(net.NET_MAP.Treadmills.REQUEST_UPGRADE) end)
-    return true
+    pcall(function() net.Invoke(net.NET_MAP.Treadmills.REQUEST_UPGRADE) end) return true
 end
-v6.Functions.Shop_UpgradePlot = function()
-    local net = MystrixHub.Functions.Shop_GetNetworkModule()
+MH.Functions.Shop_UpgradePlot=function()
+    local net=MH.Functions.Shop_GetNetworkModule()
     if not net or not net.NET_MAP or not net.NET_MAP.Plot then return false end
-    pcall(function() net.Invoke(net.NET_MAP.Plot.REQUEST_UPGRADE) end)
-    return true
+    pcall(function() net.Invoke(net.NET_MAP.Plot.REQUEST_UPGRADE) end) return true
 end
-v6.Functions.Shop_StartAutoTreadmill = function()
-    local SC = MystrixHub.ShopController
-    if SC.AutoTreadmillRunning then return end
-    SC.AutoTreadmillRunning = true
-    SC.AutoTreadmillLoop = task.spawn(function()
-        while SC.AutoTreadmillRunning do
-            pcall(MystrixHub.Functions.Shop_UpgradeTreadmill)
-            task.wait(3)
-        end
-    end)
-    MystrixHub.TasksController.Insert(SC.AutoTreadmillLoop)
+MH.Functions.Shop_StartAutoBike=function()
+    local SC=MH.ShopController
+    if SC.AutoBikeRunning then return end SC.AutoBikeRunning=true
+    SC.AutoBikeLoop=task.spawn(function() while SC.AutoBikeRunning do pcall(MH.Functions.Shop_BuyBestBike) task.wait(5) end end)
+    MH.TasksController.Insert(SC.AutoBikeLoop)
 end
-v6.Functions.Shop_StopAutoTreadmill = function()
-    local SC = MystrixHub.ShopController
-    SC.AutoTreadmillRunning = false
-    if SC.AutoTreadmillLoop then task.cancel(SC.AutoTreadmillLoop) SC.AutoTreadmillLoop = nil end
+MH.Functions.Shop_StopAutoBike=function()
+    local SC=MH.ShopController SC.AutoBikeRunning=false
+    if SC.AutoBikeLoop then task.cancel(SC.AutoBikeLoop) SC.AutoBikeLoop=nil end
 end
-v6.Functions.Shop_StartAutoPlot = function()
-    local SC = MystrixHub.ShopController
-    if SC.AutoPlotRunning then return end
-    SC.AutoPlotRunning = true
-    SC.AutoPlotLoop = task.spawn(function()
-        while SC.AutoPlotRunning do
-            pcall(MystrixHub.Functions.Shop_UpgradePlot)
-            task.wait(3)
-        end
-    end)
-    MystrixHub.TasksController.Insert(SC.AutoPlotLoop)
+MH.Functions.Shop_StartAutoTreadmill=function()
+    local SC=MH.ShopController
+    if SC.AutoTreadmillRunning then return end SC.AutoTreadmillRunning=true
+    SC.AutoTreadmillLoop=task.spawn(function() while SC.AutoTreadmillRunning do pcall(MH.Functions.Shop_UpgradeTreadmill) task.wait(3) end end)
+    MH.TasksController.Insert(SC.AutoTreadmillLoop)
 end
-v6.Functions.Shop_StopAutoPlot = function()
-    local SC = MystrixHub.ShopController
-    SC.AutoPlotRunning = false
-    if SC.AutoPlotLoop then task.cancel(SC.AutoPlotLoop) SC.AutoPlotLoop = nil end
+MH.Functions.Shop_StopAutoTreadmill=function()
+    local SC=MH.ShopController SC.AutoTreadmillRunning=false
+    if SC.AutoTreadmillLoop then task.cancel(SC.AutoTreadmillLoop) SC.AutoTreadmillLoop=nil end
+end
+MH.Functions.Shop_StartAutoPlot=function()
+    local SC=MH.ShopController
+    if SC.AutoPlotRunning then return end SC.AutoPlotRunning=true
+    SC.AutoPlotLoop=task.spawn(function() while SC.AutoPlotRunning do pcall(MH.Functions.Shop_UpgradePlot) task.wait(3) end end)
+    MH.TasksController.Insert(SC.AutoPlotLoop)
+end
+MH.Functions.Shop_StopAutoPlot=function()
+    local SC=MH.ShopController SC.AutoPlotRunning=false
+    if SC.AutoPlotLoop then task.cancel(SC.AutoPlotLoop) SC.AutoPlotLoop=nil end
 end
 
--- ===== ฟังก์ชัน Plot =====
-v6.Functions.Plot_CountPlacedEggs = function()
-    local v1 = MystrixHub.Functions.Farm_GetPlotCmds()
-    if not v1 then return 0 end
-    local ok, plotData = pcall(function() return v1.GetPlotData() end)
-    if not ok or type(plotData) ~= "table" then return 0 end
-    local Deps = MystrixHub.Functions.Sell_LoadDeps()
-    if not Deps.Save then return 0 end
-    local ok2, saveData = pcall(function() return Deps.Save.Get() end)
-    if not ok2 or type(saveData) ~= "table" then return 0 end
-    local inv = saveData.EggInventory or {}
-    local count = 0
-    for _, v in pairs(inv) do
-        if type(v) == "table" and v.Placement ~= nil then count += 1 end
-    end
-    return count
-end
-v6.Functions.Plot_GetNetworkRemote = function(arg1)
-    local RS2 = game:GetService("ReplicatedStorage")
-    for _, v in ipairs(RS2:GetDescendants()) do
-        if v.Name == arg1 and (v:IsA("RemoteFunction") or v:IsA("RemoteEvent")) then
-            return v
+-- Plot
+MH.Functions.Plot_GetEggsList=function()
+    local r={"All"}
+    local Deps=MH.Functions.Sell_LoadDeps()
+    if not Deps.Save then return r end
+    local ok,sd=pcall(function() return Deps.Save.Get() end)
+    if not ok or type(sd)~="table" then return r end
+    local inv=sd.EggInventory or {}
+    local seen={}
+    for _,v in pairs(inv) do
+        if type(v)=="table" and v.Placement~=nil and v.AssetCategory and not seen[v.AssetCategory] then
+            seen[v.AssetCategory]=true table.insert(r,v.AssetCategory)
         end
     end
-    return nil
+    return r
 end
-v6.Functions.Plot_GetFreePlacement = function(arg1)
-    if not arg1 or not arg1.Slots then return nil end
-    for _, slot in ipairs(arg1.Slots) do
-        if not slot.Occupied then return slot.CFrame end
-    end
-    return nil
-end
-v6.Functions.Plot_HatchOne = function(arg1)
-    local v1 = MystrixHub.Functions.Farm_GetPlotCmds()
-    if not v1 then return false end
-    local HatchEgg = MystrixHub.Functions.Plot_GetNetworkRemote("Eggs: RequestHatchEgg")
-    if not HatchEgg then return false end
-    local ok, res = pcall(function() return HatchEgg:InvokeServer(arg1.uid) end)
-    return ok and res
-end
-v6.Functions.Plot_GetEggsList = function()
-    local result = {"All"}
-    local Deps = MystrixHub.Functions.Sell_LoadDeps()
-    if not Deps.Save then return result end
-    local ok, saveData = pcall(function() return Deps.Save.Get() end)
-    if not ok or type(saveData) ~= "table" then return result end
-    local inv = saveData.EggInventory or {}
-    local seen = {}
-    for _, v in pairs(inv) do
-        if type(v) == "table" and v.Placement ~= nil then
-            local cat = v.AssetCategory
-            if cat and not seen[cat] then
-                seen[cat] = true
-                table.insert(result, cat)
+MH.Functions.Plot_GetEggsListForPlace=function()
+    local r={"Best"}
+    local Deps=MH.Functions.Sell_LoadDeps()
+    if not Deps.Save or not Deps.EggItemUtil then return r end
+    local ok,sd=pcall(function() return Deps.Save.Get() end)
+    if not ok or type(sd)~="table" then return r end
+    local inv=sd.EggInventory or {}
+    local seen={}
+    for _,v in pairs(inv) do
+        if type(v)=="table" and v.Placement==nil then
+            local ok2,egg=pcall(function() return Deps.EggItemUtil.DeserializeSavedEgg(v) end)
+            if ok2 and type(egg)=="table" and egg.AssetCategory and not seen[egg.AssetCategory] then
+                seen[egg.AssetCategory]=true table.insert(r,egg.AssetCategory)
             end
         end
     end
-    return result
+    return r
 end
-v6.Functions.Plot_GetEggsListForPlace = function()
-    local result = {"Best"}
-    local Deps = MystrixHub.Functions.Sell_LoadDeps()
-    if not Deps.Save or not Deps.EggItemUtil then return result end
-    local ok, saveData = pcall(function() return Deps.Save.Get() end)
-    if not ok or type(saveData) ~= "table" then return result end
-    local inv = saveData.EggInventory or {}
-    local seen = {}
-    for _, v in pairs(inv) do
-        if type(v) == "table" and v.Placement == nil then
-            local ok2, egg = pcall(function() return Deps.EggItemUtil.DeserializeSavedEgg(v) end)
-            if ok2 and type(egg) == "table" and egg.AssetCategory and not seen[egg.AssetCategory] then
-                seen[egg.AssetCategory] = true
-                table.insert(result, egg.AssetCategory)
+MH.Functions.Plot_RunHatchOnce=function()
+    local PC=MH.PlotController
+    local Deps=MH.Functions.Sell_LoadDeps()
+    if not Deps.Save then return false end
+    local ok,sd=pcall(function() return Deps.Save.Get() end)
+    if not ok or type(sd)~="table" then return false end
+    local inv=sd.EggInventory or {}
+    local selMap={} for _,s in ipairs(PC.HatchSelectedEggs) do selMap[s]=true end
+    local RS2=game:GetService("ReplicatedStorage")
+    local HatchRemote
+    for _,v in ipairs(RS2:GetDescendants()) do
+        if v.Name=="Eggs: RequestHatchEgg" and v:IsA("RemoteFunction") then HatchRemote=v break end
+    end
+    if not HatchRemote then return false end
+    for k,v in pairs(inv) do
+        if type(v)=="table" and v.Placement~=nil then
+            if selMap["All"] or selMap[v.AssetCategory or ""] then
+                local ok2,res=pcall(function() return HatchRemote:InvokeServer(k) end)
+                if ok2 and res then return true end
             end
         end
-    end
-    return result
-end
-v6.Functions.Plot_RunHatchOnce = function()
-    local PC = MystrixHub.PlotController
-    local Deps = MystrixHub.Functions.Sell_LoadDeps()
-    if not Deps.Save or not Deps.EggItemUtil then return false end
-    local ok, saveData = pcall(function() return Deps.Save.Get() end)
-    if not ok or type(saveData) ~= "table" then return false end
-    local inv = saveData.EggInventory or {}
-    local selectedMap = {}
-    for _, s in ipairs(PC.HatchSelectedEggs) do selectedMap[s] = true end
-    local targets = {}
-    for k, v in pairs(inv) do
-        if type(v) == "table" and v.Placement ~= nil then
-            if selectedMap["All"] or selectedMap[v.AssetCategory] then
-                table.insert(targets, {uid = k, data = v})
-            end
-        end
-    end
-    if #targets == 0 then return false end
-    for _, egg in ipairs(targets) do
-        if MystrixHub.Functions.Plot_HatchOne(egg) then return true end
     end
     return false
 end
-v6.Functions.Plot_StartAutoHatch = function()
-    local PC = MystrixHub.PlotController
-    if PC.AutoHatchRunning then return end
-    PC.AutoHatchRunning = true
-    PC.AutoHatchLoop = task.spawn(function()
-        while PC.AutoHatchRunning do
-            pcall(MystrixHub.Functions.Plot_RunHatchOnce)
-            task.wait(0.6)
-        end
-    end)
-    MystrixHub.TasksController.Insert(PC.AutoHatchLoop)
-end
-v6.Functions.Plot_StopAutoHatch = function()
-    local PC = MystrixHub.PlotController
-    PC.AutoHatchRunning = false
-    if PC.AutoHatchLoop then task.cancel(PC.AutoHatchLoop) PC.AutoHatchLoop = nil end
-end
-v6.Functions.Plot_StartAutoPlace = function()
-    local PC = MystrixHub.PlotController
-    if PC.AutoPlaceRunning then return end
-    PC.AutoPlaceRunning = true
-    PC.AutoPlaceLoop = task.spawn(function()
-        while PC.AutoPlaceRunning do
-            pcall(MystrixHub.Functions.Plot_RunPlaceOnce)
-            task.wait(1.5)
-        end
-    end)
-    MystrixHub.TasksController.Insert(PC.AutoPlaceLoop)
-end
-v6.Functions.Plot_StopAutoPlace = function()
-    local PC = MystrixHub.PlotController
-    PC.AutoPlaceRunning = false
-    if PC.AutoPlaceLoop then task.cancel(PC.AutoPlaceLoop) PC.AutoPlaceLoop = nil end
-end
-v6.Functions.Plot_RunPlaceOnce = function()
-    local PC = MystrixHub.PlotController
-    local v2 = MystrixHub.Functions.Farm_GetPlotCmds()
-    if not v2 then return false end
-    local ok, plotData = pcall(function() return v2.GetPlotData() end)
-    if not ok or type(plotData) ~= "table" then return false end
-    local placed = MystrixHub.Functions.Plot_CountPlacedEggs()
-    if placed >= 10 then return false end
-    local Deps = MystrixHub.Functions.Sell_LoadDeps()
+MH.Functions.Plot_RunPlaceOnce=function()
+    local PC=MH.PlotController
+    local pc2=MH.Functions.Farm_GetPlotCmds()
+    if not pc2 then return false end
+    local ok,pd=pcall(function() return pc2.GetPlotData() end)
+    if not ok or type(pd)~="table" then return false end
+    local Deps=MH.Functions.Sell_LoadDeps()
     if not Deps.Save or not Deps.EggItemUtil then return false end
-    local ok2, saveData = pcall(function() return Deps.Save.Get() end)
-    if not ok2 or type(saveData) ~= "table" then return false end
-    local inv = saveData.EggInventory or {}
-    local selectedMap = {}
-    local useBest = false
-    for _, s in ipairs(PC.PlaceSelectedEggs) do
-        if s == "Best" or s == "All" then useBest = true
-        else selectedMap[s] = true end
-    end
-    local Assets = MystrixHub.Functions.Farm_GetAssets()
-    local candidates = {}
-    for k, v in pairs(inv) do
-        if type(v) == "table" and v.Placement == nil then
-            local ok3, egg = pcall(function() return Deps.EggItemUtil.DeserializeSavedEgg(v) end)
-            if ok3 and type(egg) == "table" then
-                local cat = egg.AssetCategory
-                if cat and (useBest or selectedMap[cat]) then
-                    local score = 0
-                    if Assets and Assets.Directory[cat] and Assets.Directory[cat].Rarity then
-                        score = tonumber(Assets.Directory[cat].Rarity.RarityNumber) or 0
+    local ok2,sd=pcall(function() return Deps.Save.Get() end)
+    if not ok2 or type(sd)~="table" then return false end
+    local inv=sd.EggInventory or {}
+    local useBest=false
+    local selMap={} for _,s in ipairs(PC.PlaceSelectedEggs) do if s=="Best" or s=="All" then useBest=true else selMap[s]=true end end
+    local assets=MH.Functions.Farm_GetAssets()
+    local cands={}
+    for k,v in pairs(inv) do
+        if type(v)=="table" and v.Placement==nil then
+            local ok3,egg=pcall(function() return Deps.EggItemUtil.DeserializeSavedEgg(v) end)
+            if ok3 and type(egg)=="table" and egg.AssetCategory then
+                local cat=egg.AssetCategory
+                if useBest or selMap[cat] then
+                    local score=0
+                    if assets and assets.Directory[cat] and assets.Directory[cat].Rarity then
+                        score=tonumber(assets.Directory[cat].Rarity.RarityNumber) or 0
                     end
-                    table.insert(candidates, {uid = k, cat = cat, score = score})
+                    table.insert(cands,{uid=k,cat=cat,score=score})
                 end
             end
         end
     end
-    if #candidates == 0 then return false end
-    table.sort(candidates, function(a, b) return a.score > b.score end)
-    local best = candidates[1]
-    local freePlot = MystrixHub.Functions.Plot_GetFreePlacement(plotData)
-    if not freePlot then return false end
-    local equipRemote = MystrixHub.Functions.Plot_GetNetworkRemote("Eggs: RequestEquipTool")
-    local placeRemote = MystrixHub.Functions.Plot_GetNetworkRemote("Eggs: RequestPlaceEgg")
-    if not equipRemote or not placeRemote then return false end
-    local Character = LocalPlayer.Character
-    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-    if not Humanoid then return false end
-    pcall(function() Humanoid:UnequipTools() end)
-    task.wait(0.15)
-    local ok4, equipped = pcall(function() return equipRemote:InvokeServer(best.uid) end)
-    if not ok4 or not equipped then return false end
+    if #cands==0 then return false end
+    table.sort(cands,function(a,b) return a.score>b.score end)
+    local best=cands[1]
+    local RS2=game:GetService("ReplicatedStorage")
+    local equipRem,placeRem
+    for _,v in ipairs(RS2:GetDescendants()) do
+        if v.Name=="Eggs: RequestEquipTool" and v:IsA("RemoteFunction") then equipRem=v end
+        if v.Name=="Eggs: RequestPlaceEgg" and v:IsA("RemoteFunction") then placeRem=v end
+    end
+    if not equipRem or not placeRem then return false end
+    local ch=_LP.Character
+    local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+    if not hum then return false end
+    pcall(function() hum:UnequipTools() end) task.wait(0.15)
+    local ok4,eqd=pcall(function() return equipRem:InvokeServer(best.uid) end)
+    if not ok4 or not eqd then return false end
     task.wait(0.4)
-    local ok5, placed2 = pcall(function() return placeRemote:InvokeServer({Uid = best.uid, LocalCFrame = freePlot}) end)
-    task.wait(0.15)
-    pcall(function() Humanoid:UnequipTools() end)
-    return ok5 and placed2
+    local slots=pd.Slots
+    local freeCF
+    if type(slots)=="table" then
+        for _,slot in ipairs(slots) do if not slot.Occupied then freeCF=slot.CFrame break end end
+    end
+    if not freeCF then return false end
+    local ok5,placed=pcall(function() return placeRem:InvokeServer({Uid=best.uid,LocalCFrame=freeCF}) end)
+    task.wait(0.1) pcall(function() hum:UnequipTools() end)
+    return ok5 and placed
 end
-v6.Functions.Plot_StartAutoTreadmill = function()
-    local PC = MystrixHub.PlotController
-    if PC.AutoTreadmillRunning then return end
-    PC.AutoTreadmillRunning = true
-    PC.AutoTreadmillLoop = task.spawn(function()
-        while PC.AutoTreadmillRunning do
-            local net = MystrixHub.Functions.Shop_GetNetworkModule()
-            if net and net.NET_MAP and net.NET_MAP.Treadmills then
-                pcall(function() net.Invoke(net.NET_MAP.Treadmills.REQUEST_EQUIP_STATIC) end)
-            end
-            task.wait(2)
-        end
-    end)
-    MystrixHub.TasksController.Insert(PC.AutoTreadmillLoop)
+MH.Functions.Plot_StartAutoHatch=function()
+    local PC=MH.PlotController
+    if PC.AutoHatchRunning then return end PC.AutoHatchRunning=true
+    PC.AutoHatchLoop=task.spawn(function() while PC.AutoHatchRunning do pcall(MH.Functions.Plot_RunHatchOnce) task.wait(0.6) end end)
+    MH.TasksController.Insert(PC.AutoHatchLoop)
 end
-v6.Functions.Plot_StopAutoTreadmill = function()
-    local PC = MystrixHub.PlotController
-    PC.AutoTreadmillRunning = false
-    if PC.AutoTreadmillLoop then task.cancel(PC.AutoTreadmillLoop) PC.AutoTreadmillLoop = nil end
+MH.Functions.Plot_StopAutoHatch=function()
+    local PC=MH.PlotController PC.AutoHatchRunning=false
+    if PC.AutoHatchLoop then task.cancel(PC.AutoHatchLoop) PC.AutoHatchLoop=nil end
 end
-v6.Functions.Plot_StartAutoClaim = function()
-    local PC = MystrixHub.PlotController
-    if PC.AutoClaimRunning then return end
-    PC.AutoClaimRunning = true
-    PC.AutoClaimLoop = task.spawn(function()
+MH.Functions.Plot_StartAutoPlace=function()
+    local PC=MH.PlotController
+    if PC.AutoPlaceRunning then return end PC.AutoPlaceRunning=true
+    PC.AutoPlaceLoop=task.spawn(function() while PC.AutoPlaceRunning do pcall(MH.Functions.Plot_RunPlaceOnce) task.wait(1.5) end end)
+    MH.TasksController.Insert(PC.AutoPlaceLoop)
+end
+MH.Functions.Plot_StopAutoPlace=function()
+    local PC=MH.PlotController PC.AutoPlaceRunning=false
+    if PC.AutoPlaceLoop then task.cancel(PC.AutoPlaceLoop) PC.AutoPlaceLoop=nil end
+end
+MH.Functions.Plot_StartAutoClaim=function()
+    local PC=MH.PlotController
+    if PC.AutoClaimRunning then return end PC.AutoClaimRunning=true
+    PC.AutoClaimLoop=task.spawn(function()
         while PC.AutoClaimRunning do
             pcall(function()
-                local v1 = MystrixHub.Functions.Farm_GetPlotCmds()
-                if v1 then
-                    local ok, pd = pcall(function() return v1.GetPlotData() end)
-                    if ok and pd and v1.ClaimAllEggs then
-                        pcall(function() v1.ClaimAllEggs() end)
-                    end
+                local pc2=MH.Functions.Farm_GetPlotCmds()
+                if pc2 and pc2.ClaimAllEggs then pc2.ClaimAllEggs() end
+            end)
+            task.wait(2)
+        end
+    end)
+    MH.TasksController.Insert(PC.AutoClaimLoop)
+end
+MH.Functions.Plot_StopAutoClaim=function()
+    local PC=MH.PlotController PC.AutoClaimRunning=false
+    if PC.AutoClaimLoop then task.cancel(PC.AutoClaimLoop) PC.AutoClaimLoop=nil end
+end
+MH.Functions.Plot_StartAutoTreadmill=function()
+    local PC=MH.PlotController
+    if PC.AutoTreadmillRunning then return end PC.AutoTreadmillRunning=true
+    PC.AutoTreadmillLoop=task.spawn(function()
+        while PC.AutoTreadmillRunning do
+            pcall(function()
+                local net=MH.Functions.Shop_GetNetworkModule()
+                if net and net.NET_MAP and net.NET_MAP.Treadmills and net.NET_MAP.Treadmills.REQUEST_EQUIP_STATIC then
+                    net.Invoke(net.NET_MAP.Treadmills.REQUEST_EQUIP_STATIC)
                 end
             end)
             task.wait(2)
         end
     end)
-    MystrixHub.TasksController.Insert(PC.AutoClaimLoop)
+    MH.TasksController.Insert(PC.AutoTreadmillLoop)
 end
-v6.Functions.Plot_StopAutoClaim = function()
-    local PC = MystrixHub.PlotController
-    PC.AutoClaimRunning = false
-    if PC.AutoClaimLoop then task.cancel(PC.AutoClaimLoop) PC.AutoClaimLoop = nil end
+MH.Functions.Plot_StopAutoTreadmill=function()
+    local PC=MH.PlotController PC.AutoTreadmillRunning=false
+    if PC.AutoTreadmillLoop then task.cancel(PC.AutoTreadmillLoop) PC.AutoTreadmillLoop=nil end
 end
 
--- ===== FetchDiscordInfo =====
-v6.Functions.FetchDiscordInfo = function()
-    local ok, res = pcall(MystrixHub.Functions.MakeRawRequest,
-        "https://discord.com/api/v9/invites/" .. MystrixHub.Meta.Discord .. "?with_counts=true",
-        "GET", {Accept = "application/json"}, nil)
-    if ok and res and res.Body then
-        local ok2, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
-        if ok2 and data then
-            if data.guild and data.guild.name then MystrixHub.Meta.ServerName = data.guild.name end
-            MystrixHub.Meta.MemberCount = data.approximate_member_count and tostring(data.approximate_member_count) or "N/A"
-            MystrixHub.Meta.OnlineCount = data.approximate_presence_count and tostring(data.approximate_presence_count) or "N/A"
-            return true
-        end
+-- Init
+pcall(function() MH.Meta.GameName=_MPS:GetProductInfo(game.PlaceId).Name or "Unknown" end)
+MH.PlayerController.HWID=MH.Functions.GetHWID()
+task.spawn(MH.Functions.SyncServerTime)
+task.spawn(MH.Functions.FetchDiscordInfo)
+
+-- ================================================================
+-- BFE PAGES: สร้างหน้าต่างใน NexoraHub
+-- ================================================================
+task.wait(0.1) -- รอให้ NX.side พร้อม
+
+local NX2=getgenv().NX
+local COL2=NX2.COL
+local make2=NX2.make
+local round2=NX2.round
+local glow2=NX2.glow
+local TS2=game:GetService("TweenService")
+local TI2=TweenInfo.new(0.3,Enum.EasingStyle.Quint)
+
+-- หา menu frame ใน NX.side
+local nxSide=NX2.side
+local nxMenu=nil
+for _,c in ipairs(nxSide:GetChildren()) do
+    if c:IsA("Frame") and c:FindFirstChildOfClass("UIListLayout") then nxMenu=c break end
+end
+if not nxMenu then
+    -- fallback: หา ScrollingFrame หรือ Frame ใดก็ได้
+    for _,c in ipairs(nxSide:GetChildren()) do
+        if c:IsA("Frame") or c:IsA("ScrollingFrame") then nxMenu=c break end
     end
-    MystrixHub.Meta.MemberCount = "Unavailable"
-    MystrixHub.Meta.OnlineCount = "Unavailable"
-    return false
 end
 
--- ============================================================
--- SECTION 4: Init
--- ============================================================
-MystrixHub.PlayerController.HWID = MystrixHub.Functions.GetHWID()
-MystrixHub.Functions.SyncServerTime()
-pcall(function()
-    local info = MarketplaceService:GetProductInfo(game.PlaceId)
-    MystrixHub.Meta.GameName = info.Name or "Unknown Game"
-end)
-task.spawn(function()
-    MystrixHub.Functions.FetchDiscordInfo()
-end)
+local nxContent=NX2.content
+local nxBtns={}
 
--- ============================================================
--- SECTION 5: สร้างหน้าต่าง NexoraHub
--- ============================================================
-
--- เปลี่ยน CFG ของ NexoraHub ให้ตรงกับ BIKE FOR EGG
-NX.CFG.NAME = "BIKE FOR EGG"
-NX.CFG.DISCORD_LINK = "https://discord.gg/" .. MystrixHub.Meta.Discord
-
--- helper สร้าง page content frame ที่ scroll ได้
-local function makePage(pageFrame)
-    local scroll = make("ScrollingFrame", {
-        Size = UDim2.fromScale(1, 1),
-        BackgroundTransparency = 1,
-        ScrollBarThickness = 3,
-        ScrollBarImageColor3 = COL.Purple,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        BorderSizePixel = 0,
-    }, pageFrame)
-    make("UIPadding", {
-        PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8),
-        PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6),
-    }, scroll)
-    make("UIListLayout", {
-        Padding = UDim.new(0, 6),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        FillDirection = Enum.FillDirection.Vertical,
-    }, scroll)
-    return scroll
-end
-
--- helper สร้าง section header
-local function sectionLabel(parent, text, order)
-    local lbl = make("TextLabel", {
-        LayoutOrder = order or 0,
-        Size = UDim2.new(1, 0, 0, 16),
-        BackgroundTransparency = 1,
-        Text = "▸ " .. text,
-        Font = Enum.Font.GothamBold,
-        TextSize = 10,
-        TextColor3 = COL.Sub,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, parent)
-    return lbl
-end
-
--- helper สร้าง toggle row
-local toggleOrder = 0
-local function makeToggle(parent, label, desc, onToggle)
-    toggleOrder += 1
-    local row = make("Frame", {
-        LayoutOrder = toggleOrder,
-        Size = UDim2.new(1, 0, 0, 44),
-        BackgroundColor3 = COL.Chip,
-        BackgroundTransparency = 0.4,
-    }, parent)
-    round(row, 14)
-
-    make("TextLabel", {
-        Position = UDim2.fromOffset(12, 6),
-        Size = UDim2.new(1, -70, 0, 16),
-        BackgroundTransparency = 1,
-        Text = label,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        TextColor3 = COL.Text,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, row)
-    if desc and desc ~= "" then
-        make("TextLabel", {
-            Position = UDim2.fromOffset(12, 24),
-            Size = UDim2.new(1, -70, 0, 14),
-            BackgroundTransparency = 1,
-            Text = desc,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextColor3 = COL.Sub,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        }, row)
+local function bfeSelectPage(targetPage)
+    for _,c in ipairs(nxContent:GetChildren()) do
+        if c:IsA("Frame") then c.Visible=false end
     end
+    for _,b in pairs(nxBtns) do
+        TS2:Create(b,TI2,{BackgroundTransparency=1}):Play()
+    end
+    targetPage.Visible=true
+end
 
-    local sw = make("TextButton", {
-        Text = "",
-        AutoButtonColor = false,
-        Size = UDim2.fromOffset(38, 20),
-        Position = UDim2.new(1, -50, 0.5, -10),
-        BackgroundColor3 = COL.Bg,
-    }, row)
-    round(sw, 10)
-    local knob = make("Frame", {
-        Size = UDim2.fromOffset(14, 14),
-        Position = UDim2.fromOffset(3, 3),
-        BackgroundColor3 = Color3.new(1, 1, 1),
-    }, sw)
-    round(knob, 7)
+local bfeOrd=90
+local function addBFEPage(icon,name)
+    bfeOrd+=1
+    local btn=make2("TextButton",{LayoutOrder=bfeOrd,Size=UDim2.new(1,0,0,32),BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=1,Text="",AutoButtonColor=false},nxMenu)
+    round2(btn,16)
+    local bg=make2("UIGradient",{},btn)
+    NX2.onAccent(function(a,b) bg.Color=ColorSequence.new(a,b) end)
+    make2("TextLabel",{Position=UDim2.fromOffset(8,0),Size=UDim2.fromOffset(20,32),BackgroundTransparency=1,Text=icon,TextSize=14},btn)
+    make2("TextLabel",{Position=UDim2.fromOffset(32,0),Size=UDim2.new(1,-36,1,0),BackgroundTransparency=1,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Left,Text=name},btn)
+    local page=make2("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false},nxContent)
+    nxBtns[name]=btn
+    btn.MouseButton1Click:Connect(function()
+        bfeSelectPage(page)
+        for n,b in pairs(nxBtns) do TS2:Create(b,TI2,{BackgroundTransparency=(n==name) and 0 or 1}):Play() end
+    end)
+    return page
+end
 
-    local state = false
+local function makePage(pf)
+    local sc=make2("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ScrollBarThickness=3,ScrollBarImageColor3=COL2.Pink,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,BorderSizePixel=0},pf)
+    make2("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8),PaddingTop=UDim.new(0,6),PaddingBottom=UDim.new(0,6)},sc)
+    make2("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder,FillDirection=Enum.FillDirection.Vertical},sc)
+    return sc
+end
+
+local rOrd=0
+local function secLabel(par,txt)
+    rOrd+=1
+    make2("TextLabel",{LayoutOrder=rOrd,Size=UDim2.new(1,0,0,16),BackgroundTransparency=1,Text="▸ "..txt,Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL2.Sub,TextXAlignment=Enum.TextXAlignment.Left},par)
+end
+local function makeRow(par,lbl,desc,h)
+    rOrd+=1
+    local r=make2("Frame",{LayoutOrder=rOrd,Size=UDim2.new(1,0,0,h or 44),BackgroundColor3=COL2.Chip,BackgroundTransparency=0.4},par)
+    round2(r,14)
+    local s=make2("UIStroke",{Color=COL2.Pink,Transparency=0.7,Thickness=1},r)
+    NX2.onAccent(function(_,b) s.Color=b end)
+    make2("TextLabel",{Position=UDim2.fromOffset(12,6),Size=UDim2.new(1,-70,0,16),BackgroundTransparency=1,Text=lbl,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=COL2.Text,TextXAlignment=Enum.TextXAlignment.Left},r)
+    if desc and desc~="" then make2("TextLabel",{Position=UDim2.fromOffset(12,24),Size=UDim2.new(1,-70,0,14),BackgroundTransparency=1,Text=desc,Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL2.Sub,TextXAlignment=Enum.TextXAlignment.Left},r) end
+    return r
+end
+local function mkToggle(par,lbl,desc,cb)
+    local r=makeRow(par,lbl,desc,44)
+    local sw=make2("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-50,0.5,-10),BackgroundColor3=COL2.Bg},r)
+    round2(sw,10)
+    local knob=make2("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw)
+    round2(knob,7)
+    local state=false
     local function set(v)
-        state = v
-        TS:Create(sw, TI, {BackgroundColor3 = v and COL.Purple or COL.Bg}):Play()
-        TS:Create(knob, TI, {Position = v and UDim2.fromOffset(21, 3) or UDim2.fromOffset(3, 3)}):Play()
-        onToggle(v)
+        state=v
+        TS2:Create(sw,TI2,{BackgroundColor3=v and COL2.Purple or COL2.Bg}):Play()
+        TS2:Create(knob,TI2,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
+        cb(v)
     end
     sw.MouseButton1Click:Connect(function() set(not state) end)
-    NX.onAccent(function() sw.BackgroundColor3 = state and COL.Purple or COL.Bg end)
+    NX2.onAccent(function() sw.BackgroundColor3=state and COL2.Purple or COL2.Bg end)
     return set
 end
-
--- helper สร้าง button row
-local function makeButton(parent, label, desc, btnText, onClick)
-    toggleOrder += 1
-    local row = make("Frame", {
-        LayoutOrder = toggleOrder,
-        Size = UDim2.new(1, 0, 0, 44),
-        BackgroundColor3 = COL.Chip,
-        BackgroundTransparency = 0.4,
-    }, parent)
-    round(row, 14)
-    make("TextLabel", {
-        Position = UDim2.fromOffset(12, 6),
-        Size = UDim2.new(1, -110, 0, 16),
-        BackgroundTransparency = 1,
-        Text = label,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        TextColor3 = COL.Text,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, row)
-    if desc and desc ~= "" then
-        make("TextLabel", {
-            Position = UDim2.fromOffset(12, 24),
-            Size = UDim2.new(1, -110, 0, 14),
-            BackgroundTransparency = 1,
-            Text = desc,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextColor3 = COL.Sub,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        }, row)
-    end
-    local btn = make("TextButton", {
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -10, 0.5, 0),
-        Size = UDim2.fromOffset(84, 26),
-        BackgroundColor3 = COL.Purple,
-        Text = btnText,
-        Font = Enum.Font.GothamBold,
-        TextSize = 10,
-        TextColor3 = Color3.new(1, 1, 1),
-        AutoButtonColor = false,
-    }, row)
-    round(btn, 13)
-    NX.onAccent(function(a) btn.BackgroundColor3 = a end)
-    btn.MouseButton1Click:Connect(onClick)
+local function mkButton(par,lbl,desc,btnTxt,cb)
+    local r=makeRow(par,lbl,desc,44)
+    local btn=make2("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-10,0.5,0),Size=UDim2.fromOffset(84,26),BackgroundColor3=COL2.Purple,Text=btnTxt,Font=Enum.Font.GothamBold,TextSize=10,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},r)
+    round2(btn,13)
+    NX2.onAccent(function(a) btn.BackgroundColor3=a end)
+    btn.MouseButton1Click:Connect(cb)
     return btn
 end
-
--- helper dropdown (multi-select จำลอง)
-local function makeDropdown(parent, label, values, onSelect)
-    toggleOrder += 1
-    local row = make("Frame", {
-        LayoutOrder = toggleOrder,
-        Size = UDim2.new(1, 0, 0, 44),
-        BackgroundColor3 = COL.Chip,
-        BackgroundTransparency = 0.4,
-        ClipsDescendants = false,
-    }, parent)
-    round(row, 14)
-    make("TextLabel", {
-        Position = UDim2.fromOffset(12, 6),
-        Size = UDim2.new(1, -14, 0, 14),
-        BackgroundTransparency = 1,
-        Text = label,
-        Font = Enum.Font.GothamBold,
-        TextSize = 11,
-        TextColor3 = COL.Text,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, row)
-    local display = make("TextButton", {
-        Position = UDim2.fromOffset(12, 22),
-        Size = UDim2.new(1, -24, 0, 16),
-        BackgroundColor3 = COL.Bg,
-        Text = "เลือก...",
-        Font = Enum.Font.Gotham,
-        TextSize = 9,
-        TextColor3 = COL.Sub,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        AutoButtonColor = false,
-        ClipsDescendants = true,
-    }, row)
-    round(display, 8)
-    make("UIPadding", {PaddingLeft = UDim.new(0, 6)}, display)
-
-    -- popup
-    local popupOpen = false
-    local popup
-    local selected = {}
-
-    local function refreshDisplay()
-        local names = {}
-        for k in pairs(selected) do table.insert(names, k) end
-        display.Text = #names > 0 and table.concat(names, ", ") or "เลือก..."
-        onSelect(names)
+local function mkDropdown(par,lbl,values,cb)
+    local sel={}
+    rOrd+=1
+    local r=make2("Frame",{LayoutOrder=rOrd,Size=UDim2.new(1,0,0,70),BackgroundColor3=COL2.Chip,BackgroundTransparency=0.4},par)
+    round2(r,14)
+    local s=make2("UIStroke",{Color=COL2.Pink,Transparency=0.7,Thickness=1},r)
+    NX2.onAccent(function(_,b) s.Color=b end)
+    make2("TextLabel",{Position=UDim2.fromOffset(12,6),Size=UDim2.new(1,-24,0,14),BackgroundTransparency=1,Text=lbl,Font=Enum.Font.GothamBold,TextSize=11,TextColor3=COL2.Text,TextXAlignment=Enum.TextXAlignment.Left},r)
+    local disp=make2("TextButton",{Position=UDim2.fromOffset(12,24),Size=UDim2.new(1,-24,0,16),BackgroundColor3=COL2.Bg,Text="เลือก... ("..#values.." รายการ)",Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL2.Sub,TextXAlignment=Enum.TextXAlignment.Left,AutoButtonColor=false},r)
+    round2(disp,8)
+    make2("UIPadding",{PaddingLeft=UDim.new(0,6)},disp)
+    make2("TextLabel",{Position=UDim2.fromOffset(12,44),Size=UDim2.new(1,-24,0,14),BackgroundTransparency=1,Text="กด ▼ เพื่อเลือก",Font=Enum.Font.Gotham,TextSize=8,TextColor3=COL2.Sub,TextXAlignment=Enum.TextXAlignment.Left},r)
+    local function refresh()
+        local names={} for k in pairs(sel) do table.insert(names,k) end
+        disp.Text=#names>0 and "✔ "..table.concat(names,", ") or "เลือก... ("..#values.." รายการ)"
+        cb(names)
     end
-
-    display.MouseButton1Click:Connect(function()
-        if popup then popup:Destroy() popup = nil popupOpen = false return end
-        popupOpen = true
-        popup = make("Frame", {
-            Position = UDim2.new(0, 0, 1, 2),
-            Size = UDim2.new(1, 0, 0, math.min(#values * 24 + 8, 150)),
-            BackgroundColor3 = COL.Side,
-            ZIndex = 50,
-            ClipsDescendants = true,
-        }, row)
-        round(popup, 10)
-        glow(popup, 1)
-        local scroll2 = make("ScrollingFrame", {
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            ScrollBarThickness = 2,
-            CanvasSize = UDim2.new(0, 0, 0, #values * 24 + 4),
-            BorderSizePixel = 0,
-            ZIndex = 51,
-        }, popup)
-        for _, val in ipairs(values) do
-            local item = make("TextButton", {
-                Size = UDim2.new(1, 0, 0, 24),
-                BackgroundTransparency = 1,
-                Text = (selected[val] and "✔ " or "   ") .. val,
-                Font = Enum.Font.Gotham,
-                TextSize = 10,
-                TextColor3 = selected[val] and COL.Pink or COL.Text,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                AutoButtonColor = false,
-                ZIndex = 52,
-            }, scroll2)
-            make("UIPadding", {PaddingLeft = UDim.new(0, 8)}, item)
+    local popup=nil
+    disp.MouseButton1Click:Connect(function()
+        if popup then popup:Destroy() popup=nil return end
+        local maxH=math.min(#values*24+8,160)
+        popup=make2("Frame",{Position=UDim2.new(0,0,1,2),Size=UDim2.new(1,0,0,maxH),BackgroundColor3=COL2.Side,ZIndex=20,ClipsDescendants=true},r)
+        round2(popup,10)
+        glow2(popup,1)
+        local sc=make2("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ScrollBarThickness=2,CanvasSize=UDim2.new(0,0,0,#values*24+4),BorderSizePixel=0,ZIndex=21},popup)
+        make2("UIListLayout",{Padding=UDim.new(0,0),SortOrder=Enum.SortOrder.LayoutOrder},sc)
+        for _,val in ipairs(values) do
+            local item=make2("TextButton",{Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,Text=(sel[val] and "✔  " or "    ")..val,Font=Enum.Font.Gotham,TextSize=10,TextColor3=sel[val] and COL2.Pink or COL2.Text,TextXAlignment=Enum.TextXAlignment.Left,AutoButtonColor=false,ZIndex=22},sc)
+            make2("UIPadding",{PaddingLeft=UDim.new(0,8)},item)
             item.MouseButton1Click:Connect(function()
-                if selected[val] then selected[val] = nil
-                else selected[val] = true end
-                item.Text = (selected[val] and "✔ " or "   ") .. val
-                item.TextColor3 = selected[val] and COL.Pink or COL.Text
-                refreshDisplay()
+                if sel[val] then sel[val]=nil else sel[val]=true end
+                item.Text=(sel[val] and "✔  " or "    ")..val
+                item.TextColor3=sel[val] and COL2.Pink or COL2.Text
+                refresh()
             end)
         end
-        make("UIListLayout", {Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder}, scroll2)
-        -- เปลี่ยน size ของ row ให้รองรับ popup
-        row.Size = UDim2.new(1, 0, 0, 44 + popup.AbsoluteSize.Y + 4)
     end)
-
-    return refreshDisplay
-end
-
--- ============================================================
--- SECTION 6: สร้าง Pages
--- ============================================================
-local pages = NX.pages
-
--- เพิ่ม pages ใหม่ผ่าน NX (ถ้า NX expose addPage)
--- NexoraHub ตั้งต้นมีแค่ home กับ settings
--- เราต้องเพิ่ม pages เพิ่มเติมผ่าน menu
-
--- เข้าถึง menu ภายใน NX
-local nxGui = NX.gui
-local nxWin = nxGui:FindFirstChildOfClass("CanvasGroup") -- win
-local nxSide -- หา side
-for _, c in ipairs(nxWin:GetChildren()) do
-    if c:IsA("Frame") and c.Size == UDim2.new(0, 130, 1, 0) then nxSide = c break end
-    if c:IsA("Frame") and c.Name == "Side" then nxSide = c break end
-end
-
--- ดึง content frame และ menu frame
-local nxContent, nxMenu
-for _, c in ipairs(nxWin:GetChildren()) do
-    if c:IsA("Frame") then
-        for _, cc in ipairs(c:GetChildren()) do
-            if cc:IsA("ScrollingFrame") then nxMenu = cc break end
-        end
-    end
-end
--- content คือ frame ที่ pages ถูก parent
-local nxContentParent
-for _, c in ipairs(nxWin:GetChildren()) do
-    if c:IsA("Frame") and c ~= nxSide then
-        for _, cc in ipairs(c:GetChildren()) do
-            if cc:IsA("Frame") and not cc:IsA("ScrollingFrame") then
-                nxContentParent = c break
-            end
-        end
-        if nxContentParent then break end
-    end
-end
--- fallback: ดึงจาก NX.content
-nxContent = NX.content
-
--- helper: เพิ่ม page ใหม่ใน NexoraHub
-local function addBFEPage(icon, name)
-    local menu = nxMenu
-    local contentParent = nxContent
-
-    -- button ใน sidebar
-    local btn = make("TextButton", {
-        Size = UDim2.new(1, 0, 0, 32),
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        BackgroundTransparency = 1,
-        Text = "",
-        AutoButtonColor = false,
-    }, menu)
-    round(btn, 16)
-    local bg = make("UIGradient", {}, btn)
-    NX.onAccent(function(a, b) bg.Color = ColorSequence.new(a, b) end)
-    make("TextLabel", {
-        Position = UDim2.fromOffset(8, 0),
-        Size = UDim2.fromOffset(20, 32),
-        BackgroundTransparency = 1,
-        Text = icon,
-        TextSize = 14,
-    }, btn)
-    make("TextLabel", {
-        Position = UDim2.fromOffset(32, 0),
-        Size = UDim2.new(1, -36, 1, 0),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        TextColor3 = Color3.new(1, 1, 1),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Text = name,
-    }, btn)
-
-    -- page frame
-    local page = make("Frame", {
-        Size = UDim2.fromScale(1, 1),
-        BackgroundTransparency = 1,
-        Visible = false,
-    }, contentParent)
-
-    btn.MouseButton1Click:Connect(function()
-        -- hide all
-        for _, c in ipairs(contentParent:GetChildren()) do
-            if c:IsA("Frame") then c.Visible = false end
-        end
-        for _, b in ipairs(menu:GetChildren()) do
-            if b:IsA("TextButton") then
-                TS:Create(b, TI, {BackgroundTransparency = 1}):Play()
-            end
-        end
-        page.Visible = true
-        TS:Create(btn, TI, {BackgroundTransparency = 0}):Play()
-    end)
-
-    pages[name] = page
-    return page, btn
+    return refresh
 end
 
 -- ===== PAGE: FARM =====
-local farmPage, farmBtn = addBFEPage("🥚", "Farm")
-local farmScroll = makePage(farmPage)
-toggleOrder = 0
-
-sectionLabel(farmScroll, "เลือกไข่", 1)
-local farmEggList = MystrixHub.Functions.Farm_GetEggsList()
-makeDropdown(farmScroll, "🥚 ไข่ที่ต้องการ", farmEggList, function(vals)
-    local names = {}
-    for _, v in ipairs(vals) do
-        local n = v:match("^%[[^%]]+%]%s*(.+)$")
-        if n then table.insert(names, n) end
-    end
-    MystrixHub.FarmController.SpecificEggNames = names
+local farmPage=addBFEPage("🥚","Farm")
+local farmSc=makePage(farmPage)
+rOrd=0
+secLabel(farmSc,"กรอง (Filter)")
+mkDropdown(farmSc,"🥚 ไข่ที่ต้องการ",MH.Functions.Farm_GetEggsList(),function(vals)
+    local n={} for _,v in ipairs(vals) do local m=v:match("^%[[^%]]+%]%s*(.+)$") if m then table.insert(n,m) end end
+    MH.FarmController.SpecificEggNames=n
 end)
-
-local rarList = MystrixHub.Functions.Farm_GetRaritiesList()
-makeDropdown(farmScroll, "💎 ความหายาก (Rarity)", rarList, function(vals)
-    MystrixHub.FarmController.SelectedRarities = vals
+mkDropdown(farmSc,"💎 ความหายาก",MH.Functions.Farm_GetRaritiesList(),function(vals)
+    MH.FarmController.SelectedRarities=vals
 end)
-
-local areaList = MystrixHub.Functions.Farm_GetAreasList()
-makeDropdown(farmScroll, "🗺️ พื้นที่ (Area)", areaList, function(vals)
-    MystrixHub.FarmController.SelectedAreas = vals
+mkDropdown(farmSc,"🗺️ พื้นที่ (Area)",MH.Functions.Farm_GetAreasList(),function(vals)
+    MH.FarmController.SelectedAreas=vals
 end)
-
-sectionLabel(farmScroll, "ควบคุม", 10)
-makeToggle(farmScroll, "🤖 Auto Farm", "ขโมยไข่อัตโนมัติ", function(v)
-    local FC = MystrixHub.FarmController
-    if v then
-        if #FC.SpecificEggNames == 0 and #FC.SelectedRarities == 0 and #FC.SelectedAreas == 0 then
-            Notify({Title = "Farm", Content = "เลือกตัวกรองอย่างน้อย 1 อย่างก่อน!", Duration = 3, Icon = "circle-alert"})
-            return
-        end
-        MystrixHub.Functions.StartAutoFarm()
-    else
-        MystrixHub.Functions.StopAutoFarm()
-    end
+secLabel(farmSc,"ควบคุม")
+mkToggle(farmSc,"🤖 Auto Farm","ขโมยไข่จากคนอื่นอัตโนมัติ",function(v)
+    if v then MH.Functions.StartAutoFarm()
+    else MH.Functions.StopAutoFarm() end
 end)
 
 -- ===== PAGE: SELL =====
-local sellPage = addBFEPage("💰", "Sell")
-local sellScroll = makePage(sellPage)
-toggleOrder = 0
-
-sectionLabel(sellScroll, "ไข่ (Eggs)", 1)
-local eggCatList = MystrixHub.Functions.Sell_GetAllEggCategories()
-makeDropdown(sellScroll, "🥚 เลือกหมวดไข่", eggCatList, function(vals)
-    local cats = {}
-    for _, v in ipairs(vals) do
-        local n = v:match("^%[[^%]]+%]%s*(.+)$") or v
-        table.insert(cats, n)
-    end
-    MystrixHub.SellController.SelectedEggCategories = cats
+local sellPage=addBFEPage("💰","Sell")
+local sellSc=makePage(sellPage)
+rOrd=0
+secLabel(sellSc,"ไข่ (Eggs)")
+mkDropdown(sellSc,"🥚 หมวดไข่",MH.Functions.Sell_GetAllEggCategories(),function(vals)
+    local c={} for _,v in ipairs(vals) do table.insert(c,v:match("^%[[^%]]+%]%s*(.+)$") or v) end
+    MH.SellController.SelectedEggCategories=c
 end)
-
-makeToggle(sellScroll, "🤖 Auto Sell Eggs", "ขายไข่อัตโนมัติ", function(v)
-    if v then
-        if #MystrixHub.SellController.SelectedEggCategories == 0 then
-            Notify({Title = "Sell", Content = "เลือกหมวดไข่ก่อน!", Duration = 3, Icon = "circle-alert"})
-            return
-        end
-        MystrixHub.Functions.Sell_StartAutoEggs()
-    else
-        MystrixHub.Functions.Sell_StopAutoEggs()
-    end
+mkToggle(sellSc,"🤖 Auto Sell Eggs","ขายไข่อัตโนมัติ",function(v)
+    if v then MH.Functions.Sell_StartAutoEggs() else MH.Functions.Sell_StopAutoEggs() end
 end)
-
-makeButton(sellScroll, "ขายไข่ทันที", "ขายไข่ที่เลือกทั้งหมด", "ขาย", function()
+mkButton(sellSc,"ขายไข่ทันที","ขายทั้งหมดที่เลือกไว้","ขาย",function()
     task.spawn(function()
-        local n = MystrixHub.Functions.Sell_AllEggs()
-        if n > 0 then
-            Notify({Title = "Sell", Content = "ขายไข่ไป " .. n .. " ใบ", Duration = 3, Icon = "circle-check"})
-        else
-            Notify({Title = "Sell", Content = "ไม่มีไข่ที่จะขาย", Duration = 3, Icon = "circle-alert"})
-        end
+        local n=MH.Functions.Sell_AllEggs()
+        Notify({Title="Sell",Content=n>0 and ("ขายไข่ไป "..n.." ใบ") or "ไม่มีไข่ที่จะขาย",Duration=3,Icon=n>0 and "circle-check" or "circle-alert"})
     end)
 end)
-
-sectionLabel(sellScroll, "สัตว์เลี้ยง (Pets)", 20)
-local petCatList = MystrixHub.Functions.Sell_GetAllPetCategories()
-makeDropdown(sellScroll, "🐾 เลือกหมวด Pet", petCatList, function(vals)
-    local cats = {}
-    for _, v in ipairs(vals) do
-        local n = v:match("^%[[^%]]+%]%s*(.+)$") or v
-        table.insert(cats, n)
-    end
-    MystrixHub.SellController.SelectedPetCategories = cats
+secLabel(sellSc,"สัตว์เลี้ยง (Pets)")
+mkDropdown(sellSc,"🐾 หมวด Pet",MH.Functions.Sell_GetAllPetCategories(),function(vals)
+    local c={} for _,v in ipairs(vals) do table.insert(c,v:match("^%[[^%]]+%]%s*(.+)$") or v) end
+    MH.SellController.SelectedPetCategories=c
 end)
-
-makeToggle(sellScroll, "🤖 Auto Sell Pets", "ขาย Pet อัตโนมัติ", function(v)
-    if v then
-        if #MystrixHub.SellController.SelectedPetCategories == 0 then
-            Notify({Title = "Sell", Content = "เลือกหมวด Pet ก่อน!", Duration = 3, Icon = "circle-alert"})
-            return
-        end
-        MystrixHub.Functions.Sell_StartAutoPets()
-    else
-        MystrixHub.Functions.Sell_StopAutoPets()
-    end
+mkToggle(sellSc,"🤖 Auto Sell Pets","ขาย Pet อัตโนมัติ",function(v)
+    if v then MH.Functions.Sell_StartAutoPets() else MH.Functions.Sell_StopAutoPets() end
 end)
-
-makeButton(sellScroll, "ขาย Pet ทันที", "ขาย Pet ที่เลือกทั้งหมด", "ขาย", function()
+mkButton(sellSc,"ขาย Pet ทันที","ขายทั้งหมดที่เลือกไว้","ขาย",function()
     task.spawn(function()
-        local n = MystrixHub.Functions.Sell_AllPets()
-        if n > 0 then
-            Notify({Title = "Sell", Content = "ขาย Pet ไป " .. n .. " ตัว", Duration = 3, Icon = "circle-check"})
-        else
-            Notify({Title = "Sell", Content = "ไม่มี Pet ที่จะขาย", Duration = 3, Icon = "circle-alert"})
-        end
+        local n=MH.Functions.Sell_AllPets()
+        Notify({Title="Sell",Content=n>0 and ("ขาย Pet ไป "..n.." ตัว") or "ไม่มี Pet ที่จะขาย",Duration=3,Icon=n>0 and "circle-check" or "circle-alert"})
     end)
 end)
 
 -- ===== PAGE: SHOP =====
-local shopPage = addBFEPage("🛒", "Shop")
-local shopScroll = makePage(shopPage)
-toggleOrder = 0
-
-sectionLabel(shopScroll, "ซื้อ (Buy)", 1)
-makeToggle(shopScroll, "🛤️ Auto Buy Best Trail", "ซื้อ Trail ที่เร็วที่สุดอัตโนมัติ", function(v)
-    if v then MystrixHub.Functions.Shop_StartAutoTrail()
-    else MystrixHub.Functions.Shop_StopAutoTrail() end
+local shopPage=addBFEPage("🛒","Shop")
+local shopSc=makePage(shopPage)
+rOrd=0
+secLabel(shopSc,"ซื้ออัตโนมัติ")
+mkToggle(shopSc,"🚲 Auto Buy Best Bike","ซื้อจักรยานที่เร็วที่สุดอัตโนมัติ",function(v)
+    if v then MH.Functions.Shop_StartAutoBike() else MH.Functions.Shop_StopAutoBike() end
 end)
-
-makeToggle(shopScroll, "🚲 Auto Buy Best Bike", "ซื้อจักรยานที่เร็วที่สุดอัตโนมัติ", function(v)
-    if v then MystrixHub.Functions.Shop_StartAutoBike()
-    else MystrixHub.Functions.Shop_StopAutoBike() end
+secLabel(shopSc,"อัปเกรดอัตโนมัติ")
+mkToggle(shopSc,"🏃 Auto Upgrade Treadmill","อัปเกรดลู่วิ่งอัตโนมัติ",function(v)
+    if v then MH.Functions.Shop_StartAutoTreadmill() else MH.Functions.Shop_StopAutoTreadmill() end
 end)
-
-sectionLabel(shopScroll, "อัปเกรด (Upgrade)", 10)
-makeToggle(shopScroll, "🏃 Auto Upgrade Treadmill", "อัปเกรดลู่วิ่งอัตโนมัติ", function(v)
-    if v then MystrixHub.Functions.Shop_StartAutoTreadmill()
-    else MystrixHub.Functions.Shop_StopAutoTreadmill() end
-end)
-
-makeToggle(shopScroll, "🗺️ Auto Upgrade Plot", "อัปเกรดแปลงอัตโนมัติ", function(v)
-    if v then MystrixHub.Functions.Shop_StartAutoPlot()
-    else MystrixHub.Functions.Shop_StopAutoPlot() end
+mkToggle(shopSc,"🗺️ Auto Upgrade Plot","อัปเกรดแปลงอัตโนมัติ",function(v)
+    if v then MH.Functions.Shop_StartAutoPlot() else MH.Functions.Shop_StopAutoPlot() end
 end)
 
 -- ===== PAGE: PLOT =====
-local plotPage = addBFEPage("🗺️", "Plot")
-local plotScroll = makePage(plotPage)
-toggleOrder = 0
-
-sectionLabel(plotScroll, "ฟัก (Hatch)", 1)
-local hatchEggList = MystrixHub.Functions.Plot_GetEggsList()
-makeDropdown(plotScroll, "🥚 ไข่ที่จะฟัก", hatchEggList, function(vals)
-    MystrixHub.PlotController.HatchSelectedEggs = #vals > 0 and vals or {"All"}
+local plotPage=addBFEPage("🗺️","Plot")
+local plotSc=makePage(plotPage)
+rOrd=0
+secLabel(plotSc,"ฟัก (Hatch)")
+mkDropdown(plotSc,"🥚 ไข่ที่จะฟัก",MH.Functions.Plot_GetEggsList(),function(vals)
+    MH.PlotController.HatchSelectedEggs=#vals>0 and vals or {"All"}
 end)
-
-makeToggle(plotScroll, "🤖 Auto Hatch", "ฟักไข่อัตโนมัติ", function(v)
-    if v then MystrixHub.Functions.Plot_StartAutoHatch()
-    else MystrixHub.Functions.Plot_StopAutoHatch() end
+mkToggle(plotSc,"🤖 Auto Hatch","ฟักไข่อัตโนมัติ",function(v)
+    if v then MH.Functions.Plot_StartAutoHatch() else MH.Functions.Plot_StopAutoHatch() end
 end)
-
-makeButton(plotScroll, "ฟักทันที", "ฟักไข่ที่พร้อมทั้งหมด", "ฟัก", function()
+mkButton(plotSc,"ฟักทันที","ฟักไข่ที่พร้อมทั้งหมด","ฟัก",function()
     task.spawn(function()
-        local count = 0
-        for _ = 1, 20 do
-            local ok, res = pcall(MystrixHub.Functions.Plot_RunHatchOnce)
-            if ok and res then count += 1 task.wait(0.6)
-            else break end
+        local n=0
+        for _=1,20 do
+            local ok,r=pcall(MH.Functions.Plot_RunHatchOnce)
+            if ok and r then n+=1 task.wait(0.6) else break end
         end
-        if count > 0 then
-            Notify({Title = "Hatch", Content = "ฟักไปแล้ว " .. count .. " ใบ", Duration = 3, Icon = "circle-check"})
-        else
-            Notify({Title = "Hatch", Content = "ไม่มีไข่ที่พร้อมฟัก", Duration = 3, Icon = "circle-alert"})
-        end
+        Notify({Title="Hatch",Content=n>0 and ("ฟักไปแล้ว "..n.." ใบ") or "ไม่มีไข่พร้อมฟัก",Duration=3,Icon=n>0 and "circle-check" or "circle-alert"})
     end)
 end)
-
-sectionLabel(plotScroll, "วาง (Place)", 20)
-local placeEggList = MystrixHub.Functions.Plot_GetEggsListForPlace()
-makeDropdown(plotScroll, "🥚 ไข่ที่จะวาง", placeEggList, function(vals)
-    MystrixHub.PlotController.PlaceSelectedEggs = #vals > 0 and vals or {"Best"}
+secLabel(plotSc,"วาง (Place)")
+mkDropdown(plotSc,"🥚 ไข่ที่จะวาง",MH.Functions.Plot_GetEggsListForPlace(),function(vals)
+    MH.PlotController.PlaceSelectedEggs=#vals>0 and vals or {"Best"}
 end)
-
-makeToggle(plotScroll, "🤖 Auto Place", "วางไข่ในแปลงอัตโนมัติ", function(v)
-    if v then MystrixHub.Functions.Plot_StartAutoPlace()
-    else MystrixHub.Functions.Plot_StopAutoPlace() end
+mkToggle(plotSc,"🤖 Auto Place","วางไข่ในแปลงอัตโนมัติ",function(v)
+    if v then MH.Functions.Plot_StartAutoPlace() else MH.Functions.Plot_StopAutoPlace() end
 end)
-
-makeButton(plotScroll, "วางทันที", "วางไข่ในช่องว่างที่มี", "วาง", function()
+mkButton(plotSc,"วางทันที","วางไข่ในช่องว่างที่มี","วาง",function()
     task.spawn(function()
-        local count, lastErr = 0, ""
-        for _ = 1, 10 do
-            local ok, res, reason = pcall(MystrixHub.Functions.Plot_RunPlaceOnce)
-            if not ok then lastErr = tostring(res) break end
-            if res then count += 1 task.wait(1.2)
-            else lastErr = tostring(reason or "unknown") break end
+        local n=0
+        for _=1,10 do
+            local ok,r=pcall(MH.Functions.Plot_RunPlaceOnce)
+            if ok and r then n+=1 task.wait(1.2) else break end
         end
-        if count > 0 then
-            Notify({Title = "Place", Content = "วางไข่ไปแล้ว " .. count .. " ใบ", Duration = 3, Icon = "circle-check"})
-        else
-            Notify({Title = "Place Failed", Content = lastErr, Duration = 5, Icon = "circle-alert"})
-        end
+        Notify({Title="Place",Content=n>0 and ("วางไข่ไปแล้ว "..n.." ใบ") or "วางไม่ได้",Duration=3,Icon=n>0 and "circle-check" or "circle-alert"})
     end)
 end)
-
-sectionLabel(plotScroll, "อื่นๆ", 30)
-makeToggle(plotScroll, "🏃 Auto Treadmill", "วิ่งลู่วิ่งอัตโนมัติ", function(v)
-    if v then MystrixHub.Functions.Plot_StartAutoTreadmill()
-    else MystrixHub.Functions.Plot_StopAutoTreadmill() end
+secLabel(plotSc,"อื่นๆ")
+mkToggle(plotSc,"🏃 Auto Treadmill","วิ่งลู่วิ่งอัตโนมัติ",function(v)
+    if v then MH.Functions.Plot_StartAutoTreadmill() else MH.Functions.Plot_StopAutoTreadmill() end
+end)
+mkToggle(plotSc,"📦 Auto Claim","เก็บไข่จากแปลงอัตโนมัติ",function(v)
+    if v then MH.Functions.Plot_StartAutoClaim() else MH.Functions.Plot_StopAutoClaim() end
 end)
 
-makeToggle(plotScroll, "📦 Auto Claim", "เก็บไข่จากแปลงอัตโนมัติ", function(v)
-    if v then MystrixHub.Functions.Plot_StartAutoClaim()
-    else MystrixHub.Functions.Plot_StopAutoClaim() end
+-- เปลี่ยนชื่อใน UI
+NX2.CFG.NAME="BIKE FOR EGG"
+
+-- done
+task.delay(2,function()
+    Notify({Title="BIKE FOR EGG",Content="โหลดสำเร็จ ✅ NexoraHub พร้อมใช้งาน",Duration=4,Icon="circle-check"})
 end)
 
--- ===== เลือก page แรก =====
--- NexoraHub เริ่มที่ home อยู่แล้ว ไม่ต้องทำอะไรเพิ่ม
-
-Notify({
-    Title = "BIKE FOR EGG",
-    Content = "โหลดสำเร็จ! NexoraHub GUI พร้อมใช้งาน",
-    Duration = 4,
-    Icon = "circle-check",
-})
+------------------------------------------------------------------
+do
+ local NX=getgenv().NX
+ NX.setLang(NX.state.lang or "TH")
+ Loader.finish(function()
+  if not NX.gui.Parent then return end
+  TS:Create(logo,TweenInfo.new(.5,Enum.EasingStyle.Back),{Size=UDim2.fromOffset(LS,LS)}):Play()
+  task.delay(.6,function() NX.setOpen(true) end)
+ end)
+end
