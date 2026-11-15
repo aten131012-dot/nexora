@@ -1,0 +1,447 @@
+-- NEXORA HUB LOADER
+local Players    = game:GetService("Players")
+local TS         = game:GetService("TweenService")
+local RS         = game:GetService("RunService")
+local Lighting   = game:GetService("Lighting")
+local HS         = game:GetService("HttpService")
+local TPS        = game:GetService("TeleportService")
+local MPS        = game:GetService("MarketplaceService")
+local CP         = game:GetService("ContentProvider")
+local LP         = Players.LocalPlayer
+
+local CFG = {
+    DISCORD    = "https://discord.gg/vHRMNpDsQ4",
+    LOADER_URL = "",
+}
+local SFX = {
+    click = "rbxasset://sounds/button.wav",
+    open  = "rbxasset://sounds/switch.wav",
+    boom  = "rbxasset://sounds/impact_water.mp3",
+}
+
+local Scripts = {
+    [142823291] = "https://raw.githubusercontent.com/aten131012-dot/Obf/refs/heads/main/MM2.lua",
+}
+
+local LANG  = "EN"
+local BLACK = Color3.new(0, 0, 0)
+local WHITE = Color3.new(1, 1, 1)
+
+-- ===== HELPERS =====
+local function new(c, p, par)
+    local i = Instance.new(c)
+    for k, v in pairs(p) do i[k] = v end
+    i.Parent = par
+    return i
+end
+local function tw(o, t, p, s, d)
+    local x = TS:Create(o, TweenInfo.new(t, s or Enum.EasingStyle.Quad, d or Enum.EasingDirection.Out), p)
+    x:Play()
+    return x
+end
+local function snd(id, vol)
+    if not id or id == "" then return end
+    local s = Instance.new("Sound")
+    s.SoundId, s.Volume = id, vol or 0.6
+    s.Parent = game:GetService("SoundService")
+    s:Play()
+    game:GetService("Debris"):AddItem(s, 6)
+end
+local function mkGui(name, order)
+    pcall(function()
+        local old = (gethui and gethui() or game:GetService("CoreGui")):FindFirstChild(name)
+        if old then old:Destroy() end
+    end)
+    local g = Instance.new("ScreenGui")
+    g.Name, g.ResetOnSpawn, g.IgnoreGuiInset, g.DisplayOrder = name, false, true, order
+    g.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    local ok = pcall(function() g.Parent = (gethui and gethui()) or game:GetService("CoreGui") end)
+    if not ok or not g.Parent then g.Parent = LP:WaitForChild("PlayerGui") end
+    return g
+end
+
+-- ===== NOTICE POPUP (เรียบง่าย ไม่มีม่วง) =====
+local noticeOpen = false
+local function ShowNotice()
+    if noticeOpen then return end
+    noticeOpen = true
+    snd(SFX.open, 0.8)
+
+    local T = {
+        EN = {
+            msg    = "This map has no script yet.\nFollow updates on our Discord.",
+            copy   = "COPY DISCORD LINK",
+            copied = "COPIED!",
+            close  = "CLOSE",
+            lang   = "TH",
+        },
+        TH = {
+            msg    = "แมพนี้ยังไม่มีสคริปต์\nสามารถดูแมพติดตามข่าวสารได้ที่ดิส\nhttps://discord.gg/vHRMNpDsQ4",
+            copy   = "คัดลอกลิงก์ดิส",
+            copied = "คัดลอกแล้ว!",
+            close  = "ปิด",
+            lang   = "EN",
+        },
+    }
+
+    local gui   = mkGui("NEXORA_NOTICE", 999)
+    local vs    = workspace.CurrentCamera.ViewportSize
+    local W, H  = 340, 200
+
+    -- black hole effect layer
+    local bhGui = mkGui("NEXORA_BH", 998)
+    local bhCanvas = new("Frame", {
+        Size = UDim2.fromScale(1,1),
+        BackgroundColor3 = BLACK,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 1,
+    }, bhGui)
+
+    -- spawn orbiting rings (black hole rings)
+    local bhAlive = {on = true}
+    task.spawn(function()
+        local ringColors = {
+            Color3.fromRGB(80, 0, 160),
+            Color3.fromRGB(40, 0, 80),
+            Color3.fromRGB(120, 50, 200),
+        }
+        local rings = {}
+        for i = 1, 3 do
+            local r = new("Frame", {
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position    = UDim2.fromScale(0.5, 0.5),
+                Size        = UDim2.fromOffset(60 + i*50, 60 + i*50),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                ZIndex = 1,
+            }, bhCanvas)
+            new("UICorner", {CornerRadius = UDim.new(1,0)}, r)
+            new("UIStroke", {
+                Color = ringColors[i],
+                Thickness = 2.5 - i*0.5,
+                Transparency = 0.3 + i*0.15,
+            }, r)
+            rings[i] = r
+        end
+        -- dark center
+        local center = new("Frame", {
+            AnchorPoint = Vector2.new(0.5,0.5),
+            Position    = UDim2.fromScale(0.5,0.5),
+            Size        = UDim2.fromOffset(28,28),
+            BackgroundColor3 = BLACK,
+            BorderSizePixel  = 0,
+            ZIndex = 2,
+        }, bhCanvas)
+        new("UICorner", {CornerRadius = UDim.new(1,0)}, center)
+        new("UIStroke", {Color = Color3.fromRGB(100,0,200), Thickness = 2}, center)
+
+        local t = 0
+        while bhAlive.on and bhCanvas.Parent do
+            t += task.wait()
+            for i, r in ipairs(rings) do
+                local base = 60 + i*50
+                local pulse = base + math.sin(t * (1.2 + i*0.3)) * 6
+                r.Size = UDim2.fromOffset(pulse, pulse)
+                r.Rotation = t * (20 + i*10) * (i%2==0 and -1 or 1)
+            end
+        end
+    end)
+
+    -- dim background
+    local dim = new("Frame", {
+        Size = UDim2.fromScale(1,1),
+        BackgroundColor3 = BLACK,
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0,
+        ZIndex = 2,
+    }, gui)
+
+    -- main panel (clean dark)
+    local panel = new("Frame", {
+        AnchorPoint = Vector2.new(0.5,0.5),
+        Position    = UDim2.fromScale(0.5, 0.5),
+        Size        = UDim2.fromOffset(W, 4),
+        BackgroundColor3 = Color3.fromRGB(14, 14, 18),
+        BorderSizePixel  = 0,
+        ClipsDescendants = true,
+        ZIndex = 3,
+    }, gui)
+    new("UIScale",  {Scale = math.min(1, vs.X*0.92/W, vs.Y*0.92/H)}, panel)
+    new("UICorner", {CornerRadius = UDim.new(0, 8)}, panel)
+    new("UIStroke", {Color = Color3.fromRGB(50,50,70), Thickness = 1}, panel)
+
+    -- top bar
+    local topBar = new("Frame", {
+        Size = UDim2.fromOffset(W, 30),
+        BackgroundColor3 = Color3.fromRGB(20,20,28),
+        BorderSizePixel  = 0,
+        ZIndex = 4,
+    }, panel)
+    new("UICorner", {CornerRadius = UDim.new(0,8)}, topBar)
+    -- logo
+    new("ImageLabel", {
+        Position = UDim2.fromOffset(6, 4),
+        Size     = UDim2.fromOffset(22, 22),
+        BackgroundTransparency = 1,
+        Image    = "rbxassetid://86383017875768",
+        ZIndex   = 5,
+    }, topBar)
+    new("TextLabel", {
+        Position = UDim2.fromOffset(32, 5),
+        Size     = UDim2.fromOffset(160, 20),
+        BackgroundTransparency = 1,
+        Text     = "NEXORA HUB",
+        TextColor3 = WHITE,
+        Font     = Enum.Font.GothamBlack,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex   = 5,
+    }, topBar)
+
+    -- lang button top-right
+    local langBtn = new("TextButton", {
+        Position = UDim2.fromOffset(W - 54, 5),
+        Size     = UDim2.fromOffset(48, 20),
+        BackgroundColor3 = Color3.fromRGB(35,35,48),
+        TextColor3 = Color3.fromRGB(180,180,200),
+        Font     = Enum.Font.GothamBold,
+        TextSize = 11,
+        BorderSizePixel = 0,
+        ZIndex   = 5,
+    }, topBar)
+    new("UICorner", {CornerRadius = UDim.new(0,4)}, langBtn)
+
+    -- message
+    local msgLabel = new("TextLabel", {
+        Position  = UDim2.fromOffset(16, 40),
+        Size      = UDim2.fromOffset(W - 32, 80),
+        BackgroundTransparency = 1,
+        TextColor3 = Color3.fromRGB(210,210,220),
+        Font      = Enum.Font.Gotham,
+        TextSize  = 13,
+        TextWrapped  = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex    = 4,
+    }, panel)
+
+    -- copy button
+    local copyBtn = new("TextButton", {
+        Position = UDim2.fromOffset(16, 128),
+        Size     = UDim2.fromOffset(W - 32, 32),
+        BackgroundColor3 = Color3.fromRGB(40,40,60),
+        TextColor3 = WHITE,
+        Font     = Enum.Font.GothamBold,
+        TextSize = 12,
+        BorderSizePixel = 0,
+        ZIndex   = 4,
+    }, panel)
+    new("UICorner", {CornerRadius = UDim.new(0,6)}, copyBtn)
+    new("UIStroke", {Color = Color3.fromRGB(80,80,120), Thickness = 1}, copyBtn)
+
+    -- close button
+    local closeBtn = new("TextButton", {
+        Position = UDim2.fromOffset(W/2 - 50, 170),
+        Size     = UDim2.fromOffset(100, 26),
+        BackgroundColor3 = Color3.fromRGB(50,20,20),
+        TextColor3 = Color3.fromRGB(240,100,100),
+        Font     = Enum.Font.GothamBold,
+        TextSize = 12,
+        BorderSizePixel = 0,
+        ZIndex   = 4,
+    }, panel)
+    new("UICorner", {CornerRadius = UDim.new(0,6)}, closeBtn)
+    new("UIStroke", {Color = Color3.fromRGB(120,40,40), Thickness = 1}, closeBtn)
+
+    -- apply lang
+    local function applyLang()
+        local L = T[LANG]
+        langBtn.Text  = L.lang
+        msgLabel.Text = L.msg
+        copyBtn.Text  = L.copy
+        closeBtn.Text = L.close
+    end
+    applyLang()
+
+    langBtn.MouseButton1Click:Connect(function()
+        snd(SFX.click, 0.5)
+        LANG = (LANG == "EN") and "TH" or "EN"
+        applyLang()
+    end)
+
+    local busy = false
+    copyBtn.MouseButton1Click:Connect(function()
+        if busy then return end
+        busy = true
+        snd(SFX.click, 0.8)
+        pcall(function() (setclipboard or toclipboard)(CFG.DISCORD) end)
+        copyBtn.Text = T[LANG].copied
+        copyBtn.BackgroundColor3 = Color3.fromRGB(30,110,70)
+        task.wait(1.5)
+        copyBtn.Text = T[LANG].copy
+        copyBtn.BackgroundColor3 = Color3.fromRGB(40,40,60)
+        busy = false
+    end)
+
+    closeBtn.MouseButton1Click:Connect(function()
+        snd(SFX.boom, 0.8)
+        bhAlive.on = false
+        tw(panel, 0.3, {Size = UDim2.fromOffset(W, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        tw(dim,   0.4, {BackgroundTransparency = 1})
+        task.wait(0.4)
+        gui:Destroy()
+        bhGui:Destroy()
+        noticeOpen = false
+        -- show mini badge again
+        ShowMiniBadge()
+    end)
+
+    -- open animation
+    tw(panel, 0.5, {Size = UDim2.fromOffset(W, H)}, Enum.EasingStyle.Back)
+end
+
+-- ===== MINI BADGE (มุมซ้าย ลอยได้ ดาวหมุน) =====
+function ShowMiniBadge()
+    local gui = mkGui("NEXORA_BADGE", 997)
+
+    -- draggable badge
+    local badge = new("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position    = UDim2.fromOffset(10, 60),
+        Size        = UDim2.fromOffset(140, 36),
+        BackgroundColor3 = Color3.fromRGB(14,14,18),
+        BorderSizePixel  = 0,
+        ZIndex = 3,
+        Active = true,
+    }, gui)
+    new("UICorner", {CornerRadius = UDim.new(0,8)}, badge)
+    new("UIStroke", {Color = Color3.fromRGB(60,60,90), Thickness = 1}, badge)
+
+    -- logo
+    new("ImageLabel", {
+        Position = UDim2.fromOffset(6, 7),
+        Size     = UDim2.fromOffset(22, 22),
+        BackgroundTransparency = 1,
+        Image    = "rbxassetid://86383017875768",
+        ZIndex   = 4,
+    }, badge)
+
+    new("TextLabel", {
+        Position = UDim2.fromOffset(32, 9),
+        Size     = UDim2.fromOffset(100, 18),
+        BackgroundTransparency = 1,
+        Text     = "NEXORA HUB",
+        TextColor3 = WHITE,
+        Font     = Enum.Font.GothamBlack,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex   = 4,
+    }, badge)
+
+    -- stars orbiting (SVG-style frame dots)
+    local starCanvas = new("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position    = UDim2.fromScale(0.5, 0.5),
+        Size        = UDim2.fromOffset(160, 56),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 2,
+    }, badge)
+
+    local stars = {}
+    for i = 1, 6 do
+        local dot = new("Frame", {
+            Size  = UDim2.fromOffset(4, 4),
+            BackgroundColor3 = Color3.fromRGB(180 + math.random(-30,30), 180, 255),
+            BorderSizePixel  = 0,
+            ZIndex = 2,
+        }, starCanvas)
+        new("UICorner", {CornerRadius = UDim.new(1,0)}, dot)
+        stars[i] = {dot = dot, angle = (i-1)*(math.pi*2/6), radius = 60 + math.random(-6,6), speed = 0.6 + math.random()*0.4}
+    end
+
+    -- black hole effect ring behind badge
+    local bhRing = new("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position    = UDim2.fromOffset(-8, 18),
+        Size        = UDim2.fromOffset(156, 52),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 1,
+    }, badge)
+    new("UICorner", {CornerRadius = UDim.new(1,0)}, bhRing)
+    local bhStroke = new("UIStroke", {
+        Color = Color3.fromRGB(100, 30, 200),
+        Thickness = 2,
+        Transparency = 0.4,
+    }, bhRing)
+    TS:Create(bhStroke, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Transparency = 0.85, Color = Color3.fromRGB(160, 80, 255)}):Play()
+
+    -- animate stars
+    local alive = {on = true}
+    task.spawn(function()
+        local t = 0
+        while alive.on and badge.Parent do
+            t += task.wait()
+            local cx, cy = 70, 18  -- center of starCanvas (half of 140,36)
+            for _, s in ipairs(stars) do
+                s.angle += s.speed * task.wait() * 0.5
+                local px = cx + math.cos(s.angle) * (s.radius * 0.5) - 2
+                local py = cy + math.sin(s.angle) * (s.radius * 0.18) - 2
+                s.dot.Position = UDim2.fromOffset(px, py)
+            end
+        end
+    end)
+
+    -- drag logic
+    local dragging, dragStart, posStart = false, nil, nil
+    badge.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
+            dragStart = inp.Position
+            posStart  = badge.Position
+        end
+    end)
+    badge.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    game:GetService("UserInputService").InputChanged:Connect(function(inp)
+        if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+            local delta = inp.Position - dragStart
+            badge.Position = UDim2.fromOffset(
+                posStart.X.Offset + delta.X,
+                posStart.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    -- click to open notice
+    local clickTime = 0
+    badge.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+            clickTime = tick()
+        end
+    end)
+    badge.InputEnded:Connect(function(inp)
+        if (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch)
+            and (tick() - clickTime < 0.25) and not dragging then
+            snd(SFX.open, 0.6)
+            alive.on = false
+            gui:Destroy()
+            ShowNotice()
+        end
+    end)
+end
+
+-- ===== ENTRY POINT =====
+local url = Scripts[game.PlaceId] or Scripts[game.GameId]
+
+if url and tostring(url):find("^http") then
+    local ok, err = pcall(function() loadstring(game:HttpGet(url))() end)
+    if not ok then warn("[NEXORA] โหลดสคริปต์ไม่สำเร็จ: " .. tostring(err)) end
+else
+    task.spawn(ShowMiniBadge)
+end
