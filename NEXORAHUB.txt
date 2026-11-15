@@ -18,6 +18,7 @@ local Scripts = {
 local LANG  = "TH"
 local BLACK = Color3.new(0, 0, 0)
 local WHITE = Color3.new(1, 1, 1)
+local GRAY  = Color3.fromRGB(160, 160, 160)
 
 -- ===== HELPERS =====
 local function new(c, p, par)
@@ -52,6 +53,44 @@ local function mkGui(name, order)
     return g
 end
 
+-- ===== ORBITING ROCKS =====
+local function SpawnRocks(parent, W, H, alive)
+    -- 6 rock dots orbiting the panel
+    local rocks = {}
+    local orbitW = W * 0.62
+    local orbitH = H * 0.52
+    for i = 1, 6 do
+        local sz = 5 + math.random(0, 4)
+        local dot = new("Frame", {
+            Size             = UDim2.fromOffset(sz, sz),
+            AnchorPoint      = Vector2.new(0.5, 0.5),
+            Position         = UDim2.fromScale(0.5, 0.5),
+            BackgroundColor3 = (i % 2 == 0) and WHITE or GRAY,
+            BorderSizePixel  = 0,
+            ZIndex           = 2,
+        }, parent)
+        new("UICorner", {CornerRadius = UDim.new(1, 0)}, dot)
+        rocks[i] = {
+            dot    = dot,
+            angle  = (i - 1) * (math.pi * 2 / 6) + math.random() * 0.5,
+            speed  = 0.35 + math.random() * 0.25,
+            orbitW = orbitW + math.random(-10, 10),
+            orbitH = orbitH + math.random(-6, 6),
+        }
+    end
+    task.spawn(function()
+        while alive.on do
+            task.wait(0.03)
+            for _, r in ipairs(rocks) do
+                r.angle += r.speed * 0.03
+                local px = 0.5 + math.cos(r.angle) * (r.orbitW / W) * 0.5
+                local py = 0.5 + math.sin(r.angle) * (r.orbitH / H) * 0.5
+                r.dot.Position = UDim2.fromScale(px, py)
+            end
+        end
+    end)
+end
+
 -- ===== NOTICE POPUP =====
 local noticeOpen = false
 local function ShowNotice()
@@ -61,16 +100,16 @@ local function ShowNotice()
 
     local T = {
         EN = {
-            msg     = "This map has no script yet.\nFollow updates on our Discord.",
-            copy    = "COPY DISCORD LINK",
-            copied  = "COPIED!",
-            close   = "CLOSE",
+            msg     = "No script available for this map yet.\nStay tuned — we're working on it.\nFollow updates on our Discord.",
+            copy    = "⧉  Copy Discord Link",
+            copied  = "✓  Copied!",
+            close   = "Close",
             langBtn = "TH",
         },
         TH = {
-            msg     = "แมพนี้ยังไม่มีสคริปต์\nติดตามข่าวสารได้ทางดิสคอส",
-            copy    = "คัดลอกลิ้งค์",
-            copied  = "คัดลอกแล้ว!",
+            msg     = "แมพนี้ยังไม่มีสคริปต์\nอยู่ระหว่างพัฒนา รอติดตามได้เลย\nติดตามข่าวสารได้ทางดิสคอส",
+            copy    = "⧉  คัดลอกลิ้งค์ดิสคอส",
+            copied  = "✓  คัดลอกแล้ว!",
             close   = "ปิด",
             langBtn = "EN",
         },
@@ -78,108 +117,147 @@ local function ShowNotice()
 
     local gui  = mkGui("NEXORA_NOTICE", 999)
     local vs   = workspace.CurrentCamera.ViewportSize
-    local W, H = 320, 196
+    local W, H = 320, 210
+    local alive = {on = true}
 
-    -- dim background
+    -- dim
     new("Frame", {
-        Size = UDim2.fromScale(1, 1),
-        BackgroundColor3 = BLACK,
-        BackgroundTransparency = 0.45,
-        BorderSizePixel = 0,
-        ZIndex = 2,
+        Size                   = UDim2.fromScale(1, 1),
+        BackgroundColor3       = BLACK,
+        BackgroundTransparency = 0.42,
+        BorderSizePixel        = 0,
+        ZIndex                 = 2,
     }, gui)
 
-    -- main panel
+    -- rock orbit container (behind panel, same center)
+    local orbitFrame = new("Frame", {
+        AnchorPoint      = Vector2.new(0.5, 0.5),
+        Position         = UDim2.fromScale(0.5, 0.5),
+        Size             = UDim2.fromOffset(W + 90, H + 70),
+        BackgroundTransparency = 1,
+        BorderSizePixel  = 0,
+        ZIndex           = 2,
+    }, gui)
+    SpawnRocks(orbitFrame, W + 90, H + 70, alive)
+
+    -- main panel — pure black/white
     local panel = new("Frame", {
         AnchorPoint      = Vector2.new(0.5, 0.5),
         Position         = UDim2.fromScale(0.5, 0.5),
         Size             = UDim2.fromOffset(W, 4),
-        BackgroundColor3 = Color3.fromRGB(12, 12, 16),
+        BackgroundColor3 = Color3.fromRGB(8, 8, 8),
         BorderSizePixel  = 0,
         ClipsDescendants = true,
-        ZIndex           = 3,
+        ZIndex           = 4,
     }, gui)
     new("UIScale",  {Scale = math.min(1, vs.X * 0.92 / W, vs.Y * 0.92 / H)}, panel)
-    new("UICorner", {CornerRadius = UDim.new(0, 14)}, panel)
-    new("UIStroke", {Color = Color3.fromRGB(55, 55, 75), Thickness = 1}, panel)
+    new("UICorner", {CornerRadius = UDim.new(0, 12)}, panel)
+    new("UIStroke", {Color = Color3.fromRGB(220, 220, 220), Thickness = 1.2}, panel)
 
     -- top bar
     local topBar = new("Frame", {
-        Size             = UDim2.fromOffset(W, 38),
-        BackgroundColor3 = Color3.fromRGB(18, 18, 26),
+        Size             = UDim2.fromOffset(W, 40),
+        BackgroundColor3 = Color3.fromRGB(18, 18, 18),
         BorderSizePixel  = 0,
-        ZIndex           = 4,
+        ZIndex           = 5,
     }, panel)
-    new("UICorner", {CornerRadius = UDim.new(0, 14)}, topBar)
+    new("UICorner", {CornerRadius = UDim.new(0, 12)}, topBar)
 
-    -- title
-    new("TextLabel", {
-        Position           = UDim2.fromOffset(14, 9),
-        Size               = UDim2.fromOffset(200, 20),
+    -- bottom cover for top bar rounded corners bleeding into body
+    new("Frame", {
+        Position         = UDim2.fromOffset(0, 24),
+        Size             = UDim2.fromOffset(W, 16),
+        BackgroundColor3 = Color3.fromRGB(18, 18, 18),
+        BorderSizePixel  = 0,
+        ZIndex           = 5,
+    }, topBar)
+
+    -- logo + title in topbar
+    new("ImageLabel", {
+        Position               = UDim2.fromOffset(12, 9),
+        Size                   = UDim2.fromOffset(22, 22),
         BackgroundTransparency = 1,
-        Text               = "NEXORA HUB",
-        TextColor3         = WHITE,
-        Font               = Enum.Font.GothamBlack,
-        TextSize           = 14,
-        TextXAlignment     = Enum.TextXAlignment.Left,
-        ZIndex             = 5,
+        Image                  = "rbxassetid://86383017875768",
+        ImageColor3            = WHITE,
+        ZIndex                 = 6,
+    }, topBar)
+    new("TextLabel", {
+        Position               = UDim2.fromOffset(40, 11),
+        Size                   = UDim2.fromOffset(170, 18),
+        BackgroundTransparency = 1,
+        Text                   = "NEXORA HUB",
+        TextColor3             = WHITE,
+        Font                   = Enum.Font.GothamBlack,
+        TextSize               = 13,
+        TextXAlignment         = Enum.TextXAlignment.Left,
+        ZIndex                 = 6,
     }, topBar)
 
     -- lang toggle
     local langBtn = new("TextButton", {
-        Position         = UDim2.fromOffset(W - 54, 9),
-        Size             = UDim2.fromOffset(44, 20),
-        BackgroundColor3 = Color3.fromRGB(35, 35, 50),
-        TextColor3       = Color3.fromRGB(180, 180, 210),
+        Position         = UDim2.fromOffset(W - 50, 11),
+        Size             = UDim2.fromOffset(38, 18),
+        BackgroundColor3 = Color3.fromRGB(38, 38, 38),
+        TextColor3       = GRAY,
         Font             = Enum.Font.GothamBold,
         TextSize         = 11,
         BorderSizePixel  = 0,
-        ZIndex           = 5,
+        ZIndex           = 6,
     }, topBar)
-    new("UICorner", {CornerRadius = UDim.new(0, 5)}, langBtn)
-    new("UIStroke", {Color = Color3.fromRGB(70, 70, 100), Thickness = 1}, langBtn)
+    new("UICorner", {CornerRadius = UDim.new(0, 4)}, langBtn)
+    new("UIStroke", {Color = Color3.fromRGB(90, 90, 90), Thickness = 1}, langBtn)
 
-    -- message label
+    -- divider line
+    new("Frame", {
+        Position         = UDim2.fromOffset(0, 40),
+        Size             = UDim2.fromOffset(W, 1),
+        BackgroundColor3 = Color3.fromRGB(45, 45, 45),
+        BorderSizePixel  = 0,
+        ZIndex           = 5,
+    }, panel)
+
+    -- message
     local msgLabel = new("TextLabel", {
-        Position           = UDim2.fromOffset(14, 48),
-        Size               = UDim2.fromOffset(W - 28, 68),
+        Position               = UDim2.fromOffset(16, 50),
+        Size                   = UDim2.fromOffset(W - 32, 80),
         BackgroundTransparency = 1,
-        TextColor3         = Color3.fromRGB(210, 210, 225),
-        Font               = Enum.Font.Gotham,
-        TextSize           = 13,
-        TextWrapped        = true,
-        TextXAlignment     = Enum.TextXAlignment.Center,
-        TextYAlignment     = Enum.TextYAlignment.Top,
-        ZIndex             = 4,
+        TextColor3             = Color3.fromRGB(200, 200, 200),
+        Font                   = Enum.Font.Gotham,
+        TextSize               = 13,
+        TextWrapped            = true,
+        LineHeight             = 1.45,
+        TextXAlignment         = Enum.TextXAlignment.Center,
+        TextYAlignment         = Enum.TextYAlignment.Top,
+        ZIndex                 = 5,
     }, panel)
 
     -- copy button
     local copyBtn = new("TextButton", {
-        Position         = UDim2.fromOffset(14, 122),
-        Size             = UDim2.fromOffset(W - 28, 32),
-        BackgroundColor3 = Color3.fromRGB(38, 38, 58),
+        Position         = UDim2.fromOffset(16, 136),
+        Size             = UDim2.fromOffset(W - 32, 34),
+        BackgroundColor3 = Color3.fromRGB(22, 22, 22),
         TextColor3       = WHITE,
         Font             = Enum.Font.GothamBold,
         TextSize         = 12,
         BorderSizePixel  = 0,
-        ZIndex           = 4,
+        ZIndex           = 5,
     }, panel)
     new("UICorner", {CornerRadius = UDim.new(0, 8)}, copyBtn)
-    new("UIStroke", {Color = Color3.fromRGB(80, 80, 120), Thickness = 1}, copyBtn)
+    new("UIStroke", {Color = Color3.fromRGB(180, 180, 180), Thickness = 1}, copyBtn)
 
     -- close button
     local closeBtn = new("TextButton", {
-        Position         = UDim2.fromOffset(W / 2 - 52, 162),
-        Size             = UDim2.fromOffset(104, 26),
-        BackgroundColor3 = Color3.fromRGB(50, 18, 18),
-        TextColor3       = Color3.fromRGB(240, 100, 100),
+        Position         = UDim2.fromOffset(W / 2 - 48, 178),
+        Size             = UDim2.fromOffset(96, 24),
+        BackgroundColor3 = Color3.fromRGB(14, 14, 14),
+        TextColor3       = Color3.fromRGB(130, 130, 130),
         Font             = Enum.Font.GothamBold,
-        TextSize         = 12,
+        TextSize         = 11,
         BorderSizePixel  = 0,
-        ZIndex           = 4,
+        ZIndex           = 5,
     }, panel)
-    new("UICorner", {CornerRadius = UDim.new(0, 7)}, closeBtn)
-    new("UIStroke", {Color = Color3.fromRGB(120, 40, 40), Thickness = 1}, closeBtn)
+    new("UICorner", {CornerRadius = UDim.new(0, 6)}, closeBtn)
+    new("UIStroke", {Color = Color3.fromRGB(70, 70, 70), Thickness = 1}, closeBtn)
 
     -- apply language
     local function applyLang()
@@ -204,19 +282,36 @@ local function ShowNotice()
         snd(SFX.click, 0.8)
         pcall(function() (setclipboard or toclipboard)(CFG.DISCORD) end)
         copyBtn.Text             = T[LANG].copied
-        copyBtn.BackgroundColor3 = Color3.fromRGB(28, 108, 65)
+        copyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        copyBtn.TextColor3       = Color3.fromRGB(180, 255, 180)
         task.wait(1.5)
         copyBtn.Text             = T[LANG].copy
-        copyBtn.BackgroundColor3 = Color3.fromRGB(38, 38, 58)
+        copyBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+        copyBtn.TextColor3       = WHITE
         busy = false
     end)
 
     closeBtn.MouseButton1Click:Connect(function()
-        snd(SFX.boom, 0.8)
-        tw(panel, 0.3, {Size = UDim2.fromOffset(W, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-        task.wait(0.35)
+        snd(SFX.boom, 0.6)
+        alive.on = false
+        tw(panel, 0.28, {Size = UDim2.fromOffset(W, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        task.wait(0.32)
         gui:Destroy()
         noticeOpen = false
+    end)
+
+    -- hover effects
+    copyBtn.MouseEnter:Connect(function()
+        tw(copyBtn, 0.15, {BackgroundColor3 = Color3.fromRGB(38, 38, 38)})
+    end)
+    copyBtn.MouseLeave:Connect(function()
+        if not busy then tw(copyBtn, 0.15, {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}) end
+    end)
+    closeBtn.MouseEnter:Connect(function()
+        tw(closeBtn, 0.15, {TextColor3 = WHITE})
+    end)
+    closeBtn.MouseLeave:Connect(function()
+        tw(closeBtn, 0.15, {TextColor3 = Color3.fromRGB(130, 130, 130)})
     end)
 
     -- open animation
