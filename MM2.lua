@@ -1,4 +1,5 @@
---[[ NEXORA HUB v2 | GUINO1-style scroll navigation + original MM2 modules ]]
+--[[
+ NEXORA HUB v2 | GUINO1-style scroll navigation + original MM2 modules
  NEXORA HUB v2  BLACK-WHITE LIGHTNING EDITION (ไฟล์เดียวรวมทุกส่วน)
  แก้ค่าตั้งต้นได้ที่ CFG ด้านล่าง โดยเฉพาะ DISCORD_LINK
 ]]
