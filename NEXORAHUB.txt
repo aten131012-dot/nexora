@@ -12,7 +12,7 @@ local SFX = {
     boom  = "rbxasset://sounds/impact_water.mp3",
 }
 local Scripts = {
-    [142823291] = "https://raw.githubusercontent.com/aten131012-dot/Obf/refs/heads/main/MM2.lua",
+    [142823291] = "https://raw.githubusercontent.com/aten131012-dot/nexora/refs/heads/main/MM2.lua",
 }
 
 local LANG  = "TH"
