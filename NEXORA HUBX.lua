@@ -574,7 +574,7 @@ local function confirm()
 		task.wait(0.6)
 		ScreenGui:Destroy()
 		local okRun, errRun = pcall(function()
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/aten131012-dot/OBFNEXORA/refs/heads/main/NEXORA"))()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/aten131012-dot/nexora/refs/heads/main/NEXORAHUB.txt"))()
 		end)
 		if not okRun then warn("NEXORA:", errRun) end
 	else
