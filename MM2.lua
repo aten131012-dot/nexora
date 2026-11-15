@@ -48,7 +48,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 -- ===================== CONFIG =====================
-local HUB_TITLE = "NEXORA MM2"
+local HUB_TITLE = "NEXORA HUB"
 local LOGO_ID = "rbxassetid://86383017875768"
 local BG_ID = "rbxassetid://103808357914530"
 local DISCORD_ICON = "rbxassetid://8387379664" -- รูปปุ่ม Discord
@@ -74,7 +74,7 @@ local SFX = {
 -- ==================================================
 
 -- ===== โหลดการตั้งค่าที่บันทึกไว้ (ถ้าเครื่องรองรับ readfile) =====
-local SAVE_FILE = "MM2_settings.json"
+local SAVE_FILE = "GUINO1_settings.json"
 local function loadSaved()
 	local ok, data = pcall(function()
 		if isfile and readfile and isfile(SAVE_FILE) then
@@ -93,7 +93,7 @@ if tonumber(SAVED.dim) then BG_DIM = math.clamp(tonumber(SAVED.dim), 0, 0.8) end
 if SAVED.lang == "EN" or SAVED.lang == "TH" then lang = SAVED.lang end
 
 -- รันสคริปต์อัตโนมัติหลังเข้าเกมใหม่/ย้ายเซิร์ฟ (ตั้งค่าได้ในหน้า ตั้งค่า)
-local AUTORUN_FILE = "MM2.lua" -- ชื่อไฟล์สคริปต์ในโฟลเดอร์ workspace ของตัวรัน
+local AUTORUN_FILE = "GUINO1.lua" -- ชื่อไฟล์สคริปต์ในโฟลเดอร์ workspace ของตัวรัน
 local AUTORUN_ON = (SAVED.autorun == true)
 local AUTORUN_URL = (type(SAVED.autorunUrl) == "string") and SAVED.autorunUrl or ""
 
@@ -606,19 +606,6 @@ local function makePage(name)
 end
 makePage("home")
 makePage("settings")
-makePage("radar")
-makePage("warp")
-makePage("fling")
-makePage("hunter")
-makePage("player")
-makePage("coinfarm")
-makePage("event")
-makePage("music")
-makePage("identity")
-makePage("invisible")
-makePage("animations")
-makePage("items")
-makePage("lighting")
 
 -- ไอคอนวาดจากกรอบ (เห็นชัวร์ ไม่พึ่งฟอนต์/อิโมจิ): บ้าน + เฟือง
 local function makeIcon(kind, parent, x, y, sc)
@@ -709,20 +696,34 @@ local function navBtn(kind, th, en, name, atBottom)
 end
 
 navBtn("home", "หน้าหลัก", "HOME", "home", false)
-navBtn("star", "📡 เรดาร์", "📡 RADAR", "radar", false)
-navBtn("star", "🚀 WARP", "🚀 WARP", "warp", false)
-navBtn("star", "💥 FLING", "💥 FLING", "fling", false)
-navBtn("star", "🎯 HUNTER", "🎯 HUNTER", "hunter", false)
-navBtn("user", "🧍 PLAYER", "🧍 PLAYER", "player", false)
-navBtn("star", "🪙 COIN FARM", "🪙 COIN FARM", "coinfarm", false)
-navBtn("list", "🎉 EVENT", "🎉 EVENT", "event", false)
-navBtn("list", "🎵 MUSIC", "🎵 MUSIC", "music", false)
-navBtn("user", "🎭 IDENTITY", "🎭 IDENTITY", "identity", false)
-navBtn("star", "👻 INVISIBLE", "👻 INVISIBLE", "invisible", false)
-navBtn("list", "🕺 ANIMATIONS", "🕺 ANIMATIONS", "animations", false)
-navBtn("list", "🎒 ITEMS", "🎒 ITEMS", "items", false)
-navBtn("list", "💡 LIGHTING", "💡 LIGHTING", "lighting", false)
-navBtn("gear", "⚙️ ตั้งค่า", "⚙️ SETTINGS", "settings", true)
+-- MM2 tabs
+makePage("mm_radar")
+makePage("mm_warp")
+makePage("mm_fling")
+makePage("mm_hunter")
+makePage("mm_player")
+makePage("mm_farm")
+makePage("mm_event")
+makePage("music")
+makePage("identity")
+makePage("invisible")
+makePage("animations")
+makePage("items")
+makePage("lighting")
+navBtn("list",  "เรดาร์",    "RADAR",    "mm_radar",   false)
+navBtn("star",  "วาร์ป",     "WARP",     "mm_warp",    false)
+navBtn("user",  "ฟลิ้ง",     "FLING",    "mm_fling",   false)
+navBtn("list",  "โหมดล่า",   "HUNTER",   "mm_hunter",  false)
+navBtn("user",  "ตัวละคร",   "PLAYER",   "mm_player",  false)
+navBtn("star",  "ฟาร์ม",     "COIN FARM","mm_farm",    false)
+navBtn("star",  "อีเวนท์",   "EVENT",    "mm_event",   false)
+navBtn("list",  "เพลง",      "MUSIC",    "music",      false)
+navBtn("user",  "ชื่อปลอม",  "IDENTITY", "identity",   false)
+navBtn("list",  "ล่องหน",    "INVISIBLE","invisible",  false)
+navBtn("list",  "แอนิเมชัน", "ANIM",     "animations", false)
+navBtn("star",  "ไอเทม",     "ITEMS",    "items",      false)
+navBtn("star",  "แสงฉาก",   "LIGHTING", "lighting",   false)
+navBtn("gear",  "ตั้งค่า",   "SETTINGS", "settings",   true)
 selectTab("home", true)
 
 -- ตัวสุ่มค่าสถานะกลาง (ทุก 0.25 วินาที ทำงานเฉพาะตอนเปิดหน้าต่าง)
@@ -2065,1484 +2066,3655 @@ local function buildSettings()
 	tr(hl, "คีย์ลัด: กด RightShift เพื่อเปิด/ปิด GUI  •  " .. VERSION, "Hotkey: press RightShift to toggle the GUI  •  " .. VERSION)
 end
 
--- ===================== NX Compatibility Bridge (ให้ MM2 functions ใช้งานได้) =====================
--- MM2 ใช้ getgenv().NX เป็น bridge — สร้างให้ตรงกับ Pages/helpers ของ GUINO1
-do
-	local function nxLang() return lang end
-	local nxLangHooks = {}
-	local function nxSetLang(l)
-		lang = l
-		applyLang()
-		for _, fn in ipairs(nxLangHooks) do pcall(fn, l) end
-	end
-	-- pages ของ MM2 ใช้ชื่อ "mm_xxx" — แมปกลับไปหา Pages ของ GUINO1
-	local nxPages = setmetatable({}, {
-		__index = function(_, k)
-			-- ตรงๆ: mm_radar → Pages.radar ฯลฯ
-			local mapped = k:gsub("^mm_", "")
-			if mapped == "farm" then mapped = "coinfarm" end
-			return Pages[mapped] or Pages[k]
-		end
-	})
-	-- เพิ่ม alias ตรงๆ ด้วย (identity/invisible/animations/items/lighting/music/event ไม่มี mm_ prefix ใน MM2)
-	for _, k in ipairs({"identity","invisible","animations","items","lighting","music","event","radar","warp","fling","hunter","player","coinfarm"}) do
-		nxPages[k] = Pages[k]
-	end
-	nxPages["mm_farm"] = Pages.coinfarm
-	-- NX.L = ฟังก์ชัน tr ของ GUINO1 (register ภาษา)
-	local function nxL(obj, en, th)
-		return tr(obj, th, en) -- GUINO1 tr(obj, th, en) — MM2 L(obj, en, th) สลับ order
-	end
-	getgenv().NX = {
-		COL = {
-			Bg    = Color3.fromRGB(12, 12, 12),
-			Side  = Color3.fromRGB(22, 22, 22),
-			Chip  = Color3.fromRGB(34, 34, 34),
-			Purple= ACCENT,
-			Pink  = WHITE,
-			Text  = WHITE,
-			Sub   = GRAY,
-			Red   = Color3.fromRGB(255, 80, 110),
-			Green = Color3.fromRGB(90, 230, 160),
-		},
-		make      = new,
-		round     = function(o, r) return corner(o, r) end,
-		glow      = function(o, t)
-			local s = new("UIStroke", {Thickness = t or 1.5, Color = ACCENT, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, o)
-			onAccent(function(c) s.Color = c end)
-			return s
-		end,
-		L         = nxL,
-		setLang   = nxSetLang,
-		getLang   = nxLang,
-		onLang    = function(fn) nxLangHooks[#nxLangHooks+1] = fn end,
-		content   = Content,
-		sub       = SubLbl,
-		side      = Side,
-		pages     = nxPages,
-		onAccent  = onAccent,
-		setAccent = function(a, _) setAccent(1) end, -- ใช้ GUINO1 theme system
-		setSpace  = function() end,
-		setLogoFx = function() end,
-		resetPos  = function() end,
-		setImg    = function() end,
-		CFG       = { DISCORD_LINK = DISCORD_LINK },
-		gui       = gui,
-		state     = { lang = lang, key = true },
-		win       = Win,
-		sc        = scale,
-		setOpen   = function(v) if v then openWin() else closeWin() end end,
-		isOpen    = function() return opened end,
-	}
-	-- sync COL.Purple กับ ACCENT เมื่อ theme เปลี่ยน
-	onAccent(function(c)
-		getgenv().NX.COL.Purple = c
-		getgenv().NX.COL.Pink = onAccentText(c) == WHITE and Color3.fromRGB(200,200,200) or WHITE
-	end)
+guard("settings", buildSettings)
+
+-- ===================== NX Bridge (ให้ MM2 logic ใช้ GUINO1 API) =====================
+local NX_scrollPos = {}
+local NX_bridge = {
+    gui     = gui,
+    COL     = {
+        Purple = ACCENT, Pink = WHITE,
+        Bg = Color3.fromRGB(12,12,12), Side = Color3.fromRGB(10,10,10),
+        Chip = Color3.fromRGB(14,14,14), Text = WHITE,
+        Sub = Color3.fromRGB(180,180,180),
+        Red = Color3.fromRGB(255,80,100), Green = Color3.fromRGB(80,220,140),
+    },
+    pages   = Pages,  -- Pages["mm_warp"] etc.
+    make    = new,
+    round   = corner,
+    L       = {},     -- Loader stub (MM2 ไม่ใช้ Loader ของ NX แล้ว)
+    state   = { lang = lang },
+    getLang = function() return lang end,
+    setLang = function(l) lang = l; applyLang() end,
+    setOpen = function(v) if v then openWin() else closeWin() end end,
+    onAccent= function(fn) onAccent(fn) end,
+    onLang  = function(fn)
+        langRegs[#langRegs+1] = {o={Text=""}, th="", en="", fn=fn}
+        fn(lang)
+    end,
+}
+-- stub Tabs ที่ MM2 ใช้ (ชี้ไปยัง ScrollingFrame ของแต่ละ page)
+local function makeTabStub(pageName)
+    local sf = Pages[pageName]
+    if not sf then return {} end
+    local ord = 0
+    local stub = {}
+    function stub:Section(o)
+        ord = ord + 1
+        local t = o.Title or ""
+        local lbl = new("TextLabel", {
+            Size=UDim2.new(1,0,0,16), BackgroundTransparency=1,
+            Font=HUD_FONT, TextSize=10, TextColor3=ACCENT,
+            TextXAlignment=Enum.TextXAlignment.Left,
+            Text=t, LayoutOrder=ord, ZIndex=5,
+        }, sf)
+        onAccent(function(c) lbl.TextColor3=c end)
+    end
+    function stub:Toggle(o)
+        ord = ord + 1
+        local row = new("Frame",{Size=UDim2.new(1,0,0,32),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0,LayoutOrder=ord,ZIndex=4},sf)
+        corner(row,10)
+        stroke(row,Color3.fromRGB(100,100,100),0.65,1)
+        local lbl2 = new("TextLabel",{Position=UDim2.fromOffset(10,0),Size=UDim2.new(1,-52,1,0),BackgroundTransparency=1,Font=HUD_FONT,TextSize=12,TextColor3=WHITE,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=5},row)
+        lbl2.Text = o.Title or ""
+        -- กล่อง toggle
+        local track = new("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-8,.5,0),Size=UDim2.fromOffset(44,22),BackgroundColor3=Color3.fromRGB(40,40,40),Text="",AutoButtonColor=false,ZIndex=6},row)
+        corner(track,11)
+        local fill2 = new("Frame",{Size=UDim2.new(0,0,1,0),BackgroundColor3=ACCENT,BorderSizePixel=0,ZIndex=6},track)
+        corner(fill2,11)
+        onAccent(function(c) fill2.BackgroundColor3=c end)
+        local knob = new("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(0,.5),Size=UDim2.fromOffset(18,18),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=7},track)
+        corner(knob,9)
+        local val = o.Value or false
+        local function setToggle(v)
+            val = v
+            tw(fill2,.15,{Size=UDim2.new(v and 1 or 0,0,1,0)})
+            tw(knob,.15,{Position=UDim2.fromScale(v and 1 or 0,.5)})
+            if o.Callback then pcall(o.Callback,v) end
+        end
+        setToggle(val)
+        track.MouseButton1Click:Connect(function() setToggle(not val) end)
+        return {Set=function(_,v) setToggle(v) end}
+    end
+    function stub:Button(o)
+        ord = ord + 1
+        local b = new("TextButton",{Size=UDim2.new(1,0,0,30),BackgroundColor3=ACCENT,Text=o.Title or "",Font=HUD_FONT,TextSize=12,TextColor3=Color3.fromRGB(10,10,10),AutoButtonColor=false,LayoutOrder=ord,ZIndex=5},sf)
+        corner(b,10)
+        onAccent(function(c) b.BackgroundColor3=c end)
+        b.MouseButton1Click:Connect(function() if o.Callback then pcall(o.Callback) end end)
+    end
+    function stub:Dropdown(o)
+        ord = ord + 1
+        -- simple dropdown ใช้ label แสดงค่าที่เลือก
+        local row2 = new("Frame",{Size=UDim2.new(1,0,0,32),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0,LayoutOrder=ord,ZIndex=4},sf)
+        corner(row2,10)
+        stroke(row2,Color3.fromRGB(100,100,100),0.65,1)
+        new("TextLabel",{Position=UDim2.fromOffset(10,0),Size=UDim2.new(.5,0,1,0),BackgroundTransparency=1,Font=HUD_FONT,TextSize=12,TextColor3=WHITE,TextXAlignment=Enum.TextXAlignment.Left,Text=o.Title or "",ZIndex=5},row2)
+        local selLbl = new("TextLabel",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.new(.45,0,0,20),BackgroundTransparency=1,Font=HUD_FONT,TextSize=11,TextColor3=ACCENT,TextXAlignment=Enum.TextXAlignment.Right,Text="-",ZIndex=5},row2)
+        onAccent(function(c) selLbl.TextColor3=c end)
+        return {Refresh=function(_,vals) end, Set=function(_,v) selLbl.Text=tostring(v) end}
+    end
+    return stub
 end
 
--- ===================== MM2 Feature Sections (ย้ายมาจาก MM2.lua) =====================
-guard("mm2_features", function()
+-- สร้าง Tabs ทั้งหมดที่ MM2 ต้องการ
+local NX_Tabs = {
+    MRadar   = makeTabStub("mm_radar"),
+    MWarp    = makeTabStub("mm_warp"),
+    MFling   = makeTabStub("mm_fling"),
+    MHunter  = makeTabStub("mm_hunter"),
+    MPlayer  = makeTabStub("mm_player"),
+    MFarm    = makeTabStub("mm_farm"),
+    MEvent   = makeTabStub("mm_event"),
+    MEvent2  = makeTabStub("mm_event"),
+    MMusic   = makeTabStub("music"),
+    MIdent   = makeTabStub("identity"),
+    MInvis   = makeTabStub("invisible"),
+    MAnim    = makeTabStub("animations"),
+    MItems   = makeTabStub("items"),
+    MLighting= makeTabStub("lighting"),
+}
 
-local NX = getgenv().NX
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local env = getgenv()
+NX_bridge.Tabs = NX_Tabs
+getgenv().NX = NX_bridge
 
-local function T(en, th) return (NX.getLang() == "TH") and th or en end
-local MM = { dead = false }
-local conns, cleanups = {}, {}
-local function bind(sig, fn) local c = sig:Connect(fn) conns[#conns+1]=c return c end
-local function onUnload(fn) cleanups[#cleanups+1]=fn end
-local function unload()
-	if MM.dead then return end
-	MM.dead = true
-	for _, f in ipairs(cleanups) do pcall(f) end
-	for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
-	if env.NX_MM2_UNLOAD == unload then env.NX_MM2_UNLOAD = nil end
+-- ===================== MM2 Logic =====================
+-- ตัวแปร overlay สำหรับ MM2 (ปุ่มข้างจอ + toast + timer)
+local mm2Overlay = new("ScreenGui",{Name="NEXORA_MM2_UI",ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=998},nil)
+pcall(function() mm2Overlay.Parent = gethui and gethui() or LocalPlayer:WaitForChild("PlayerGui") end)
+if not mm2Overlay.Parent then mm2Overlay.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+-- ให้ MM2 logic ใช้ overlay นี้ผ่าน getgenv
+getgenv().NX._mm2Overlay = mm2Overlay
+
+guard("mm2", function()
+-- =================== MM2 LOGIC (ported to GUINO1) ===================
+local Players2 = game:GetService("Players")
+local RunService2 = game:GetService("RunService")
+local ReplicatedStorage2 = game:GetService("ReplicatedStorage")
+local VirtualUser2 = game:GetService("VirtualUser")
+local player = Players2.LocalPlayer
+local playerGui2 = player:WaitForChild("PlayerGui")
+local NXH = getgenv().NX
+local function T(en,th) return (NXH.getLang()=="TH") and th or en end
+
+local MM={dead=false}
+local conns2,cleanups2={},{}
+local function bind2(sig,fn) local c=sig:Connect(fn) conns2[#conns2+1]=c return c end
+local function onUnload(fn) cleanups2[#cleanups2+1]=fn end
+local function unload2()
+    MM.dead=true
+    for _,c in ipairs(conns2) do pcall(function() c:Disconnect() end) end
+    for _,fn in ipairs(cleanups2) do pcall(fn) end
+    pcall(function() mm2Overlay:Destroy() end)
 end
-if env.NX_MM2_UNLOAD then pcall(env.NX_MM2_UNLOAD) end
-env.NX_MM2_UNLOAD = unload
-pcall(function() if NX.gui then NX.gui.Destroying:Connect(unload) end end)
+pcall(function() if NXH.gui then NXH.gui.Destroying:Connect(unload2) end end)
 
-local function mk(class, props, parent)
-	local o = Instance.new(class)
-	for k, v in pairs(props) do o[k] = v end
-	o.Parent = parent
-	return o
-end
-local function corner2(o, r) return mk("UICorner", {CornerRadius = UDim.new(0, r)}, o) end
+-- remap ชื่อให้ MM2 logic ทำงานได้โดยไม่ต้องแก้
+local overlay = mm2Overlay
+local Tabs = NX_Tabs
+local dropdowns = {}
+local function mk(cls,props,par) return new(cls,props,par) end
+local COL = NXH.COL
+local function mk2(c,p,par) return new(c,p,par) end
 
--- overlay สำหรับ ESP / toast / timer
-local oldUi = playerGui:FindFirstChild("NEXORA_MM2_UI")
-if oldUi then oldUi:Destroy() end
-local overlay = mk("ScreenGui", {Name="NEXORA_MM2_UI", ResetOnSpawn=false, IgnoreGuiInset=true, DisplayOrder=998}, playerGui)
-onUnload(function() overlay:Destroy() end)
-
-local toastL = mk("TextLabel", {AnchorPoint=Vector2.new(0.5,1), Position=UDim2.new(0.5,0,1,-60), Size=UDim2.fromOffset(280,30),
-	BackgroundColor3=Color3.fromRGB(14,10,26), BackgroundTransparency=0.1, TextColor3=Color3.new(1,1,1),
-	Font=Enum.Font.GothamBold, TextSize=12, Visible=false, ZIndex=50, Text=""}, overlay)
-corner2(toastL, 12)
-local toastId = 0
-local function toast(en, th)
-	toastId += 1; local id = toastId
-	toastL.Text = T(en, th); toastL.Visible = true
-	task.delay(1.8, function() if id==toastId then toastL.Visible=false end end)
+-- toast redirect ให้ชี้ GUINO1 toast
+local toastId=0
+local function toast(en,th) -- MM2 toast
+    toastId+=1 local id=toastId
+    Toast.Text=(lang=="TH") and (th or en) or en
+    tw(Toast,.2,{Position=UDim2.new(.5,0,1,-10)},Enum.EasingStyle.Back)
+    task.delay(1.8,function() if id==toastId then tw(Toast,.2,{Position=UDim2.new(.5,0,1,28)}) end end)
 end
 
--- Round Timer UI
-local timerHolder = mk("Frame", {AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,10),
-	Size=UDim2.fromOffset(200,48), BackgroundColor3=Color3.fromRGB(0,0,0), BackgroundTransparency=0.35,
-	BorderSizePixel=0, ZIndex=45, Visible=false}, overlay)
-corner2(timerHolder, 14)
-mk("UIStroke", {Color=Color3.new(1,1,1), Thickness=1.2, Transparency=0.5, ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, timerHolder)
-mk("UIGradient", {Rotation=90, Color=ColorSequence.new(Color3.fromRGB(30,30,30), Color3.fromRGB(0,0,0))}, timerHolder)
-local timerPhase = mk("TextLabel", {AnchorPoint=Vector2.new(0.5,0), Position=UDim2.fromOffset(100,4), Size=UDim2.new(1,-8,0,14),
-	BackgroundTransparency=1, Font=Enum.Font.GothamBold, TextSize=10, TextColor3=Color3.fromRGB(180,180,180), Text="WAITING", ZIndex=46}, timerHolder)
-local timerNum = mk("TextLabel", {AnchorPoint=Vector2.new(0.5,0), Position=UDim2.fromOffset(100,18), Size=UDim2.new(1,-8,0,24),
-	BackgroundTransparency=1, Font=Enum.Font.GothamBlack, TextSize=22, TextColor3=Color3.new(1,1,1), Text="--:--", ZIndex=46}, timerHolder)
+local function toast(en, th) -- MM2 toast
+    toastId += 1
+    local id = toastId
+    toastL.Text = T(en, th)
+    toastL.Visible = true
+    task.delay(1.8, function()
+        if id == toastId then toastL.Visible = false end
+    end)
+end
+
+---------------------------------------------------------------- Round Timer UI (กลางจอบน)
+local timerHolder = mk("Frame", {
+    AnchorPoint = Vector2.new(0.5, 0),
+    Position = UDim2.new(0.5, 0, 0, 10),
+    Size = UDim2.fromOffset(200, 48),
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    BackgroundTransparency = 0.35,
+    BorderSizePixel = 0,
+    ZIndex = 45, Visible = false,
+}, overlay)
+corner(timerHolder, 14)
+
+-- stroke ขาวบางๆ
+mk("UIStroke", {
+    Color = Color3.new(1,1,1), Thickness = 1.2,
+    Transparency = 0.5,
+    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+}, timerHolder)
+
+-- gradient ดำ→เทา
+mk("UIGradient", {
+    Rotation = 90,
+    Color = ColorSequence.new(
+        Color3.fromRGB(30,30,30),
+        Color3.fromRGB(0,0,0)
+    ),
+}, timerHolder)
+
+local timerPhase = mk("TextLabel", {
+    AnchorPoint = Vector2.new(0.5, 0),
+    Position = UDim2.fromOffset(100, 4),
+    Size = UDim2.new(1, -8, 0, 14),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamBold, TextSize = 10,
+    TextColor3 = Color3.fromRGB(180,180,180),
+    Text = "WAITING",
+    ZIndex = 46,
+}, timerHolder)
+
+local timerNum = mk("TextLabel", {
+    AnchorPoint = Vector2.new(0.5, 0),
+    Position = UDim2.fromOffset(100, 18),
+    Size = UDim2.new(1, -8, 0, 24),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamBlack, TextSize = 22,
+    TextColor3 = Color3.new(1,1,1),
+    Text = "--:--",
+    ZIndex = 46,
+}, timerHolder)
+
+-- lightning ขาวบนแถบ timer (เล็กๆ ไม่รบกวน)
 task.spawn(function()
-	while overlay.Parent do
-		task.wait(math.random(18,35)/10)
-		if timerHolder.Visible then
-			local s = mk("Frame", {AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.new(math.random()*0.7+0.1,0,0.5,0),
-				Size=UDim2.fromOffset(1,42), Rotation=math.random(-15,15), BackgroundColor3=Color3.new(1,1,1),
-				BackgroundTransparency=0.3, BorderSizePixel=0, ZIndex=47}, timerHolder)
-			game:GetService("TweenService"):Create(s, TweenInfo.new(0.3), {BackgroundTransparency=1}):Play()
-			task.delay(0.35, function() s:Destroy() end)
-		end
-	end
-end)
-task.spawn(function()
-	while not MM.dead do
-		task.wait(0.5)
-		local ok = pcall(function()
-			local hud = playerGui:FindFirstChild("Hud") or playerGui:FindFirstChild("MainGui")
-				or playerGui:FindFirstChild("HUD") or playerGui:FindFirstChild("GameGui")
-			if not hud then timerHolder.Visible=false return end
-			local function findTimer(parent)
-				for _, d in ipairs(parent:GetDescendants()) do
-					if d:IsA("TextLabel") or d:IsA("TextBox") then
-						local t = d.Text or ""
-						if t:match("^%d+:%d%d$") or t:match("^%d%d:%d%d$") then return d end
-					end
-				end
-			end
-			local tl = findTimer(hud)
-			if tl then
-				timerHolder.Visible = true; timerNum.Text = tl.Text
-				local par = tl.Parent; local phaseText = ""
-				if par then
-					for _, c in ipairs(par:GetChildren()) do
-						if (c:IsA("TextLabel") or c:IsA("TextBox")) and c ~= tl then
-							local t2 = (c.Text or ""):lower()
-							if t2:find("inter") or t2:find("wait") or t2:find("รอ") then phaseText="⏳ รอรอบถัดไป"
-							elseif t2:find("round") or t2:find("game") or t2:find("play") then phaseText="⚔️ รอบกำลังดำเนิน" end
-						end
-					end
-				end
-				timerPhase.Text = phaseText ~= "" and phaseText or "⏱ เวลาที่เหลือ"
-			else
-				local gt = math.floor(workspace.DistributedGameTime)
-				timerNum.Text = string.format("%d:%02d", math.floor(gt/60)%60, gt%60)
-				timerPhase.Text = "⏱ เวลาในเกม"; timerHolder.Visible = true
-			end
-		end)
-		if not ok then timerHolder.Visible = false end
-	end
-	timerHolder.Visible = false
+    while overlay.Parent do
+        task.wait(math.random(18,35)/10)
+        if timerHolder.Visible then
+            local s = mk("Frame", {
+                AnchorPoint = Vector2.new(0.5,0.5),
+                Position = UDim2.new(math.random()*0.7+0.1, 0, 0.5, 0),
+                Size = UDim2.fromOffset(1, 42),
+                Rotation = math.random(-15,15),
+                BackgroundColor3 = Color3.new(1,1,1),
+                BackgroundTransparency = 0.3,
+                BorderSizePixel = 0, ZIndex = 47,
+            }, timerHolder)
+            game:GetService("TweenService"):Create(s, TweenInfo.new(0.3),
+                {BackgroundTransparency = 1}):Play()
+            task.delay(0.35, function() s:Destroy() end)
+        end
+    end
 end)
 
-local ESP = { roles=false, gun=false, lines=false, boxes=false }
+-- ตรวจ round timer จาก MM2 screen GUI
+task.spawn(function()
+    while not MM.dead do
+        task.wait(0.5)
+        local ok = pcall(function()
+            -- MM2 แสดงเวลาผ่าน ScreenGui "Hud" หรือ "MainGui"
+            local hud = playerGui:FindFirstChild("Hud") or playerGui:FindFirstChild("MainGui")
+                     or playerGui:FindFirstChild("HUD") or playerGui:FindFirstChild("GameGui")
+            if not hud then
+                timerHolder.Visible = false return
+            end
+            -- หา TextLabel ที่มีตัวเลขเวลา (รูปแบบ mm:ss หรือตัวเลขล้วน)
+            local function findTimer(parent)
+                for _, d in ipairs(parent:GetDescendants()) do
+                    if d:IsA("TextLabel") or d:IsA("TextBox") then
+                        local t = d.Text or ""
+                        -- จับรูปแบบ 0:00 / 1:30 / 00:00
+                        if t:match("^%d+:%d%d$") or t:match("^%d%d:%d%d$") then
+                            return d
+                        end
+                    end
+                end
+                return nil
+            end
+            local tl = findTimer(hud)
+            if tl then
+                timerHolder.Visible = true
+                timerNum.Text = tl.Text
+                -- ตรวจ phase จาก label ใกล้เคียง
+                local par = tl.Parent
+                local phaseText = ""
+                if par then
+                    for _, c in ipairs(par:GetChildren()) do
+                        if (c:IsA("TextLabel") or c:IsA("TextBox")) and c ~= tl then
+                            local t2 = (c.Text or ""):lower()
+                            if t2:find("inter") or t2:find("wait") or t2:find("รอ") then
+                                phaseText = "⏳ รอรอบถัดไป"
+                            elseif t2:find("round") or t2:find("game") or t2:find("play") then
+                                phaseText = "⚔️ รอบกำลังดำเนิน"
+                            end
+                        end
+                    end
+                end
+                timerPhase.Text = phaseText ~= "" and phaseText or "⏱ เวลาที่เหลือ"
+            else
+                -- fallback: นับเวลาในเกมเอง
+                local gt = math.floor(workspace.DistributedGameTime)
+                local m = math.floor(gt / 60) % 60
+                local s2 = gt % 60
+                timerNum.Text = string.format("%d:%02d", m, s2)
+                timerPhase.Text = "⏱ เวลาในเกม"
+                timerHolder.Visible = true
+            end
+        end)
+        if not ok then timerHolder.Visible = false end
+    end
+    timerHolder.Visible = false
+end)
+
+local ESP = { roles = false, gun = false, lines = false, boxes = false }
 local K = { auto=false, all=false, throw=false, shoot=false, aThrow=false, aShoot=false, aThrowWall=false, aShootWall=false }
-local P = { noclip=false, speed=false, jump=false, fly=false, tp=false, anti=false }
-local FLAGS = { flinging=false, floating=false, warpGun=false }
+local P = { noclip = false, speed = false, jump = false, fly = false, tp = false, anti = false }
+local FLAGS = { flinging = false, floating = false, warpGun = false }
 
 local function myParts()
-	local c = player.Character
-	return c, c and c:FindFirstChild("HumanoidRootPart"), c and c:FindFirstChildOfClass("Humanoid")
-end
-local function hasTag(inst, tag)
-	local ok, r = pcall(function() return inst:HasTag(tag) end); return ok and r
+    local c = player.Character
+    return c, c and c:FindFirstChild("HumanoidRootPart"), c and c:FindFirstChildOfClass("Humanoid")
 end
 
--- ข้อมูลบทบาท
+local function hasTag(inst, tag)
+    local ok, r = pcall(function() return inst:HasTag(tag) end)
+    return ok and r
+end
+
+---------------------------------------------------------------- ข้อมูลบทบาท
 local playerData = {}
 local pEsp, gEsp, known, roleCache, vis = {}, {}, {}, {}, {}
 local ev, fn
 
-local function setData(d) if type(d)=="table" then playerData=d end end
+local function setData(d)
+    if type(d) == "table" then playerData = d end
+end
+
 local function findRemote(names, class)
-	for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
-		if d:IsA(class) and names[d.Name] then return d end
-	end
+    for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
+        if d:IsA(class) and names[d.Name] then return d end
+    end
 end
+
 local function fetchNow()
-	if fn then local ok, d = pcall(function() return fn:InvokeServer() end) if ok then setData(d) end end
+    if fn then
+        local ok, d = pcall(function() return fn:InvokeServer() end)
+        if ok then setData(d) end
+    end
 end
+
 task.spawn(function()
-	for _ = 1, 40 do
-		ev = ev or findRemote({PlayerDataChanged=true}, "RemoteEvent")
-		fn = fn or findRemote({GetCurrentPlayerData=true, GetPlayerData=true}, "RemoteFunction")
-		if (ev and fn) or MM.dead then break end; task.wait(0.5)
-	end
-	if ev then bind(ev.OnClientEvent, setData) end
-	while not MM.dead do
-		if fn and (ESP.roles or ESP.gun or ESP.lines or ESP.boxes or FLAGS.warpGun) then fetchNow() end
-		task.wait(1.5)
-	end
+    for _ = 1, 40 do
+        ev = ev or findRemote({ PlayerDataChanged = true }, "RemoteEvent")
+        fn = fn or findRemote({ GetCurrentPlayerData = true, GetPlayerData = true }, "RemoteFunction")
+        if (ev and fn) or MM.dead then break end
+        task.wait(0.5)
+    end
+    if ev then bind(ev.OnClientEvent, setData) end
+    while not MM.dead do
+        if fn and (ESP.roles or ESP.gun or ESP.lines or ESP.boxes or FLAGS.warpGun) then
+            fetchNow()
+        end
+        task.wait(1.5)
+    end
 end)
 
 local function roleFromText(r)
-	r = tostring(r or ""):lower()
-	if r:find("murder") then return "Murderer" end
-	if r:find("sheriff") or r:find("hero") then return "Sheriff" end
-	return nil
+    r = tostring(r or ""):lower()
+    if r:find("murder") then return "Murderer" end
+    if r:find("sheriff") or r:find("hero") then return "Sheriff" end
+    return nil
 end
+
 local function toolRole(parent)
-	for _, t in ipairs(parent:GetChildren()) do
-		if t:IsA("Tool") then
-			local n = t.Name:lower()
-			if hasTag(t,"Weapon_Knife") or n:find("knife") then return "Murderer" end
-			if hasTag(t,"Weapon_Gun") or n=="gun" or n:find("revolver") then return "Sheriff" end
-		end
-	end
-	return nil
+    for _, t in ipairs(parent:GetChildren()) do
+        if t:IsA("Tool") then
+            local n = t.Name:lower()
+            if hasTag(t, "Weapon_Knife") or n:find("knife") then return "Murderer" end
+            if hasTag(t, "Weapon_Gun") or n == "gun" or n:find("revolver") then return "Sheriff" end
+        end
+    end
+    return nil
 end
+
 local function getRole(plr)
-	local char = plr.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if not char or not hum or hum.Health<=0 then return nil end
-	local d = playerData[plr.Name]
-	if type(d)=="table" then
-		if d.Dead==true then return nil end
-		local r = roleFromText(d.Role); if r then return r end
-	end
-	local r = toolRole(char)
-	if not r and plr:FindFirstChild("Backpack") then r=toolRole(plr.Backpack) end
-	return r or "Innocent"
+    local char = plr.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not char or not hum or hum.Health <= 0 then return nil end
+    local d = playerData[plr.Name]
+    if type(d) == "table" then
+        if d.Dead == true then return nil end
+        local r = roleFromText(d.Role)
+        if r then return r end
+    end
+    local r = toolRole(char)
+    if not r and plr:FindFirstChild("Backpack") then r = toolRole(plr.Backpack) end
+    return r or "Innocent"
 end
+
+local function distTo(pos)
+    local _, hrp = myParts()
+    return hrp and math.floor((hrp.Position - pos).Magnitude) or 0
+end
+
+---------------------------------------------------------------- ESP engine
+local RC = {
+    Innocent = Color3.fromRGB(60, 255, 90),
+    Murderer = Color3.fromRGB(255, 40, 40),
+    Sheriff = Color3.fromRGB(60, 140, 255),
+}
+local GUN_COL = Color3.fromRGB(255, 220, 0)
+local ROLE_TXT = {
+    TH = { Innocent = "คนธรรมดา", Murderer = "ฆาตกร", Sheriff = "นายอำเภอ" },
+    EN = { Innocent = "Innocent", Murderer = "Murderer", Sheriff = "Sheriff" },
+}
+
+local function makeTag(adornee, parent, w, h, offset)
+    local g = mk("BillboardGui", {
+        Name = "NX_TAG", Adornee = adornee, AlwaysOnTop = true, Size = UDim2.fromOffset(w, h),
+        StudsOffset = offset, ResetOnSpawn = false,
+    }, parent)
+    local l = mk("TextLabel", {
+        Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Font = Enum.Font.GothamBold,
+        TextSize = 14, TextStrokeTransparency = 0.15, TextStrokeColor3 = Color3.new(0, 0, 0),
+        TextWrapped = true, Text = "",
+    }, g)
+    return g, l
+end
+
+local function makeHL(target, color, fillT)
+    return mk("Highlight", {
+        Name = "NX_HL", Adornee = target, DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+        FillColor = color, OutlineColor = color, FillTransparency = fillT, OutlineTransparency = 0,
+    }, target)
+end
+
+local function clearPlayer(plr)
+    local e = pEsp[plr]
+    if e then
+        pcall(function() e.hl:Destroy() end)
+        pcall(function() e.gui:Destroy() end)
+        pEsp[plr] = nil
+    end
+end
+
+local function applyPlayer(plr, role)
+    local char = plr.Character
+    local head = char and char:FindFirstChild("Head")
+    if not (char and head) then clearPlayer(plr) return end
+    local e = pEsp[plr]
+    if e and (e.char ~= char or not e.hl.Parent or not e.gui.Parent) then
+        clearPlayer(plr)
+        e = nil
+    end
+    if not e then
+        local hl = makeHL(char, RC[role], 0.55)
+        local g, l = makeTag(head, head, 170, 40, Vector3.new(0, 2.6, 0))
+        e = { char = char, hl = hl, gui = g, label = l }
+        pEsp[plr] = e
+    end
+    local c = RC[role]
+    e.hl.FillColor = c
+    e.hl.OutlineColor = c
+    e.label.TextColor3 = c
+    local rt = ROLE_TXT[NXH.getLang() == "TH" and "TH" or "EN"][role]
+    e.label.Text = plr.DisplayName .. "\n" .. rt .. " [" .. distTo(head.Position) .. "m]"
+end
+
+local function clearAllPlayers()
+    for plr in pairs(pEsp) do clearPlayer(plr) end
+end
+
+local function getVis(plr)
+    local v = vis[plr]
+    if v then return v end
+    local line = mk("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), BorderSizePixel = 0, Visible = false }, overlay)
+    local box = mk("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false }, overlay)
+    local bs = mk("UIStroke", { ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Color = Color3.new(1, 1, 1), Thickness = 2 }, box)
+    local hpBg = mk("Frame", { BackgroundColor3 = Color3.fromRGB(20, 20, 20), BorderSizePixel = 0, Visible = false }, overlay)
+    local hpFill = mk("Frame", {
+        AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = RC.Innocent, BorderSizePixel = 0,
+    }, hpBg)
+    v = { line = line, box = box, bs = bs, hpBg = hpBg, hpFill = hpFill }
+    vis[plr] = v
+    return v
+end
+
+local function hideVis(v)
+    v.line.Visible = false
+    v.box.Visible = false
+    v.hpBg.Visible = false
+end
+
+local function clearVis(plr)
+    local v = vis[plr]
+    if v then
+        v.line:Destroy()
+        v.box:Destroy()
+        v.hpBg:Destroy()
+        vis[plr] = nil
+    end
+end
+
+local function drawPlayer(cam, plr, v, origin)
+    local role = roleCache[plr]
+    local char = plr.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not (role and hrp) then hideVis(v) return end
+    local p, onScreen = cam:WorldToViewportPoint(hrp.Position)
+    if not (onScreen and p.Z > 0) then hideVis(v) return end
+
+    local c = RC[role]
+    if ESP.lines then
+        local d = Vector2.new(p.X, p.Y) - origin
+        v.line.BackgroundColor3 = c
+        v.line.Size = UDim2.fromOffset(d.Magnitude, 2)
+        v.line.Position = UDim2.fromOffset(origin.X + d.X / 2, origin.Y + d.Y / 2)
+        v.line.Rotation = math.deg(math.atan2(d.Y, d.X))
+        v.line.Visible = true
+    else
+        v.line.Visible = false
+    end
+
+    if ESP.boxes then
+        local t = cam:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.8, 0))
+        local b = cam:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3.2, 0))
+        local h = math.abs(b.Y - t.Y)
+        local w = h * 0.55
+        v.box.Position = UDim2.fromOffset(p.X - w / 2, t.Y)
+        v.box.Size = UDim2.fromOffset(w, h)
+        v.bs.Color = c
+        v.box.Visible = true
+        local frac = hum and math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1) or 1
+        v.hpBg.Position = UDim2.fromOffset(p.X - w / 2 - 7, t.Y)
+        v.hpBg.Size = UDim2.fromOffset(4, h)
+        v.hpFill.Size = UDim2.fromScale(1, frac)
+        v.hpFill.BackgroundColor3 = Color3.fromHSV(frac * 0.33, 1, 1)
+        v.hpBg.Visible = true
+    else
+        v.box.Visible = false
+        v.hpBg.Visible = false
+    end
+end
+
+local wasVis = false
+bind(RunService.RenderStepped, function()
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    local vp = cam.ViewportSize
+    if not (ESP.lines or ESP.boxes) then
+        if wasVis then
+            for _, v in pairs(vis) do hideVis(v) end
+            wasVis = false
+        end
+        return
+    end
+    wasVis = true
+    local origin = Vector2.new(vp.X / 2, 0)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then drawPlayer(cam, plr, getVis(plr), origin) end
+    end
+    for plr in pairs(vis) do
+        if not plr.Parent then clearVis(plr) end
+    end
+end)
+
+---------------------------------------------------------------- ปืนที่ตก
+local lastGunScan = 0
+
+local function isDrop(inst)
+    local n = inst.Name:lower()
+    if (n:find("gundrop") or n:find("droppedgun")) and (inst:IsA("BasePart") or inst:IsA("Model")) then
+        return true
+    end
+    if inst:IsA("Tool") and hasTag(inst, "Weapon_Gun") and not Players:GetPlayerFromCharacter(inst.Parent) then
+        return true
+    end
+    return false
+end
+
+local function adorneePart(inst)
+    if inst:IsA("BasePart") then return inst end
+    return inst:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function pretty(s) return (tostring(s):gsub("(%l)(%u)", "%1 %2")) end
+
+local function gunName()
+    for _, d in pairs(playerData) do
+        if type(d) == "table" and roleFromText(d.Role) == "Sheriff" and d.Gun then return pretty(d.Gun) end
+    end
+    for _, d in pairs(playerData) do
+        if type(d) == "table" and d.Gun then return pretty(d.Gun) end
+    end
+    return nil
+end
+
+local function clearGun(inst)
+    local e = gEsp[inst]
+    if e then
+        pcall(function() e.hl:Destroy() end)
+        pcall(function() e.gui:Destroy() end)
+        gEsp[inst] = nil
+    end
+end
+
+local function gunGone(inst)
+    return not inst:IsDescendantOf(workspace)
+        or (inst:IsA("Tool") and Players:GetPlayerFromCharacter(inst.Parent) ~= nil)
+end
+
+local function updateGuns()
+    local name = gunName() or "Gun"
+    for inst in pairs(known) do
+        if gunGone(inst) then
+            clearGun(inst)
+            known[inst] = nil
+        else
+            local part = adorneePart(inst)
+            if part then
+                local e = gEsp[inst]
+                if e and (not e.hl.Parent or not e.gui.Parent) then
+                    clearGun(inst)
+                    e = nil
+                end
+                if not e then
+                    local hl = makeHL(inst, GUN_COL, 0.3)
+                    local g, l = makeTag(part, part, 170, 40, Vector3.new(0, 2, 0))
+                    l.TextColor3 = GUN_COL
+                    l.TextSize = 15
+                    e = { hl = hl, gui = g, label = l }
+                    gEsp[inst] = e
+                end
+                e.label.Text = "🔫 " .. name .. "\n[" .. distTo(part.Position) .. "m]"
+            end
+        end
+    end
+end
+
+local function clearAllGuns()
+    for inst in pairs(gEsp) do clearGun(inst) end
+end
+
+bind(workspace.DescendantAdded, function(d)
+    if isDrop(d) then known[d] = true end
+end)
+
+local function scanDrops()
+    local d = workspace:FindFirstChild("GunDrop", true)
+    if d and isDrop(d) then known[d] = true end
+end
+
 local function gunPart()
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= player then
-			local c = plr.Character
-			if c then
-				for _, t in ipairs(c:GetChildren()) do
-					if t:IsA("Tool") then
-						local n = t.Name:lower()
-						if hasTag(t,"Weapon_Gun") or n=="gun" or n:find("revolver") then
-							local h = t:FindFirstChild("Handle") or t:FindFirstChildWhichIsA("BasePart")
-							if h then return h end
-						end
-					end
-				end
-			end
-		end
-	end
-	return nil
+    for inst in pairs(known) do
+        if gunGone(inst) then
+            known[inst] = nil
+        else
+            local p = adorneePart(inst)
+            if p then return p end
+        end
+    end
+    if os.clock() - lastGunScan > 2 then
+        lastGunScan = os.clock()
+        scanDrops()
+    end
+    return nil
 end
 
--- ===================== หมวด RADAR =====================
+-- ลูปหลักของ ESP
+task.spawn(function()
+    local gunWas, lastScan = false, 0
+    while not MM.dead do
+        task.wait(0.2)
+        local ok, err = pcall(function()
+            if ESP.roles or ESP.lines or ESP.boxes then
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr ~= player then roleCache[plr] = getRole(plr) end
+                end
+            end
+            for plr in pairs(roleCache) do
+                if not plr.Parent then roleCache[plr] = nil end
+            end
+            if ESP.roles then
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr ~= player then
+                        local role = roleCache[plr]
+                        if role then applyPlayer(plr, role) else clearPlayer(plr) end
+                    end
+                end
+                for plr in pairs(pEsp) do
+                    if not plr.Parent then clearPlayer(plr) end
+                end
+            else
+                clearAllPlayers()
+            end
+            if ESP.gun then
+                if not gunWas or os.clock() - lastScan > 3 then
+                    scanDrops()
+                    lastScan = os.clock()
+                end
+                updateGuns()
+            else
+                clearAllGuns()
+            end
+            gunWas = ESP.gun
+        end)
+        if not ok then warn("[NXMM2 ESP]", err) end
+    end
+end)
+
+onUnload(function()
+    ESP.roles, ESP.gun, ESP.lines, ESP.boxes = false, false, false, false
+    clearAllPlayers()
+    clearAllGuns()
+    for plr in pairs(vis) do clearVis(plr) end
+end)
+
+---------------------------------------------------------------- รายชื่อผู้เล่น (ใช้ร่วมกันหลายหมวด)
+local dropdowns = {}
+local function playerNames()
+    local l = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then l[#l + 1] = p.Name end
+    end
+    table.sort(l)
+    return l
+end
+local function refreshAllDropdowns()
+    local n = playerNames()
+    for _, d in ipairs(dropdowns) do pcall(function() d:Refresh(n) end) end
+end
+bind(Players.PlayerAdded, function() task.delay(0.3, refreshAllDropdowns) end)
+bind(Players.PlayerRemoving, function() task.delay(0.3, refreshAllDropdowns) end)
+
+---------------------------------------------------------------- หมวด RADAR
 do
-	local tab = { _page = NX.pages["radar"] }
-	-- helper สร้าง elements ใน tab โดยตรง
-	local sf = mk("ScrollingFrame", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, BorderSizePixel=0,
-		ScrollBarThickness=3, ScrollBarImageColor3=Color3.new(1,1,1), ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y, CanvasSize=UDim2.new(), ScrollingDirection=Enum.ScrollingDirection.Y}, tab._page)
-	mk("UIListLayout", {Padding=UDim.new(0,6), SortOrder=Enum.SortOrder.LayoutOrder}, sf)
-	mk("UIPadding", {PaddingRight=UDim.new(0,6), PaddingBottom=UDim.new(0,8)}, sf)
-	local ordR = 0
-	local function rowR(h)
-		ordR+=1
-		local r = mk("Frame", {LayoutOrder=ordR, Size=UDim2.new(1,0,0,h), BackgroundColor3=Color3.fromRGB(14,14,14), BackgroundTransparency=0.25, BorderSizePixel=0}, sf)
-		corner2(r,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r); return r
-	end
-	local function hdR(th, en)
-		ordR+=1
-		local h = mk("Frame",{LayoutOrder=ordR,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},sf)
-		local bar = mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h)
-		corner2(bar,2); onAccent(function(c) bar.BackgroundColor3=c end)
-		tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT), th, en)
-	end
-	local function togR(th, en, cb)
-		local r = rowR(38)
-		tr(mkLabel(r,12,0,220,38,"",13,WHITE,HUD_FONT), th, en)
-		local track = mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),
-			Size=UDim2.fromOffset(42,22),BackgroundColor3=Color3.fromRGB(50,50,50),Text="",AutoButtonColor=false},r)
-		corner2(track,11)
-		local knob = mk("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,3,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Color3.fromRGB(170,170,170),BorderSizePixel=0},track)
-		corner2(knob,8)
-		local state = false
-		local function paint(anim)
-			local d = anim and 0.15 or 0
-			TweenService:Create(track,TweenInfo.new(d),{BackgroundColor3=state and ACCENT or Color3.fromRGB(50,50,50)}):Play()
-			TweenService:Create(knob,TweenInfo.new(d),{Position=state and UDim2.new(1,-19,0.5,0) or UDim2.new(0,3,0.5,0)}):Play()
-		end
-		onAccent(function() paint(false) end); paint(false)
-		track.MouseButton1Click:Connect(function() state=not state paint(true) pcall(cb,state) end)
-	end
+    local tab = Tabs.MRadar
+    tab:Paragraph({ Title = "mm2_legend" })
+    tab:Section({ Title = "mm2_secRadar" })
+    tab:Toggle({ Title = "mm2_espRoles", Value = false, Callback = function(v) ESP.roles = v end })
+    tab:Toggle({ Title = "mm2_espGun", Value = false, Callback = function(v) ESP.gun = v end })
+    tab:Toggle({ Title = "mm2_espLine", Value = false, Callback = function(v) ESP.lines = v end })
+    tab:Toggle({ Title = "mm2_espBox", Value = false, Callback = function(v) ESP.boxes = v end })
 
-	hdR("// 📡 เรดาร์ MM2", "// 📡 RADAR MM2")
-	togR("ESP บทบาท (Murderer/Sheriff/Innocent)", "Role ESP", function(v) ESP.roles=v end)
-	togR("ESP ปืน (แสดงตำแหน่งปืน)", "Gun ESP", function(v) ESP.gun=v end)
-	togR("ESP เส้นเชื่อม", "Line ESP", function(v) ESP.lines=v end)
-	togR("ESP กรอบ", "Box ESP", function(v) ESP.boxes=v end)
+    -- X-RAY : ทำให้ทุกอย่างในแมพใส (ฝั่งเราเท่านั้น)
+    local XR = { on = false, parts = setmetatable({}, { __mode = "k" }) }
 
-	-- X-Ray
-	local XR = { on=false, parts={} }
-	local function isChar(d)
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr.Character and d:IsDescendantOf(plr.Character) then return true end
-		end
-		return false
-	end
-	local function xrPart(d)
-		if d:IsA("BasePart") and not d:IsA("Terrain") and not XR.parts[d]
-			and not d.Name:lower():find("coin") and not isChar(d) then
-			XR.parts[d]=true; d.LocalTransparencyModifier=0.7
-		end
-	end
-	bind(workspace.DescendantAdded, function(d) if XR.on then xrPart(d) end end)
-	local function xrOn()
-		XR.on=true
-		task.spawn(function()
-			local n=0
-			for _, d in ipairs(workspace:GetDescendants()) do
-				if not XR.on then return end; xrPart(d); n+=1
-				if n%400==0 then task.wait() end
-			end
-		end)
-	end
-	local function xrOff()
-		XR.on=false
-		for p in pairs(XR.parts) do pcall(function() p.LocalTransparencyModifier=0 end); XR.parts[p]=nil end
-	end
-	togR("X-Ray (ทะลุกำแพง)", "X-Ray", function(v) if v then xrOn() else xrOff() end end)
-	onUnload(xrOff)
+    local function isChar(d)
+        local a = d.Parent
+        while a and a ~= workspace do
+            if a:IsA("Model") and Players:GetPlayerFromCharacter(a) then return true end
+            a = a.Parent
+        end
+        return false
+    end
 
-	-- ESP draw loop
-	local espFrames = {}
-	local function clearEsp()
-		for _, f in ipairs(espFrames) do pcall(function() f:Destroy() end) end; espFrames={}
-	end
-	local cam = workspace.CurrentCamera
-	local espGui = mk("ScreenGui",{Name="NX_ESP",ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=997},playerGui)
-	onUnload(function() espGui:Destroy() end)
-	bind(RunService.RenderStepped, function()
-		clearEsp()
-		if not (ESP.roles or ESP.gun or ESP.lines or ESP.boxes) then return end
-		local myChar = player.Character
-		local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr==player then continue end
-			local ch = plr.Character
-			local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
-			local hum = ch and ch:FindFirstChildOfClass("Humanoid")
-			if not (hrp and hum and hum.Health>0) then continue end
-			local role = getRole(plr)
-			local col = role=="Murderer" and Color3.fromRGB(255,60,60)
-				or role=="Sheriff" and Color3.fromRGB(60,120,255)
-				or Color3.fromRGB(180,180,180)
-			-- screen pos
-			local ok, pos = pcall(function() return cam:WorldToViewportPoint(hrp.Position) end)
-			if not (ok and pos.Z>0) then continue end
-			if ESP.roles then
-				local lbl = mk("TextLabel",{Position=UDim2.fromOffset(pos.X-40,pos.Y-18),Size=UDim2.fromOffset(80,16),
-					BackgroundTransparency=1,TextColor3=col,Font=Enum.Font.GothamBold,TextSize=11,
-					Text=(role or "?").." "..plr.DisplayName,ZIndex=10},espGui)
-				espFrames[#espFrames+1]=lbl
-			end
-			if ESP.boxes then
-				local box = mk("Frame",{Position=UDim2.fromOffset(pos.X-18,pos.Y-28),Size=UDim2.fromOffset(36,56),
-					BackgroundTransparency=1,BorderSizePixel=0},espGui)
-				mk("UIStroke",{Color=col,Thickness=1.5},box)
-				espFrames[#espFrames+1]=box
-			end
-			if ESP.lines and myHrp then
-				local ok2, myPos = pcall(function() return cam:WorldToViewportPoint(myHrp.Position) end)
-				if ok2 and myPos.Z>0 then
-					local vp2 = cam.ViewportSize
-					local dx,dy = pos.X-myPos.X, pos.Y-myPos.Y
-					local dist = math.sqrt(dx*dx+dy*dy)
-					local line = mk("Frame",{AnchorPoint=Vector2.new(0.5,0.5),
-						Position=UDim2.fromOffset((myPos.X+pos.X)/2,(myPos.Y+pos.Y)/2),
-						Size=UDim2.fromOffset(dist,1),Rotation=math.deg(math.atan2(dy,dx)),
-						BackgroundColor3=col,BorderSizePixel=0,BackgroundTransparency=0.4},espGui)
-					espFrames[#espFrames+1]=line
-				end
-			end
-		end
-	end)
-end -- RADAR
+    local function xrPart(d)
+        if d:IsA("BasePart") and not d:IsA("Terrain") and not XR.parts[d]
+            and not d.Name:lower():find("coin") and not isChar(d) then
+            XR.parts[d] = true
+            d.LocalTransparencyModifier = 0.7
+        end
+    end
 
--- ===================== หมวด WARP =====================
+    bind(workspace.DescendantAdded, function(d)
+        if XR.on then xrPart(d) end
+    end)
+
+    local function xrOn()
+        XR.on = true
+        task.spawn(function()
+            local n = 0
+            for _, d in ipairs(workspace:GetDescendants()) do
+                if not XR.on then return end
+                xrPart(d)
+                n += 1
+                if n % 400 == 0 then task.wait() end
+            end
+        end)
+    end
+
+    local function xrOff()
+        XR.on = false
+        for p in pairs(XR.parts) do
+            pcall(function() p.LocalTransparencyModifier = 0 end)
+            XR.parts[p] = nil
+        end
+    end
+
+    tab:Toggle({ Title = "mm2_xray", Value = false, Callback = function(v)
+        if v then xrOn() else xrOff() end
+    end })
+    onUnload(xrOff)
+end
+
+---------------------------------------------------------------- หมวด WARP (+ player card picker)
 do
-	local warpSF = mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y}, NX.pages["warp"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},warpSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},warpSF)
+    local tab = Tabs.MWarp
 
-	local function warpTo(plr)
-		local c=player.Character; local tc=plr and plr.Character
-		local th=tc and tc:FindFirstChild("HumanoidRootPart")
-		if c and th and c:FindFirstChild("HumanoidRootPart") then c:PivotTo(th.CFrame*CFrame.new(0,0,3)) return true end
-		return false
-	end
-	local function warpToRole(role,missEn,missTh)
-		fetchNow()
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr~=player and getRole(plr)==role then
-				if not warpTo(plr) then toast("Failed (no character)","ทำไม่ได้ (ไม่พบตัวละคร)") end return
-			end
-		end
-		toast(missEn,missTh)
-	end
+    local function warpTo(plr)
+        local c = player.Character
+        local tc = plr and plr.Character
+        local th = tc and tc:FindFirstChild("HumanoidRootPart")
+        if c and th and c:FindFirstChild("HumanoidRootPart") then
+            c:PivotTo(th.CFrame * CFrame.new(0, 0, 3))
+            return true
+        end
+        return false
+    end
 
-	-- section header
-	local ordW=0
-	local function hdW(th,en)
-		ordW+=1
-		local h=mk("Frame",{LayoutOrder=ordW,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},warpSF)
-		local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h)
-		corner2(bar,2); onAccent(function(c) bar.BackgroundColor3=c end)
-		tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en)
-	end
-	local function btnW(th,en,cb)
-		ordW+=1
-		local r=mk("Frame",{LayoutOrder=ordW,Size=UDim2.new(1,0,0,36),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},warpSF)
-		corner2(r,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r)
-		local b=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-10,0.5,0),Size=UDim2.fromOffset(80,26),
-			BackgroundColor3=ACCENT,Text="",AutoButtonColor=false},r)
-		corner2(b,10); onAccent(function(c) b.BackgroundColor3=c end)
-		tr(mkLabel(r,12,0,250,36,"",13,WHITE,HUD_FONT),th,en)
-		tr(mkLabel(b,0,0,80,26,"",11,WHITE,HUD_FONT,Enum.TextXAlignment.Center),"GO","ทำ")
-		b.MouseButton1Click:Connect(function() sfx("click",nil,1.5) pcall(cb) end)
-	end
-	local function togW(th,en,cb)
-		ordW+=1
-		local r=mk("Frame",{LayoutOrder=ordW,Size=UDim2.new(1,0,0,38),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},warpSF)
-		corner2(r,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r)
-		tr(mkLabel(r,12,0,220,38,"",13,WHITE,HUD_FONT),th,en)
-		local track=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(42,22),BackgroundColor3=Color3.fromRGB(50,50,50),Text="",AutoButtonColor=false},r)
-		corner2(track,11)
-		local knob=mk("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,3,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Color3.fromRGB(170,170,170),BorderSizePixel=0},track)
-		corner2(knob,8)
-		local state=false
-		local function paint(anim)
-			local d=anim and 0.15 or 0
-			TweenService:Create(track,TweenInfo.new(d),{BackgroundColor3=state and ACCENT or Color3.fromRGB(50,50,50)}):Play()
-			TweenService:Create(knob,TweenInfo.new(d),{Position=state and UDim2.new(1,-19,0.5,0) or UDim2.new(0,3,0.5,0)}):Play()
-		end
-		onAccent(function() paint(false) end); paint(false)
-		track.MouseButton1Click:Connect(function() state=not state paint(true) pcall(cb,state) end)
-	end
+    local function warpToRole(role, missEn, missTh)
+        fetchNow()
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and getRole(plr) == role then
+                if not warpTo(plr) then toast("Failed (no character)","ทำไม่ได้ (ไม่พบตัวละคร)") end
+                return
+            end
+        end
+        toast(missEn, missTh)
+    end
 
-	hdW("// 🚀 WARP","// 🚀 WARP")
-	togW("ดูดปืนอัตโนมัติ","Auto Warp to Gun", function(v) FLAGS.warpGun=v end)
-	btnW("วาร์ปหาฆาตกร","Warp to Murderer", function() warpToRole("Murderer","Murderer not found","ไม่พบฆาตกร") end)
-	btnW("วาร์ปหานายอำเภอ","Warp to Sheriff", function() warpToRole("Sheriff","Sheriff not found","ไม่พบนายอำเภอ") end)
+    tab:Section({ Title = "mm2_secWarp" })
+    tab:Toggle({ Title = "mm2_wGun", Value = false, Callback = function(v) FLAGS.warpGun = v end })
+    tab:Button({ Title = "mm2_wMurder", Callback = function()
+        warpToRole("Murderer","Murderer not found","ไม่พบฆาตกร")
+    end })
+    tab:Button({ Title = "mm2_wSheriff", Callback = function()
+        warpToRole("Sheriff","Sheriff not found","ไม่พบนายอำเภอ")
+    end })
 
-	-- Player Card Picker
-	hdW("🌀 เลือกผู้เล่นที่จะวาร์ป","🌀 Select Player to Warp")
-	local gridW=mk("Frame",{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=ordW+1},warpSF)
-	ordW+=1
-	mk("UIGridLayout",{CellSize=UDim2.fromOffset(112,56),CellPadding=UDim2.fromOffset(5,5),SortOrder=Enum.SortOrder.LayoutOrder},gridW)
-	mk("UIPadding",{PaddingLeft=UDim.new(0,4),PaddingBottom=UDim.new(0,4)},gridW)
-	local warpCards,warpSelected={},nil
+    -- === Player Card Picker (Warp) — ใส่ใน sf ของ tab ผ่าน wrapper frame ===
+    local NX3 = getgenv().NX
+    local lp3 = Players.LocalPlayer
 
-	local function clearWarpCards()
-		for _,c2 in ipairs(warpCards) do pcall(function() c2:Destroy() end) end; warpCards={}; warpSelected=nil
-	end
-	local function makeWarpCard(plr)
-		local card=Instance.new("TextButton"); card.Size=UDim2.fromOffset(116,54); card.BackgroundColor3=Color3.fromRGB(18,22,32)
-		card.AutoButtonColor=false; card.Text=""; card.BorderSizePixel=0; card.Parent=gridW
-		Instance.new("UICorner",card).CornerRadius=UDim.new(0,12)
-		local stroke=Instance.new("UIStroke"); stroke.Thickness=1.5; stroke.Color=ACCENT
-		stroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; stroke.Parent=card
-		onAccent(function(a) if card.Parent then stroke.Color=a end end)
-		local av=Instance.new("ImageLabel"); av.Size=UDim2.fromOffset(38,38); av.Position=UDim2.fromOffset(7,8)
-		av.BackgroundColor3=Color3.fromRGB(32,38,52); av.BorderSizePixel=0; av.Parent=card
-		Instance.new("UICorner",av).CornerRadius=UDim.new(0,8)
-		task.spawn(function()
-			local ok,img=pcall(function() return Players:GetUserThumbnailAsync(plr.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48) end)
-			if ok and av.Parent then av.Image=img end
-		end)
-		local roleBadge=Instance.new("TextLabel"); roleBadge.Size=UDim2.fromOffset(36,12); roleBadge.Position=UDim2.fromOffset(7,42)
-		roleBadge.BackgroundColor3=Color3.fromRGB(40,40,55); roleBadge.Text="..."; roleBadge.Font=Enum.Font.GothamBold
-		roleBadge.TextSize=8; roleBadge.TextColor3=Color3.new(1,1,1); roleBadge.TextXAlignment=Enum.TextXAlignment.Center
-		roleBadge.BorderSizePixel=0; roleBadge.Parent=card; Instance.new("UICorner",roleBadge).CornerRadius=UDim.new(0,4)
-		task.spawn(function()
-			while card.Parent do task.wait(1)
-				local r=getRole(plr)
-				if r=="Murderer" then roleBadge.Text="🔪" roleBadge.BackgroundColor3=Color3.fromRGB(120,20,20)
-				elseif r=="Sheriff" then roleBadge.Text="🔫" roleBadge.BackgroundColor3=Color3.fromRGB(20,80,140)
-				else roleBadge.Text="●" roleBadge.BackgroundColor3=Color3.fromRGB(40,40,55) end
-			end
-		end)
-		local nm=Instance.new("TextLabel"); nm.Size=UDim2.new(1,-52,0,18); nm.Position=UDim2.fromOffset(50,8)
-		nm.BackgroundTransparency=1; nm.Text=plr.DisplayName; nm.Font=Enum.Font.GothamBold; nm.TextSize=11
-		nm.TextColor3=Color3.new(1,1,1); nm.TextTruncate=Enum.TextTruncate.AtEnd; nm.TextXAlignment=Enum.TextXAlignment.Left; nm.Parent=card
-		local un=Instance.new("TextLabel"); un.Size=UDim2.new(1,-52,0,13); un.Position=UDim2.fromOffset(50,27)
-		un.BackgroundTransparency=1; un.Text="@"..plr.Name; un.Font=Enum.Font.Gotham; un.TextSize=9
-		un.TextColor3=GRAY; un.TextTruncate=Enum.TextTruncate.AtEnd; un.TextXAlignment=Enum.TextXAlignment.Left; un.Parent=card
-		local tapStart
-		card.InputBegan:Connect(function(inp)
-			if inp.UserInputType==Enum.UserInputType.Touch or inp.UserInputType==Enum.UserInputType.MouseButton1 then tapStart=inp.Position end
-		end)
-		card.InputEnded:Connect(function(inp)
-			if (inp.UserInputType==Enum.UserInputType.Touch or inp.UserInputType==Enum.UserInputType.MouseButton1) and tapStart then
-				if (inp.Position-tapStart).Magnitude<20 then
-					warpSelected=plr
-					for _,c2 in ipairs(warpCards) do local s2=c2:FindFirstChildOfClass("UIStroke") if s2 then s2.Color=ACCENT s2.Thickness=1.5 end c2.BackgroundColor3=Color3.fromRGB(18,22,32) end
-					stroke.Color=WHITE; stroke.Thickness=2.5; card.BackgroundColor3=Color3.fromRGB(20,45,80)
-				end
-				tapStart=nil
-			end
-		end)
-		warpCards[#warpCards+1]=card
-	end
-	local function refreshWarpCards() clearWarpCards() for _,plr in ipairs(Players:GetPlayers()) do if plr~=player then makeWarpCard(plr) end end end
-	refreshWarpCards()
-	Players.PlayerAdded:Connect(refreshWarpCards)
-	Players.PlayerRemoving:Connect(function() task.wait(0.1) refreshWarpCards() end)
+    -- wrapper frame ที่อยู่ใน ScrollingFrame ของ tab (ใช้ tab:Section เป็น anchor แล้วต่อ frame ลูกลงไป)
+    tab:Section({ Title = "🌀 เลือกผู้เล่นที่จะวาร์ป / Select Player" })
 
-	-- Warp button
-	local btnRowW=mk("Frame",{Size=UDim2.new(1,0,0,36),BackgroundTransparency=1,LayoutOrder=1000},warpSF)
-	local llW=Instance.new("UIListLayout"); llW.FillDirection=Enum.FillDirection.Horizontal; llW.Padding=UDim.new(0,8)
-	llW.HorizontalAlignment=Enum.HorizontalAlignment.Center; llW.VerticalAlignment=Enum.VerticalAlignment.Center; llW.Parent=btnRowW
-	local function mkWBtn(txt2,col,cb)
-		local b=Instance.new("TextButton"); b.Size=UDim2.fromOffset(118,26); b.BackgroundColor3=col; b.Text=txt2
-		b.Font=Enum.Font.GothamBold; b.TextSize=11; b.TextColor3=Color3.new(1,1,1); b.AutoButtonColor=false; b.Parent=btnRowW
-		Instance.new("UICorner",b).CornerRadius=UDim.new(0,10); b.MouseButton1Click:Connect(cb)
-	end
-	mkWBtn("🌀 WARP!",Color3.fromRGB(30,80,180),function()
-		if not warpSelected then toast("No player selected","ยังไม่ได้เลือกผู้เล่น") return end
-		if not warpTo(warpSelected) then toast("Failed (no character)","ไม่พบตัวละครเป้าหมาย") end
-		toast("🌀 Warped!","🌀 วาร์ปแล้ว!")
-	end)
+    -- ดึง sf ของ tab จาก page
+    local warpSF = NX3.pages["mm_warp"]:FindFirstChildOfClass("ScrollingFrame")
 
-	-- Auto warp to gun
-	task.spawn(function()
-		local busy=false
-		while not MM.dead do task.wait(0.4)
-			if FLAGS.warpGun and not busy and getRole(player)=="Innocent" then
-				local part=gunPart(); local c=player.Character
-				if part and c and c:FindFirstChild("HumanoidRootPart") then
-					busy=true; local back=c:GetPivot()
-					c:PivotTo(part.CFrame); task.wait(0.4)
-					c=player.Character
-					if c and c:FindFirstChild("HumanoidRootPart") then c:PivotTo(back) end
-					task.wait(2); busy=false
-				end
-			end
-		end
-	end)
-end -- WARP
+    -- grid container อยู่ใน sf โดยตรง ให้ UIListLayout ของ sf จัดเรียง
+    local gridW = mk("Frame", {
+        Size = UDim2.new(1,0,0,0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        LayoutOrder = 999,
+        Active = false,
+    }, warpSF)
 
--- ===================== หมวด FLING =====================
+    local gridLayoutW = mk("UIGridLayout", {
+        CellSize = UDim2.fromOffset(112,56),
+        CellPadding = UDim2.fromOffset(5,5),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, gridW)
+    mk("UIPadding",{PaddingLeft=UDim.new(0,4),PaddingBottom=UDim.new(0,4)}, gridW)
+
+    local warpCards = {}
+    local warpSelected = nil
+
+    local function clearWarpCards()
+        for _,c2 in ipairs(warpCards) do pcall(function() c2:Destroy() end) end
+        warpCards = {}
+        warpSelected = nil
+    end
+
+    local function makeWarpCard(plr)
+        local card = Instance.new("TextButton")
+        card.Size = UDim2.fromOffset(116,54)
+        card.BackgroundColor3 = Color3.fromRGB(18,22,32)
+        card.AutoButtonColor = false
+        card.Text = ""
+        card.BorderSizePixel = 0
+        card.Parent = gridW
+        Instance.new("UICorner",card).CornerRadius = UDim.new(0,12)
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 1.5
+        stroke.Color = NX3.COL.Purple
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = card
+        NX3.onAccent(function(a) if card.Parent then stroke.Color=a end end)
+
+        local av = Instance.new("ImageLabel")
+        av.Size = UDim2.fromOffset(38,38)
+        av.Position = UDim2.fromOffset(7,8)
+        av.BackgroundColor3 = Color3.fromRGB(32,38,52)
+        av.BorderSizePixel = 0
+        av.Parent = card
+        Instance.new("UICorner",av).CornerRadius = UDim.new(0,8)
+        task.spawn(function()
+            local ok,img = pcall(function()
+                return Players:GetUserThumbnailAsync(plr.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48)
+            end)
+            if ok and av.Parent then av.Image=img end
+        end)
+
+        -- role badge
+        local roleBadge = Instance.new("TextLabel")
+        roleBadge.Size = UDim2.fromOffset(36,12)
+        roleBadge.Position = UDim2.fromOffset(7,42)
+        roleBadge.BackgroundColor3 = Color3.fromRGB(40,40,55)
+        roleBadge.Text = "..."
+        roleBadge.Font = Enum.Font.GothamBold
+        roleBadge.TextSize = 8
+        roleBadge.TextColor3 = Color3.new(1,1,1)
+        roleBadge.TextXAlignment = Enum.TextXAlignment.Center
+        roleBadge.BorderSizePixel = 0
+        roleBadge.Parent = card
+        Instance.new("UICorner",roleBadge).CornerRadius = UDim.new(0,4)
+        task.spawn(function()
+            while card.Parent do
+                task.wait(1)
+                local r = getRole(plr)
+                if r=="Murderer" then roleBadge.Text="🔪" roleBadge.BackgroundColor3=Color3.fromRGB(120,20,20)
+                elseif r=="Sheriff" then roleBadge.Text="🔫" roleBadge.BackgroundColor3=Color3.fromRGB(20,80,140)
+                else roleBadge.Text="●" roleBadge.BackgroundColor3=Color3.fromRGB(40,40,55) end
+            end
+        end)
+
+        local nm = Instance.new("TextLabel")
+        nm.Size = UDim2.new(1,-52,0,18)
+        nm.Position = UDim2.fromOffset(50,8)
+        nm.BackgroundTransparency = 1
+        nm.Text = plr.DisplayName
+        nm.Font = Enum.Font.GothamBold
+        nm.TextSize = 11
+        nm.TextColor3 = Color3.new(1,1,1)
+        nm.TextTruncate = Enum.TextTruncate.AtEnd
+        nm.TextXAlignment = Enum.TextXAlignment.Left
+        nm.Parent = card
+
+        local un = Instance.new("TextLabel")
+        un.Size = UDim2.new(1,-52,0,13)
+        un.Position = UDim2.fromOffset(50,27)
+        un.BackgroundTransparency = 1
+        un.Text = "@"..plr.Name
+        un.Font = Enum.Font.Gotham
+        un.TextSize = 9
+        un.TextColor3 = NX3.COL.Sub
+        un.TextTruncate = Enum.TextTruncate.AtEnd
+        un.TextXAlignment = Enum.TextXAlignment.Left
+        un.Parent = card
+
+        -- ใช้ InputBegan/Ended แทน Click เพื่อกันพลาดจาก scroll gesture
+        local tapStart
+        card.InputBegan:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.Touch
+            or inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                tapStart = inp.Position
+            end
+        end)
+        card.InputEnded:Connect(function(inp)
+            if (inp.UserInputType == Enum.UserInputType.Touch
+            or inp.UserInputType == Enum.UserInputType.MouseButton1) and tapStart then
+                local delta = (inp.Position - tapStart).Magnitude
+                if delta < 20 then -- threshold กัน scroll
+                    warpSelected = plr
+                    for _,c2 in ipairs(warpCards) do
+                        local s2 = c2:FindFirstChildOfClass("UIStroke")
+                        if s2 then s2.Color=NX3.COL.Purple s2.Thickness=1.5 end
+                        c2.BackgroundColor3 = Color3.fromRGB(18,22,32)
+                    end
+                    stroke.Color = NX3.COL.Pink
+                    stroke.Thickness = 2.5
+                    card.BackgroundColor3 = Color3.fromRGB(20,45,80)
+                end
+                tapStart = nil
+            end
+        end)
+
+        warpCards[#warpCards+1] = card
+    end
+
+    local function refreshWarpCards()
+        clearWarpCards()
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if plr ~= lp3 then makeWarpCard(plr) end
+        end
+    end
+    refreshWarpCards()
+    Players.PlayerAdded:Connect(refreshWarpCards)
+    Players.PlayerRemoving:Connect(function() task.wait(0.1) refreshWarpCards() end)
+
+    -- ปุ่ม Warp
+    local btnRowW = mk("Frame", {
+        Size = UDim2.new(1,0,0,36),
+        BackgroundTransparency = 1,
+        LayoutOrder = 1000,
+    }, warpSF)
+    local llW = Instance.new("UIListLayout")
+    llW.FillDirection = Enum.FillDirection.Horizontal
+    llW.Padding = UDim.new(0,8)
+    llW.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    llW.VerticalAlignment = Enum.VerticalAlignment.Center
+    llW.Parent = btnRowW
+
+    local function mkWBtn(txt2, col, cb)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.fromOffset(118,26)
+        b.BackgroundColor3 = col
+        b.Text = txt2
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 11
+        b.TextColor3 = Color3.new(1,1,1)
+        b.AutoButtonColor = false
+        b.Parent = btnRowW
+        Instance.new("UICorner",b).CornerRadius = UDim.new(0,10)
+        b.MouseButton1Click:Connect(cb)
+    end
+
+    mkWBtn("🌀 WARP!", Color3.fromRGB(30,80,180), function()
+        local plr = warpSelected
+        if not plr then toast("No player selected","ยังไม่ได้เลือกผู้เล่น") return end
+        if not warpTo(plr) then toast("Failed (no character)","ไม่พบตัวละครเป้าหมาย") end
+        toast("🌀 Warped!","🌀 วาร์ปแล้ว!")
+    end)
+
+    -- ดูดปืนอัตโนมัติ
+    task.spawn(function()
+        local busy = false
+        while not MM.dead do
+            task.wait(0.4)
+            if FLAGS.warpGun and not busy and getRole(player) == "Innocent" then
+                local part = gunPart()
+                local c = player.Character
+                if part and c and c:FindFirstChild("HumanoidRootPart") then
+                    busy = true
+                    local back = c:GetPivot()
+                    c:PivotTo(part.CFrame)
+                    task.wait(0.4)
+                    c = player.Character
+                    if c and c:FindFirstChild("HumanoidRootPart") then c:PivotTo(back) end
+                    task.wait(2)
+                    busy = false
+                end
+            end
+        end
+    end)
+end
+
+---------------------------------------------------------------- หมวด HUNTER
 do
-	local flingSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["fling"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},flingSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},flingSF)
-	local ordF=0
-	local function hdF(th,en) ordF+=1 local h=mk("Frame",{LayoutOrder=ordF,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},flingSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local function btnF(th,en,col,cb) ordF+=1 local r=mk("Frame",{LayoutOrder=ordF,Size=UDim2.new(1,0,0,36),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},flingSF) corner2(r,12) mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r) local b=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-10,0.5,0),Size=UDim2.fromOffset(80,26),BackgroundColor3=col or ACCENT,Text="",AutoButtonColor=false},r) corner2(b,10) if not col then onAccent(function(c) b.BackgroundColor3=c end) end tr(mkLabel(r,12,0,250,36,"",13,WHITE,HUD_FONT),th,en) tr(mkLabel(b,0,0,80,26,"",11,WHITE,HUD_FONT,Enum.TextXAlignment.Center),"GO","ทำ") b.MouseButton1Click:Connect(function() sfx("click",nil,1.5) pcall(cb) end) end
+    local tab = Tabs.MHunter
+    local RANGE_GUN, RANGE_KNIFE = 250, 150 -- ระยะสูงสุดของโหมดอัตโนมัติ (แก้เลขได้)
 
-	local busy=false
-	local TIMEOUT,ROUNDS=3,4
-	local function hbF() RunService.Heartbeat:Wait() end
-	local function zeroAll(c) for _,d in ipairs(c:GetChildren()) do if d:IsA("BasePart") then d.AssemblyLinearVelocity=Vector3.new(0,0,0) d.AssemblyAngularVelocity=Vector3.new(0,0,0) end end end
-	local function flingPlayer(plr)
-		if busy then toast("Already flinging","กำลังฟลิ้งอยู่") return end
-		local c=player.Character; local hrp=c and c:FindFirstChild("HumanoidRootPart"); local hum=c and c:FindFirstChildOfClass("Humanoid")
-		local tch=plr and plr.Character; local troot=tch and tch:FindFirstChild("HumanoidRootPart"); local thum=tch and tch:FindFirstChildOfClass("Humanoid")
-		if not (hrp and hum and hum.Health>0 and troot and thum and thum.Health>0) then toast("Failed (no character)","ทำไม่ได้ (ไม่พบตัวละคร)") return end
-		busy=true; FLAGS.flinging=true
-		local homeCF=hrp.CFrame; local startPos=troot.Position
-		local cam=workspace.CurrentCamera; local oldSubject=cam and cam.CameraSubject
-		local oldFall=workspace.FallenPartsDestroyHeight
-		pcall(function() workspace.FallenPartsDestroyHeight=-math.huge end)
-		pcall(function() cam.CameraSubject=thum end)
-		local bvTarget=Instance.new("BodyVelocity"); bvTarget.MaxForce=Vector3.new(math.huge,math.huge,math.huge); bvTarget.Velocity=Vector3.new(0,0,0); bvTarget.Parent=troot
-		local function targetGone() return not (plr.Parent and plr.Character==tch and troot.Parent) or thum.Health<=0 end
-		local flung=false
-		pcall(function()
-			for _=1,ROUNDS do
-				local t0=os.clock(); local angle=0
-				while true do
-					if targetGone() or hum.Health<=0 or not hrp.Parent then break end
-					local spd=troot.AssemblyLinearVelocity.Magnitude; local dist=(troot.Position-startPos).Magnitude
-					if spd>800 or dist>500 then flung=true break end
-					if os.clock()-t0>TIMEOUT then break end
-					angle+=120
-					local ang=CFrame.Angles(math.rad(angle),math.rad(angle*0.5),0)
-					for _,off in ipairs({CFrame.new(0,1.2,0.5),CFrame.new(0,-1.2,0.5),CFrame.new(0.5,1.2,0),CFrame.new(-0.5,-1.2,0),CFrame.new(0,0.5,1.2)}) do
-						pcall(function() c:PivotTo(CFrame.new(troot.Position)*off*ang) end)
-						hrp.AssemblyLinearVelocity=Vector3.new(9e5,9e5,9e5); bvTarget.Velocity=Vector3.new(9e5,9e5,9e5)
-						hbF(); if flung then break end
-					end
-					if flung then break end
-				end
-				if flung then break end
-			end
-		end)
-		bvTarget:Destroy(); pcall(function() cam.CameraSubject=oldSubject or hum end)
-		for i=1,60 do
-			if not (hrp.Parent and c.Parent) then break end
-			pcall(function() c:PivotTo(homeCF) end); zeroAll(c)
-			pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end); hbF()
-			if (hrp.Position-homeCF.Position).Magnitude<8 then break end
-		end
-		pcall(function() workspace.FallenPartsDestroyHeight=oldFall end)
-		FLAGS.flinging=false; busy=false
-		if flung then toast("💥 Flung out!","💥 กระเด็นออกแมพแล้ว!") else toast("Fling done","ฟลิ้งเสร็จ") end
-	end
-	local function flingRole(role,missEn,missTh)
-		fetchNow()
-		for _,plr in ipairs(Players:GetPlayers()) do if plr~=player and getRole(plr)==role then task.spawn(flingPlayer,plr) return end end
-		toast(missEn,missTh)
-	end
+    local function alive(plr)
+        local ch = plr.Character
+        local h = ch and ch:FindFirstChildOfClass("Humanoid")
+        local r = ch and ch:FindFirstChild("HumanoidRootPart")
+        if h and r and h.Health > 0 then return ch, r end
+        return nil
+    end
 
-	hdF("// 💥 FLING","// 💥 FLING")
-	btnF("ฟลิ้งนายอำเภอ","Fling Sheriff",nil,function() flingRole("Sheriff","Sheriff not found","ไม่พบนายอำเภอ") end)
-	btnF("ฟลิ้งฆาตกร","Fling Murderer",Color3.fromRGB(180,30,50),function() flingRole("Murderer","Murderer not found","ไม่พบฆาตกร") end)
+    local function hasRemote(t, words)
+        for _, d in ipairs(t:GetDescendants()) do
+            if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                local n = d.Name:lower()
+                for _, w in ipairs(words) do
+                    if n:find(w, 1, true) then return true end
+                end
+            end
+        end
+        return false
+    end
 
-	-- Player card picker (Fling)
-	hdF("⚡ เลือกผู้เล่นที่จะฟลิ้ง","⚡ Select Player to Fling")
-	local gridF=mk("Frame",{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=ordF+1},flingSF)
-	ordF+=1
-	mk("UIGridLayout",{CellSize=UDim2.fromOffset(112,56),CellPadding=UDim2.fromOffset(5,5),SortOrder=Enum.SortOrder.LayoutOrder},gridF)
-	mk("UIPadding",{PaddingLeft=UDim.new(0,4),PaddingBottom=UDim.new(0,4)},gridF)
-	local flingCards,flingSelected={},nil
-	local function clearFlingCards() for _,c2 in ipairs(flingCards) do pcall(function() c2:Destroy() end) end flingCards={} flingSelected=nil end
-	local function makeFlingCard(plr)
-		local card=Instance.new("TextButton"); card.Size=UDim2.fromOffset(116,54); card.BackgroundColor3=Color3.fromRGB(22,22,32)
-		card.AutoButtonColor=false; card.Text=""; card.BorderSizePixel=0; card.Parent=gridF
-		Instance.new("UICorner",card).CornerRadius=UDim.new(0,12)
-		local stroke=Instance.new("UIStroke"); stroke.Thickness=1.5; stroke.Color=ACCENT
-		stroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; stroke.Parent=card
-		onAccent(function(a) if card.Parent then stroke.Color=a end end)
-		local av=Instance.new("ImageLabel"); av.Size=UDim2.fromOffset(38,38); av.Position=UDim2.fromOffset(7,8)
-		av.BackgroundColor3=Color3.fromRGB(38,38,52); av.BorderSizePixel=0; av.Parent=card
-		Instance.new("UICorner",av).CornerRadius=UDim.new(0,8)
-		task.spawn(function() local ok,img=pcall(function() return Players:GetUserThumbnailAsync(plr.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48) end) if ok and av.Parent then av.Image=img end end)
-		local nm=Instance.new("TextLabel"); nm.Size=UDim2.new(1,-52,0,18); nm.Position=UDim2.fromOffset(50,8)
-		nm.BackgroundTransparency=1; nm.Text=plr.DisplayName; nm.Font=Enum.Font.GothamBold; nm.TextSize=11
-		nm.TextColor3=Color3.new(1,1,1); nm.TextTruncate=Enum.TextTruncate.AtEnd; nm.TextXAlignment=Enum.TextXAlignment.Left; nm.Parent=card
-		local un=Instance.new("TextLabel"); un.Size=UDim2.new(1,-52,0,13); un.Position=UDim2.fromOffset(50,27)
-		un.BackgroundTransparency=1; un.Text="@"..plr.Name; un.Font=Enum.Font.Gotham; un.TextSize=9
-		un.TextColor3=GRAY; un.TextTruncate=Enum.TextTruncate.AtEnd; un.TextXAlignment=Enum.TextXAlignment.Left; un.Parent=card
-		local tapStartF
-		card.InputBegan:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.Touch or inp.UserInputType==Enum.UserInputType.MouseButton1 then tapStartF=inp.Position end end)
-		card.InputEnded:Connect(function(inp)
-			if (inp.UserInputType==Enum.UserInputType.Touch or inp.UserInputType==Enum.UserInputType.MouseButton1) and tapStartF then
-				if (inp.Position-tapStartF).Magnitude<20 then
-					flingSelected=plr
-					for _,c2 in ipairs(flingCards) do local s2=c2:FindFirstChildOfClass("UIStroke") if s2 then s2.Color=ACCENT s2.Thickness=1.5 end c2.BackgroundColor3=Color3.fromRGB(22,22,32) end
-					stroke.Color=WHITE; stroke.Thickness=2.5; card.BackgroundColor3=Color3.fromRGB(50,28,80)
-				end
-				tapStartF=nil
-			end
-		end)
-		flingCards[#flingCards+1]=card
-	end
-	local function refreshFlingCards() clearFlingCards() for _,plr in ipairs(Players:GetPlayers()) do if plr~=player then makeFlingCard(plr) end end end
-	refreshFlingCards()
-	Players.PlayerAdded:Connect(refreshFlingCards)
-	Players.PlayerRemoving:Connect(function() task.wait(0.1) refreshFlingCards() end)
+    local function isKnife(t)
+        if not t:IsA("Tool") then return false end
+        return t.Name:lower():find("knife") ~= nil or hasTag(t, "Weapon_Knife") or hasRemote(t, { "throw" })
+    end
 
-	-- Fling button
-	local btnRowF=mk("Frame",{Size=UDim2.new(1,0,0,36),BackgroundTransparency=1,LayoutOrder=1000},flingSF)
-	local llF=Instance.new("UIListLayout"); llF.FillDirection=Enum.FillDirection.Horizontal; llF.Padding=UDim.new(0,8)
-	llF.HorizontalAlignment=Enum.HorizontalAlignment.Center; llF.VerticalAlignment=Enum.VerticalAlignment.Center; llF.Parent=btnRowF
-	local function mkFBtn(txt2,col,cb) local b=Instance.new("TextButton") b.Size=UDim2.fromOffset(118,26) b.BackgroundColor3=col b.Text=txt2 b.Font=Enum.Font.GothamBold b.TextSize=11 b.TextColor3=Color3.new(1,1,1) b.AutoButtonColor=false b.Parent=btnRowF Instance.new("UICorner",b).CornerRadius=UDim.new(0,10) b.MouseButton1Click:Connect(cb) end
-	mkFBtn("💥 FLING!",Color3.fromRGB(160,25,55),function()
-		if not flingSelected then toast("No player selected","ยังไม่ได้เลือกผู้เล่น") return end
-		task.spawn(flingPlayer,flingSelected)
-	end)
-	onUnload(function() FLAGS.flinging=false end)
-end -- FLING
+    local function isGun(t)
+        if not t:IsA("Tool") or isKnife(t) then return false end
+        local n = t.Name:lower()
+        return n:find("gun") ~= nil or n:find("revolver") ~= nil or hasTag(t, "Weapon_Gun")
+            or hasRemote(t, { "shoot", "createbeam" })
+    end
 
--- ===================== หมวด HUNTER =====================
+    local function findTool(test)
+        local c = player.Character
+        if c then
+            for _, t in ipairs(c:GetChildren()) do if test(t) then return t end end
+        end
+        local bp = player:FindFirstChild("Backpack")
+        if bp then
+            for _, t in ipairs(bp:GetChildren()) do if test(t) then return t end end
+        end
+        return nil
+    end
+
+    -- ถืออยู่แล้วก็ใช้เลย ถ้ายังไม่ถือ รอจนสวมเสร็จ (สูงสุด 1 วินาที)
+    local function equip(t)
+        if not t then return nil end
+        local c, _, hum = myParts()
+        if not (c and hum) then return nil end
+        if t.Parent ~= c then
+            pcall(function() hum:EquipTool(t) end)
+            local t0 = os.clock()
+            while t.Parent ~= c and os.clock() - t0 < 1 do task.wait(0.05) end
+        end
+        if t.Parent == c then return t end
+        return nil
+    end
+    local function equipKnife() return equip(findTool(isKnife)) end
+    local function equipGun() return equip(findTool(isGun)) end
+
+    local function pickRemote(tool, names)
+        local list = {}
+        for _, d in ipairs(tool:GetDescendants()) do
+            if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then list[#list + 1] = d end
+        end
+        for _, w in ipairs(names) do
+            for _, d in ipairs(list) do
+                if d.Name:lower() == w then return d end
+            end
+        end
+        for _, w in ipairs(names) do
+            for _, d in ipairs(list) do
+                if d.Name:lower():find(w, 1, true) then return d end
+            end
+        end
+        return nil
+    end
+
+    local function dumpRemotes(tag, tool)
+        local names = {}
+        for _, d in ipairs(tool:GetDescendants()) do
+            if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                names[#names + 1] = d.Name
+                print("[NX " .. tag .. "]", d:GetFullName(), d.ClassName)
+            end
+        end
+        return #names > 0 and table.concat(names, ",") or "-"
+    end
+
+    local function fire(remote, ...)
+        local a = table.pack(...)
+        if remote:IsA("RemoteFunction") then
+            task.spawn(function() pcall(function() remote:InvokeServer(table.unpack(a, 1, a.n)) end) end)
+        else
+            pcall(function() remote:FireServer(table.unpack(a, 1, a.n)) end)
+        end
+    end
+
+    local function handPos()
+        local c, hrp = myParts()
+        local hand = c and (c:FindFirstChild("RightHand") or c:FindFirstChild("Right Arm"))
+        local p = hand or hrp
+        return p and p.Position
+    end
+
+    -- เล็งนำเป้าเล็กน้อยตามความเร็วที่เดิน
+    local function aimPoint(r, from)
+        local v = r.AssemblyLinearVelocity
+        local lead = Vector3.new(v.X, 0, v.Z)
+        if lead.Magnitude > 60 then lead = lead.Unit * 60 end
+        local t = math.clamp((r.Position - from).Magnitude / 140, 0, 0.35)
+        return r.Position + lead * t
+    end
+
+    -- เห็นตัวจริงไหม: ยิงเส้นจากหัวเราไปหาเป้า ถ้ากำแพงหรือผู้เล่นอื่นบังจะไม่เห็น
+    local function canSee(targetChar, part)
+        local c, hrp = myParts()
+        if not (c and hrp and part and part.Parent) then return false end
+        local origin = (c:FindFirstChild("Head") or hrp).Position
+        local dir = part.Position - origin
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.IgnoreWater = true
+        local ignore = { c }
+        for _ = 1, 8 do
+            params.FilterDescendantsInstances = ignore
+            local res = workspace:Raycast(origin, dir, params)
+            if not res then return true end
+            local hit = res.Instance
+            if hit:IsDescendantOf(targetChar) then return true end
+            local m = hit:FindFirstAncestorOfClass("Model")
+            if m and m:FindFirstChildOfClass("Humanoid") then return false end
+            if hit.CanCollide then return false end
+            ignore[#ignore + 1] = hit
+        end
+        return false
+    end
+
+    local function throwAt(r, silent)
+        local knife = equipKnife()
+        if not knife then
+            if not silent then toast("No knife found", "ไม่พบมีดในตัว") end
+            return false
+        end
+        local from = handPos()
+        if not from then return false end
+        local aim = aimPoint(r, from)
+        local rem = pickRemote(knife, { "throw", "knifethrown", "throwknife" })
+        if rem then
+            fire(rem, CFrame.new(from), CFrame.new(aim))
+            return true
+        end
+        local list = dumpRemotes("KNIFE", knife)
+        if not silent then
+            toast("Weapon remote not found: " .. list, "ไม่พบรีโมตอาวุธ: " .. list)
+            pcall(function() knife:Activate() end)
+        end
+        return false
+    end
+
+    local function shootAt(r, silent)
+        local gun = equipGun()
+        if not gun then
+            if not silent then toast("No gun found", "ไม่พบปืนในตัว") end
+            return false
+        end
+        local from = handPos()
+        if not from then return false end
+        local aim = aimPoint(r, from)
+        local rem = pickRemote(gun, { "shoot" })
+        if rem then
+            fire(rem, CFrame.new(from), CFrame.new(aim)) -- ปืนรุ่นใหม่
+            return true
+        end
+        rem = pickRemote(gun, { "createbeam", "fire", "shot" })
+        if rem then
+            fire(rem, 1, aim, "AH2") -- ปืนรุ่นเก่า
+            return true
+        end
+        local list = dumpRemotes("GUN", gun)
+        if silent then return false end
+        toast("Weapon remote not found: " .. list, "ไม่พบรีโมตอาวุธ: " .. list)
+        local cam = workspace.CurrentCamera
+        if cam then cam.CFrame = CFrame.lookAt(cam.CFrame.Position, r.Position) end
+        pcall(function() gun:Activate() end)
+        return true
+    end
+
+    local function murdererTarget(fresh)
+        if fresh then fetchNow() end
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and getRole(plr) == "Murderer" then
+                local ch, r = alive(plr)
+                if ch then return r, ch end
+            end
+        end
+        return nil
+    end
+
+    local function nearest(rangeMax, needVisible)
+        local _, hrp = myParts()
+        if not hrp then return nil end
+        local best, bch, bd
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player then
+                local ch, r = alive(plr)
+                if ch then
+                    local d = (r.Position - hrp.Position).Magnitude
+                    if (not rangeMax or d <= rangeMax) and (not bd or d < bd) then
+                        if not needVisible or canSee(ch, r) then
+                            best, bch, bd = r, ch, d
+                        end
+                    end
+                end
+            end
+        end
+        return best, bch
+    end
+
+    local function stab(knife, targetRoot)
+        pcall(function() knife:Activate() end)
+        local handle = knife:FindFirstChild("Handle")
+        if firetouchinterest and handle then
+            pcall(firetouchinterest, targetRoot, handle, 0)
+            pcall(firetouchinterest, targetRoot, handle, 1)
+        end
+    end
+
+    -- ออโต้ฆ่า
+    task.spawn(function()
+        while not MM.dead do
+            task.wait(0.15)
+            if K.auto then
+                local ok, err = pcall(function()
+                    for _, plr in ipairs(Players:GetPlayers()) do
+                        if not K.auto then break end
+                        if plr ~= player then
+                            local ch, r = alive(plr)
+                            local _, hrp = myParts()
+                            if ch and hrp then
+                                local knife = equipKnife()
+                                if not knife then toast("No knife found", "ไม่พบมีดในตัว") task.wait(1) break end
+                                local pos = (r.CFrame * CFrame.new(0, 0, 3)).Position
+                                hrp.CFrame = CFrame.lookAt(pos, r.Position)
+                                task.wait(0.12)
+                                stab(knife, r)
+                                task.wait(0.35)
+                            end
+                        end
+                    end
+                end)
+                if not ok then warn("[NXMM2 KILL]", err) end
+            end
+        end
+    end)
+
+    -- ฆ่าทั้งแมพ (ลากมาข้างหน้าเฉพาะฝั่งเรา)
+    bind(RunService.Heartbeat, function()
+        if not K.all then return end
+        local _, hrp = myParts()
+        if not hrp then return end
+        local n = 0
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player then
+                local ch, r = alive(plr)
+                if ch then
+                    n += 1
+                    local col = (n - 1) % 5 - 2
+                    local row = math.floor((n - 1) / 5)
+                    r.CFrame = hrp.CFrame * CFrame.new(col * 2, 0, -4 - row * 2)
+                    r.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                end
+            end
+        end
+    end)
+
+    task.spawn(function()
+        while not MM.dead do
+            task.wait(0.3)
+            if K.all then
+                pcall(function()
+                    local knife = equipKnife()
+                    if not knife then return end
+                    pcall(function() knife:Activate() end)
+                    for _, plr in ipairs(Players:GetPlayers()) do
+                        if plr ~= player then
+                            local ch, r = alive(plr)
+                            if ch then stab(knife, r) end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- ปุ่มปามีด / ปุ่มยิง ข้างขวาจอ
+    -- container แนวตั้งปุ่มขวาจอ
+    local sidePad = mk("Frame", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -8, 0.5, 0),
+        Size = UDim2.fromOffset(68, 10),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Visible = false, ZIndex = 20,
+    }, overlay)
+    local sideList = mk("UIListLayout", {
+        FillDirection = Enum.FillDirection.Vertical,
+        Padding = UDim.new(0, 6),
+        HorizontalAlignment = Enum.HorizontalAlignment.Right,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+    }, sidePad)
+
+    local function sideButton(textEn, textTh, strokeColor, bgColor, isWall)
+        local b = mk("TextButton", {
+            Size = UDim2.fromOffset(68, 68),
+            BackgroundColor3 = bgColor,
+            TextColor3 = Color3.new(1, 1, 1),
+            Font = Enum.Font.GothamBold, TextSize = 12,
+            Text = "", AutoButtonColor = false, ZIndex = 20,
+        }, sidePad)
+        corner(b, 14)
+
+        -- border stroke
+        local stroke = mk("UIStroke", {
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Color = strokeColor, Thickness = 2,
+        }, b)
+
+        -- gradient background
+        local grad = mk("UIGradient", {
+            Rotation = 135,
+            Color = ColorSequence.new(
+                bgColor:Lerp(Color3.new(1,1,1), 0.08),
+                bgColor:Lerp(Color3.new(0,0,0), 0.3)
+            ),
+        }, b)
+
+        -- lightning spark เส้นแนวทแยงวิ่ง (สายฟ้าสีขาว-ดำ)
+        if isWall then
+            local sparkHolder = mk("Frame", {
+                Size = UDim2.fromScale(1,1), BackgroundTransparency=1,
+                ClipsDescendants=true, ZIndex=21,
+            }, b)
+            task.spawn(function()
+                while b.Parent and b.Visible do
+                    task.wait(math.random(8,18)/10)
+                    if not b.Visible then continue end
+                    -- สายฟ้าขาว
+                    local s1 = mk("Frame",{
+                        AnchorPoint=Vector2.new(.5,.5),
+                        Position=UDim2.fromScale(math.random()*0.6+0.1, 0),
+                        Size=UDim2.fromOffset(2, 80),
+                        Rotation=math.random(-20,20),
+                        BackgroundColor3=Color3.new(1,1,1),
+                        BackgroundTransparency=0.1,
+                        BorderSizePixel=0, ZIndex=22,
+                    }, sparkHolder)
+                    -- กลอว์สีดำด้านหลัง
+                    local s2 = mk("Frame",{
+                        AnchorPoint=Vector2.new(.5,.5),
+                        Position=s1.Position,
+                        Size=UDim2.fromOffset(6, 84),
+                        Rotation=s1.Rotation,
+                        BackgroundColor3=Color3.new(0,0,0),
+                        BackgroundTransparency=0.5,
+                        BorderSizePixel=0, ZIndex=21,
+                    }, sparkHolder)
+                    game:GetService("TweenService"):Create(s1, TweenInfo.new(0.35), {
+                        Position=UDim2.fromScale(s1.Position.X.Scale+0.4, 1.1),
+                        BackgroundTransparency=1,
+                    }):Play()
+                    game:GetService("TweenService"):Create(s2, TweenInfo.new(0.35), {
+                        Position=UDim2.fromScale(s2.Position.X.Scale+0.4, 1.1),
+                        BackgroundTransparency=1,
+                    }):Play()
+                    task.delay(0.4, function() s1:Destroy() s2:Destroy() end)
+                end
+            end)
+        end
+
+        -- แยก emoji บน + ข้อความล่าง ชัดกว่า Text เดียว
+        local emojiL = mk("TextLabel", {
+            AnchorPoint = Vector2.new(0.5, 0),
+            Position = UDim2.fromScale(0.5, 0),
+            Size = UDim2.new(1, 0, 0, 30),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.GothamBold, TextSize = 20,
+            TextColor3 = Color3.new(1,1,1),
+            ZIndex = 22,
+        }, b)
+        local wordL = mk("TextLabel", {
+            AnchorPoint = Vector2.new(0.5, 1),
+            Position = UDim2.fromScale(0.5, 1),
+            Size = UDim2.new(1, -4, 0, 22),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.GothamBold, TextSize = 11,
+            TextColor3 = Color3.new(1,1,1),
+            TextScaled = true,
+            ZIndex = 22,
+        }, b)
+        local function setText()
+            local full = T(textEn, textTh)
+            -- ตัด emoji ส่วนแรก (unicode > 0x2000) กับข้อความที่เหลือ
+            local emoji, word = full:match("^([%z\1-\x7F\xC2-\xFD][\x80-\xBF]*)")
+            -- ง่ายกว่า: แยกด้วย \n
+            local parts = full:split("\n")
+            emojiL.Text = parts[1] or ""
+            wordL.Text  = parts[2] or ""
+        end
+        setText()
+        pcall(function() NXH.onLang(setText) end)
+        return b
+    end
+
+    local throwBtn  = sideButton("🔪\nTHROW",  "🔪\nปามีด",   Color3.fromRGB(255,70,85),  Color3.fromRGB(70,16,30),  false)
+    local shootBtn  = sideButton("🔫\nSHOOT",  "🔫\nยิง",     Color3.fromRGB(60,140,255), Color3.fromRGB(16,40,90),  false)
+    local throwWBtn = sideButton("🔪\nWALL",   "🔪\nทะลุ",    Color3.fromRGB(220,220,255),Color3.fromRGB(18,10,40),  true)
+    local shootWBtn = sideButton("🔫\nWALL",   "🔫\nยิงทะลุ", Color3.fromRGB(180,230,255),Color3.fromRGB(10,24,44),  true)
+
+    throwWBtn.Visible  = false
+    shootWBtn.Visible  = false
+
+    local busyTW = false
+    throwWBtn.Activated:Connect(function()
+        if busyTW then return end
+        busyTW = true
+        local ok, err = pcall(function()
+            local r = nearest(nil, false) -- ทะลุกำแพง ไม่ต้อง canSee
+            if not r then toast("No target","ไม่พบเป้า") return end
+            if throwAt(r, false) then toast("🔪 Thrown (wall)","🔪 ปาทะลุแล้ว") end
+        end)
+        if not ok then warn("[NXMM2 THROWWALL]", err) end
+        busyTW = false
+    end)
+
+    local busySW = false
+    shootWBtn.Activated:Connect(function()
+        if busySW then return end
+        busySW = true
+        local ok, err = pcall(function()
+            local r = murdererTarget(false)
+            if not r then r = nearest(nil, false) end
+            if not r then toast("No target","ไม่พบเป้า") return end
+            if shootAt(r, false) then toast("🔫 Shot (wall)","🔫 ยิงทะลุแล้ว") end
+        end)
+        if not ok then warn("[NXMM2 SHOOTWALL]", err) end
+        busySW = false
+    end)
+
+    -- ซ่อนปุ่มที่ไม่ใช้ออกจาก layout จริงๆ ด้วย
+    local function setSideVis(btn, v)
+        btn.Visible = v
+        -- รีเฟรช size container
+        task.defer(function()
+            local h = 0
+            for _, c in ipairs(sidePad:GetChildren()) do
+                if c:IsA("TextButton") and c.Visible then h = h + 68 + 6 end
+            end
+            sidePad.Visible = (h > 0)
+        end)
+    end
+
+    local busyT = false
+    throwBtn.Activated:Connect(function()
+        if busyT then return end
+        busyT = true
+        local ok, err = pcall(function()
+            local r = nearest(nil, true)
+            if not r then r = nearest(nil, false) end
+            if not r then toast("No target found", "ไม่พบเป้าหมาย") return end
+            if throwAt(r, false) then toast("🔪 Thrown", "🔪 ปาแล้ว") end
+        end)
+        if not ok then warn("[NXMM2 THROW]", err) end
+        busyT = false
+    end)
+
+    local busyS = false
+    shootBtn.Activated:Connect(function()
+        if busyS then return end
+        busyS = true
+        local ok, err = pcall(function()
+            local r = murdererTarget(true)
+            if not r then toast("Murderer not found", "ไม่พบฆาตกร") return end
+            if shootAt(r, false) then toast("🔫 Shot", "🔫 ยิงแล้ว") end
+        end)
+        if not ok then warn("[NXMM2 SHOOT]", err) end
+        busyS = false
+    end)
+
+    -- ปามีด/ยิง อัตโนมัติ: ทำงานเฉพาะตอนมองเห็นเป้าจริง
+    local lastFetch = 0
+    task.spawn(function()
+        local lastS, lastT = 0, 0
+        while not MM.dead do
+            task.wait(0.1)
+            if (K.aShoot or K.aThrow) and not FLAGS.flinging then
+                pcall(function()
+                    local c, hrp, hum = myParts()
+                    if not (c and hrp and hum and hum.Health > 0) then return end
+
+                    if K.aShoot and os.clock() - lastS > 0.4 and findTool(isGun) then
+                        if os.clock() - lastFetch > 1.5 then
+                            lastFetch = os.clock()
+                            fetchNow()
+                        end
+                        local r, ch = murdererTarget(false)
+                        if r and (r.Position - hrp.Position).Magnitude <= RANGE_GUN and canSee(ch, r) then
+                            if shootAt(r, true) then lastS = os.clock() else lastS = os.clock() + 2 end
+                        end
+                    end
+
+                    if K.aThrow and os.clock() - lastT > 0.8 and findTool(isKnife) then
+                        local r = nearest(RANGE_KNIFE, true)
+                        if r then
+                            if throwAt(r, true) then lastT = os.clock() else lastT = os.clock() + 2 end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+
+    tab:Section({ Title = "mm2_secHunter" })
+    tab:Toggle({ Title = "mm2_mAuto", Value = false, Callback = function(v) K.auto = v end })
+    tab:Toggle({ Title = "mm2_mAll", Value = false, Callback = function(v) K.all = v end })
+    tab:Toggle({ Title = "mm2_mThrow", Value = false, Callback = function(v) K.throw = v setSideVis(throwBtn, v) end })
+    tab:Toggle({ Title = "mm2_sShoot", Value = false, Callback = function(v) K.shoot = v setSideVis(shootBtn, v) end })
+    tab:Toggle({ Title = "mm2_aThrow", Value = false, Callback = function(v) K.aThrow = v end })
+    tab:Toggle({ Title = "mm2_aShoot", Value = false, Callback = function(v) K.aShoot = v end })
+    tab:Toggle({ Title = "mm2_aThrowWall", Value = false, Callback = function(v) K.aThrowWall = v setSideVis(throwWBtn, v) end })
+    tab:Toggle({ Title = "mm2_aShootWall", Value = false, Callback = function(v) K.aShootWall = v setSideVis(shootWBtn, v) end })
+
+    -- ปามีดทะลุกำแพง / ยิงทะลุกำแพง (ไม่ต้อง canSee)
+    task.spawn(function()
+        local lastSW, lastTW = 0, 0
+        while not MM.dead do
+            task.wait(0.1)
+            if (K.aShootWall or K.aThrowWall) and not FLAGS.flinging then
+                pcall(function()
+                    local c, hrp, hum = myParts()
+                    if not (c and hrp and hum and hum.Health > 0) then return end
+                    if K.aShootWall and os.clock() - lastSW > 0.5 and findTool(isGun) then
+                        if os.clock() - lastFetch > 1.5 then lastFetch = os.clock() fetchNow() end
+                        local r = murdererTarget(false)
+                        if r then
+                            if shootAt(r, true) then lastSW = os.clock() else lastSW = os.clock() + 2 end
+                        end
+                    end
+                    if K.aThrowWall and os.clock() - lastTW > 0.9 and findTool(isKnife) then
+                        local r = nearest(nil, false) -- false = ไม่เช็ค canSee
+                        if r then
+                            if throwAt(r, true) then lastTW = os.clock() else lastTW = os.clock() + 2 end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+
+    onUnload(function()
+        for k in pairs(K) do K[k] = false end
+        setSideVis(throwBtn, false)
+        setSideVis(shootBtn, false)
+        setSideVis(throwWBtn, false)
+        setSideVis(shootWBtn, false)
+    end)
+end
+
+---------------------------------------------------------------- หมวด FLING (fixed + player card picker)
 do
-	local hunterSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["hunter"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},hunterSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},hunterSF)
-	local ordH=0
-	local function hdH(th,en) ordH+=1 local h=mk("Frame",{LayoutOrder=ordH,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},hunterSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local function togH(th,en,cb)
-		ordH+=1
-		local r=mk("Frame",{LayoutOrder=ordH,Size=UDim2.new(1,0,0,38),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},hunterSF)
-		corner2(r,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r)
-		tr(mkLabel(r,12,0,220,38,"",13,WHITE,HUD_FONT),th,en)
-		local track=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(42,22),BackgroundColor3=Color3.fromRGB(50,50,50),Text="",AutoButtonColor=false},r)
-		corner2(track,11)
-		local knob=mk("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,3,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Color3.fromRGB(170,170,170),BorderSizePixel=0},track)
-		corner2(knob,8); local state=false
-		local function paint(anim) local d=anim and 0.15 or 0 TweenService:Create(track,TweenInfo.new(d),{BackgroundColor3=state and ACCENT or Color3.fromRGB(50,50,50)}):Play() TweenService:Create(knob,TweenInfo.new(d),{Position=state and UDim2.new(1,-19,0.5,0) or UDim2.new(0,3,0.5,0)}):Play() end
-		onAccent(function() paint(false) end); paint(false)
-		track.MouseButton1Click:Connect(function() state=not state paint(true) pcall(cb,state) end)
-	end
+    local tab = Tabs.MFling
+    local busy = false
+    local TIMEOUT, ROUNDS = 3, 4
 
-	local RANGE_GUN,RANGE_KNIFE=250,150
-	local function alive(plr) local ch=plr.Character local h=ch and ch:FindFirstChildOfClass("Humanoid") local r=ch and ch:FindFirstChild("HumanoidRootPart") if h and r and h.Health>0 then return ch,r end return nil end
-	local function hasRemote(t,words) for _,d in ipairs(t:GetDescendants()) do if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then local n=d.Name:lower() for _,w in ipairs(words) do if n:find(w,1,true) then return true end end end end return false end
-	local function isKnife(t) if not t:IsA("Tool") then return false end return t.Name:lower():find("knife")~=nil or hasTag(t,"Weapon_Knife") or hasRemote(t,{"throw"}) end
-	local function isGun(t) if not t:IsA("Tool") or isKnife(t) then return false end local n=t.Name:lower() return n:find("gun")~=nil or n:find("revolver")~=nil or hasTag(t,"Weapon_Gun") or hasRemote(t,{"shoot","createbeam"}) end
-	local function findTool(test) local c=player.Character if c then for _,t in ipairs(c:GetChildren()) do if test(t) then return t end end end local bp=player:FindFirstChild("Backpack") if bp then for _,t in ipairs(bp:GetChildren()) do if test(t) then return t end end end return nil end
-	local function equip(t) if not t then return nil end local c,_,hum=myParts() if not (c and hum) then return nil end if t.Parent~=c then pcall(function() hum:EquipTool(t) end) local t0=os.clock() while t.Parent~=c and os.clock()-t0<1 do task.wait(0.05) end end if t.Parent==c then return t end return nil end
-	local function equipKnife() return equip(findTool(isKnife)) end
-	local function equipGun() return equip(findTool(isGun)) end
-	local function pickRemote(tool,names)
-		local list={} for _,d in ipairs(tool:GetDescendants()) do if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then list[#list+1]=d end end
-		for _,w in ipairs(names) do for _,d in ipairs(list) do if d.Name:lower()==w then return d end end end
-		for _,w in ipairs(names) do for _,d in ipairs(list) do if d.Name:lower():find(w,1,true) then return d end end end
-		return nil
-	end
-	local function fire(remote,...) local a=table.pack(...) if remote:IsA("RemoteFunction") then task.spawn(function() pcall(function() remote:InvokeServer(table.unpack(a,1,a.n)) end) end) else pcall(function() remote:FireServer(table.unpack(a,1,a.n)) end) end end
-	local function handPos() local c,hrp=myParts() local hand=c and (c:FindFirstChild("RightHand") or c:FindFirstChild("Right Arm")) local p=hand or hrp return p and p.Position end
-	local function aimPoint(r,from) local v=r.AssemblyLinearVelocity local lead=Vector3.new(v.X,0,v.Z) if lead.Magnitude>60 then lead=lead.Unit*60 end local t=math.clamp((r.Position-from).Magnitude/140,0,0.35) return r.Position+lead*t end
-	local function canSee(targetChar,part)
-		local c,hrp=myParts() if not (c and hrp and part and part.Parent) then return false end
-		local origin=(c:FindFirstChild("Head") or hrp).Position; local dir=part.Position-origin
-		local params=RaycastParams.new(); params.FilterType=Enum.RaycastFilterType.Exclude; params.IgnoreWater=true
-		local ignore={c}
-		for _=1,8 do params.FilterDescendantsInstances=ignore local res=workspace:Raycast(origin,dir,params) if not res then return true end local hit=res.Instance if hit:IsDescendantOf(targetChar) then return true end local m=hit:FindFirstAncestorOfClass("Model") if m and m:FindFirstChildOfClass("Humanoid") then return false end if hit.CanCollide then return false end ignore[#ignore+1]=hit end
-		return false
-	end
-	local function throwAt(r,silent)
-		local knife=equipKnife() if not knife then if not silent then toast("No knife found","ไม่พบมีดในตัว") end return false end
-		local from=handPos() if not from then return false end
-		local aim=aimPoint(r,from); local rem=pickRemote(knife,{"throw","knifethrown","throwknife"})
-		if rem then fire(rem,aim,CFrame.new(from,aim)) return true end
-		return false
-	end
-	local function shootAt(r,silent)
-		local gun=equipGun() if not gun then if not silent then toast("No gun found","ไม่พบปืนในตัว") end return false end
-		local from=handPos() if not from then return false end
-		local aim=aimPoint(r,from); local rem=pickRemote(gun,{"shoot","fire","createbeam","bulletspawned"})
-		if rem then fire(rem,aim,CFrame.new(from,aim)) return true end
-		return false
-	end
-	local function nearest(checkCanSee)
-		local c,hrp=myParts() if not hrp then return nil end
-		local best,bd=nil,RANGE_KNIFE
-		for _,plr in ipairs(Players:GetPlayers()) do
-			if plr==player then continue end
-			local ch,r=alive(plr) if not (ch and r) then continue end
-			local d=(r.Position-hrp.Position).Magnitude if d>=bd then continue end
-			if checkCanSee~=false and not canSee(ch,r) then continue end
-			best,bd=r,d
-		end
-		return best
-	end
-	local function murdererTarget(checkCanSee)
-		local c,hrp=myParts() if not hrp then return nil end
-		local best,bd=nil,RANGE_GUN
-		for _,plr in ipairs(Players:GetPlayers()) do
-			if plr==player or getRole(plr)~="Murderer" then continue end
-			local ch,r=alive(plr) if not (ch and r) then continue end
-			local d=(r.Position-hrp.Position).Magnitude if d>=bd then continue end
-			if checkCanSee~=false and not canSee(ch,r) then continue end
-			best,bd=r,d
-		end
-		return best
-	end
-	local lastFetch=0
+    local function hb() RunService.Heartbeat:Wait() end
 
-	hdH("// 🎯 HUNTER","// 🎯 HUNTER")
-	togH("ขว้างมีดอัตโนมัติ (ทะลุกำแพง)","Auto Throw (through walls)",function(v) K.aThrowWall=v end)
-	togH("ยิงปืนอัตโนมัติ (ทะลุกำแพง)","Auto Shoot (through walls)",function(v) K.aShootWall=v end)
-	togH("ขว้างมีด (เห็นเป้า)","Auto Throw (LoS)",function(v) K.aThrow=v end)
-	togH("ยิงปืน (เห็นเป้า)","Auto Shoot (LoS)",function(v) K.aShoot=v end)
+    local function zeroAll(c)
+        for _, d in ipairs(c:GetChildren()) do
+            if d:IsA("BasePart") then
+                d.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                d.AssemblyAngularVelocity = Vector3.new(0,0,0)
+            end
+        end
+    end
 
-	task.spawn(function()
-		local lastSW,lastTW=0,0
-		while not MM.dead do task.wait(0.1)
-			if (K.aShootWall or K.aThrowWall or K.aThrow or K.aShoot) and not FLAGS.flinging then
-				pcall(function()
-					local c,hrp,hum=myParts() if not (c and hrp and hum and hum.Health>0) then return end
-					if K.aShootWall and os.clock()-lastSW>0.5 and findTool(isGun) then
-						if os.clock()-lastFetch>1.5 then lastFetch=os.clock() fetchNow() end
-						local r=murdererTarget(false) if r then if shootAt(r,true) then lastSW=os.clock() else lastSW=os.clock()+2 end end
-					end
-					if K.aThrowWall and os.clock()-lastTW>0.9 and findTool(isKnife) then
-						local r=nearest(false) if r then if throwAt(r,true) then lastTW=os.clock() else lastTW=os.clock()+2 end end
-					end
-					if K.aShoot and os.clock()-lastSW>0.5 and findTool(isGun) then
-						if os.clock()-lastFetch>1.5 then lastFetch=os.clock() fetchNow() end
-						local r=murdererTarget(true) if r then if shootAt(r,true) then lastSW=os.clock() else lastSW=os.clock()+2 end end
-					end
-					if K.aThrow and os.clock()-lastTW>0.9 and findTool(isKnife) then
-						local r=nearest(true) if r then if throwAt(r,true) then lastTW=os.clock() else lastTW=os.clock()+2 end end
-					end
-				end)
-			end
-		end
-	end)
-	onUnload(function() for k in pairs(K) do K[k]=false end end)
-end -- HUNTER
+    local function flingPlayer(plr)
+        if busy then toast("Already flinging","กำลังฟลิ้งอยู่") return end
+        local c = player.Character
+        local hrp = c and c:FindFirstChild("HumanoidRootPart")
+        local hum = c and c:FindFirstChildOfClass("Humanoid")
+        local tch = plr and plr.Character
+        local troot = tch and tch:FindFirstChild("HumanoidRootPart")
+        local thum = tch and tch:FindFirstChildOfClass("Humanoid")
+        if not (hrp and hum and hum.Health>0 and troot and thum and thum.Health>0) then
+            toast("Failed (no character)","ทำไม่ได้ (ไม่พบตัวละคร)") return
+        end
+        busy = true
+        FLAGS.flinging = true
+        local homeCF = hrp.CFrame
+        local startPos = troot.Position
+        local cam = workspace.CurrentCamera
+        local oldSubject = cam and cam.CameraSubject
+        local oldFall = workspace.FallenPartsDestroyHeight
+        -- ปิดกันตก: ให้เป้ากระเด็นออกนอกแมพได้
+        pcall(function() workspace.FallenPartsDestroyHeight = -math.huge end)
+        pcall(function() cam.CameraSubject = thum end)
 
--- ===================== หมวด PLAYER =====================
+        -- BodyVelocity ผลักตัวเป้าโดยตรง
+        local bvTarget = Instance.new("BodyVelocity")
+        bvTarget.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bvTarget.Velocity = Vector3.new(0,0,0)
+        bvTarget.Parent = troot
+
+        local function targetGone()
+            return not (plr.Parent and plr.Character==tch and troot.Parent) or thum.Health<=0
+        end
+
+        local flung = false
+        local ok, err = pcall(function()
+            for _ = 1, ROUNDS do
+                local t0 = os.clock()
+                local angle = 0
+                while true do
+                    if targetGone() or hum.Health<=0 or not hrp.Parent then break end
+                    local spd = troot.AssemblyLinearVelocity.Magnitude
+                    local dist = (troot.Position - startPos).Magnitude
+                    if spd > 800 or dist > 500 then flung = true break end
+                    if os.clock()-t0 > TIMEOUT then break end
+                    angle += 120
+                    local ang = CFrame.Angles(math.rad(angle), math.rad(angle*0.5), 0)
+                    local offsets = {
+                        CFrame.new(0, 1.2, 0.5),
+                        CFrame.new(0, -1.2, 0.5),
+                        CFrame.new(0.5, 1.2, 0),
+                        CFrame.new(-0.5, -1.2, 0),
+                        CFrame.new(0, 0.5, 1.2),
+                    }
+                    for _, off in ipairs(offsets) do
+                        pcall(function() c:PivotTo(CFrame.new(troot.Position) * off * ang) end)
+                        hrp.AssemblyLinearVelocity = Vector3.new(9e5, 9e5, 9e5)
+                        bvTarget.Velocity = Vector3.new(9e5, 9e5, 9e5)
+                        hb()
+                        if flung then break end
+                    end
+                end
+                if flung then break end
+            end
+        end)
+        if not ok then warn("[NXMM2 FLING]", err) end
+
+        bvTarget:Destroy()
+        pcall(function() cam.CameraSubject = oldSubject or hum end)
+        for i = 1, 60 do
+            if not (hrp.Parent and c.Parent) then break end
+            pcall(function() c:PivotTo(homeCF) end)
+            zeroAll(c)
+            pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+            hb()
+            if (hrp.Position - homeCF.Position).Magnitude < 8 then break end
+        end
+        pcall(function() workspace.FallenPartsDestroyHeight = oldFall end)
+        FLAGS.flinging = false
+        busy = false
+        if flung then toast("💥 Flung out!","💥 กระเด็นออกแมพแล้ว!")
+        else toast("Fling done","ฟลิ้งเสร็จ") end
+    end
+
+    local function flingRole(role, missEn, missTh)
+        fetchNow()
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and getRole(plr) == role then
+                task.spawn(flingPlayer, plr) return
+            end
+        end
+        toast(missEn, missTh)
+    end
+
+    tab:Section({ Title = "mm2_secFling" })
+    tab:Button({ Title = "mm2_fSheriff", Variant = "Secondary", Callback = function()
+        flingRole("Sheriff","Sheriff not found","ไม่พบนายอำเภอ")
+    end })
+    tab:Button({ Title = "mm2_fMurder", Variant = "Danger", Callback = function()
+        flingRole("Murderer","Murderer not found","ไม่พบฆาตกร")
+    end })
+
+    -- === Player Card Picker (Fling) — ใส่ใน sf ของ tab ===
+    local NX2 = getgenv().NX
+    local lp2 = Players.LocalPlayer
+
+    tab:Section({ Title = "⚡ เลือกผู้เล่นที่จะฟลิ้ง / Select Player" })
+
+    local flingSF = NX2.pages["mm_fling"]:FindFirstChildOfClass("ScrollingFrame")
+
+    local gridF = mk("Frame", {
+        Size = UDim2.new(1,0,0,0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        LayoutOrder = 999,
+        Active = false,
+    }, flingSF)
+
+    mk("UIGridLayout", {
+        CellSize = UDim2.fromOffset(112,56),
+        CellPadding = UDim2.fromOffset(5,5),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, gridF)
+    mk("UIPadding",{PaddingLeft=UDim.new(0,4),PaddingBottom=UDim.new(0,4)}, gridF)
+
+    local flingCards = {}
+    local flingSelected = nil
+
+    local function clearFlingCards()
+        for _,c2 in ipairs(flingCards) do pcall(function() c2:Destroy() end) end
+        flingCards = {}
+        flingSelected = nil
+    end
+
+    local function makeFlingCard(plr)
+        local card = Instance.new("TextButton")
+        card.Size = UDim2.fromOffset(116,54)
+        card.BackgroundColor3 = Color3.fromRGB(22,22,32)
+        card.AutoButtonColor = false
+        card.Text = ""
+        card.BorderSizePixel = 0
+        card.Parent = gridF
+        Instance.new("UICorner",card).CornerRadius = UDim.new(0,12)
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 1.5
+        stroke.Color = NX2.COL.Purple
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = card
+        NX2.onAccent(function(a) if card.Parent then stroke.Color=a end end)
+
+        local av = Instance.new("ImageLabel")
+        av.Size = UDim2.fromOffset(38,38)
+        av.Position = UDim2.fromOffset(7,8)
+        av.BackgroundColor3 = Color3.fromRGB(38,38,52)
+        av.BorderSizePixel = 0
+        av.Parent = card
+        Instance.new("UICorner",av).CornerRadius = UDim.new(0,8)
+        task.spawn(function()
+            local ok,img = pcall(function()
+                return Players:GetUserThumbnailAsync(plr.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48)
+            end)
+            if ok and av.Parent then av.Image=img end
+        end)
+
+        local nm = Instance.new("TextLabel")
+        nm.Size = UDim2.new(1,-52,0,18)
+        nm.Position = UDim2.fromOffset(50,8)
+        nm.BackgroundTransparency = 1
+        nm.Text = plr.DisplayName
+        nm.Font = Enum.Font.GothamBold
+        nm.TextSize = 11
+        nm.TextColor3 = Color3.new(1,1,1)
+        nm.TextTruncate = Enum.TextTruncate.AtEnd
+        nm.TextXAlignment = Enum.TextXAlignment.Left
+        nm.Parent = card
+
+        local un = Instance.new("TextLabel")
+        un.Size = UDim2.new(1,-52,0,13)
+        un.Position = UDim2.fromOffset(50,27)
+        un.BackgroundTransparency = 1
+        un.Text = "@"..plr.Name
+        un.Font = Enum.Font.Gotham
+        un.TextSize = 9
+        un.TextColor3 = NX2.COL.Sub
+        un.TextTruncate = Enum.TextTruncate.AtEnd
+        un.TextXAlignment = Enum.TextXAlignment.Left
+        un.Parent = card
+
+        local tapStartF
+        card.InputBegan:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.Touch
+            or inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                tapStartF = inp.Position
+            end
+        end)
+        card.InputEnded:Connect(function(inp)
+            if (inp.UserInputType == Enum.UserInputType.Touch
+            or inp.UserInputType == Enum.UserInputType.MouseButton1) and tapStartF then
+                local delta = (inp.Position - tapStartF).Magnitude
+                if delta < 20 then
+                    flingSelected = plr
+                    for _,c2 in ipairs(flingCards) do
+                        local s2 = c2:FindFirstChildOfClass("UIStroke")
+                        if s2 then s2.Color=NX2.COL.Purple s2.Thickness=1.5 end
+                        c2.BackgroundColor3 = Color3.fromRGB(22,22,32)
+                    end
+                    stroke.Color = NX2.COL.Pink
+                    stroke.Thickness = 2.5
+                    card.BackgroundColor3 = Color3.fromRGB(50,28,80)
+                end
+                tapStartF = nil
+            end
+        end)
+
+        flingCards[#flingCards+1] = card
+    end
+
+    local function refreshFlingCards()
+        clearFlingCards()
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if plr ~= lp2 then makeFlingCard(plr) end
+        end
+    end
+    refreshFlingCards()
+    Players.PlayerAdded:Connect(refreshFlingCards)
+    Players.PlayerRemoving:Connect(function() task.wait(0.1) refreshFlingCards() end)
+
+    -- ปุ่ม Fling
+    local btnRowF = mk("Frame", {
+        Size = UDim2.new(1,0,0,36),
+        BackgroundTransparency = 1,
+        LayoutOrder = 1000,
+    }, flingSF)
+    local ll = Instance.new("UIListLayout")
+    ll.FillDirection = Enum.FillDirection.Horizontal
+    ll.Padding = UDim.new(0,8)
+    ll.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    ll.VerticalAlignment = Enum.VerticalAlignment.Center
+    ll.Parent = btnRowF
+
+    local function mkFBtn(txt2, col, cb)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.fromOffset(118,26)
+        b.BackgroundColor3 = col
+        b.Text = txt2
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 11
+        b.TextColor3 = Color3.new(1,1,1)
+        b.AutoButtonColor = false
+        b.Parent = btnRowF
+        Instance.new("UICorner",b).CornerRadius = UDim.new(0,10)
+        b.MouseButton1Click:Connect(cb)
+    end
+
+    mkFBtn("💥 FLING!", Color3.fromRGB(160,25,55), function()
+        local plr = flingSelected
+        if not plr then toast("No player selected","ยังไม่ได้เลือกผู้เล่น") return end
+        task.spawn(flingPlayer, plr)
+    end)
+
+    onUnload(function() FLAGS.flinging = false end)
+end
+
+---------------------------------------------------------------- หมวด PLAYER
 do
-	local playerSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["player"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},playerSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},playerSF)
-	local ordP=0
-	local function hdP(th,en) ordP+=1 local h=mk("Frame",{LayoutOrder=ordP,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},playerSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local function togP(th,en,cb)
-		ordP+=1
-		local r=mk("Frame",{LayoutOrder=ordP,Size=UDim2.new(1,0,0,38),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},playerSF)
-		corner2(r,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r)
-		tr(mkLabel(r,12,0,220,38,"",13,WHITE,HUD_FONT),th,en)
-		local track=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(42,22),BackgroundColor3=Color3.fromRGB(50,50,50),Text="",AutoButtonColor=false},r)
-		corner2(track,11)
-		local knob=mk("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,3,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Color3.fromRGB(170,170,170),BorderSizePixel=0},track)
-		corner2(knob,8); local state=false
-		local function paint(anim) local d=anim and 0.15 or 0 TweenService:Create(track,TweenInfo.new(d),{BackgroundColor3=state and ACCENT or Color3.fromRGB(50,50,50)}):Play() TweenService:Create(knob,TweenInfo.new(d),{Position=state and UDim2.new(1,-19,0.5,0) or UDim2.new(0,3,0.5,0)}):Play() end
-		onAccent(function() paint(false) end); paint(false)
-		track.MouseButton1Click:Connect(function() state=not state paint(true) pcall(cb,state) end)
-	end
+    local tab = Tabs.MPlayer
+    local WALK_BASE, WALK_ADD = 16, 100
+    local JUMP_BASE, JUMP_ADD = 50, 100
+    local FLY_SPEED = 66
 
-	local WALK_BASE,WALK_ADD=16,100
-	local JUMP_BASE,JUMP_ADD=50,100
-	local FLY_SPEED=66
-	local origColl=setmetatable({},{__mode="k"})
-	local noclipWas=false
-	bind(RunService.Stepped,function()
-		local c=player.Character if not c then return end
-		if P.noclip and not FLAGS.flinging then noclipWas=true for _,d in ipairs(c:GetDescendants()) do if d:IsA("BasePart") then if origColl[d]==nil then origColl[d]=d.CanCollide end d.CanCollide=false end end
-		elseif noclipWas then noclipWas=false for part,v in pairs(origColl) do if part.Parent then part.CanCollide=v end origColl[part]=nil end end
-	end)
-	bind(RunService.Heartbeat,function()
-		local _,_,hum=myParts() if not hum then return end
-		if P.speed then hum.WalkSpeed=WALK_BASE+WALK_ADD end
-		if P.jump then hum.UseJumpPower=true hum.JumpPower=JUMP_BASE+JUMP_ADD end
-	end)
-	local flyBV,flyBG
-	local function stopFly() if flyBV then flyBV:Destroy() flyBV=nil end if flyBG then flyBG:Destroy() flyBG=nil end local _,_,hum=myParts() if hum then hum.AutoRotate=true end end
-	local function startFly()
-		local _,hrp,hum=myParts() if not hrp then return end stopFly()
-		flyBV=Instance.new("BodyVelocity"); flyBV.MaxForce=Vector3.new(9e9,9e9,9e9); flyBV.Velocity=Vector3.new(0,0,0); flyBV.Parent=hrp
-		flyBG=Instance.new("BodyGyro"); flyBG.MaxTorque=Vector3.new(9e9,9e9,9e9); flyBG.P=9e4; flyBG.CFrame=hrp.CFrame; flyBG.Parent=hrp
-		if hum then hum.AutoRotate=false end
-	end
-	bind(RunService.RenderStepped,function()
-		if not P.fly then return end
-		if FLAGS.flinging or FLAGS.floating then if flyBV then stopFly() end return end
-		local _,hrp,hum=myParts(); local cam=workspace.CurrentCamera
-		if not (hrp and hum and cam) then return end
-		if not (flyBV and flyBV.Parent==hrp) then startFly() end
-		if not flyBV then return end
-		local look=cam.CFrame.LookVector; local right=cam.CFrame.RightVector
-		local fl=Vector3.new(look.X,0,look.Z); local fr=Vector3.new(right.X,0,right.Z)
-		local vel=Vector3.new(0,0,0); local md=hum.MoveDirection
-		if md.Magnitude>0.05 and fl.Magnitude>0.01 and fr.Magnitude>0.01 then
-			vel=(look*md:Dot(fl.Unit)+right*md:Dot(fr.Unit))*FLY_SPEED
-		end
-		flyBV.Velocity=vel
-		if flyBG and fl.Magnitude>0.01 then flyBG.CFrame=CFrame.lookAt(hrp.Position,hrp.Position+fl) end
-	end)
-	local tpTool
-	local function giveTool()
-		if tpTool and tpTool.Parent then return end
-		local bp=player:FindFirstChild("Backpack") if not bp then return end
-		tpTool=Instance.new("Tool"); tpTool.Name="TP NEXORA"; tpTool.ToolTip="TP NEXORA"
-		tpTool.RequiresHandle=false; tpTool.CanBeDropped=false
-		tpTool.Activated:Connect(function()
-			local c=player.Character; local mouse=player:GetMouse()
-			if c and mouse and mouse.Hit then c:PivotTo(CFrame.new(mouse.Hit.Position+Vector3.new(0,3,0))) end
-		end)
-		tpTool.Parent=bp
-	end
-	task.spawn(function() while not MM.dead do task.wait(1) if P.tp then giveTool() end end end)
-	bind(RunService.Stepped,function()
-		if not P.anti or FLAGS.flinging then return end
-		for _,plr in ipairs(Players:GetPlayers()) do if plr~=player and plr.Character then for _,d in ipairs(plr.Character:GetDescendants()) do if d:IsA("BasePart") then d.CanCollide=false end end end end
-	end)
-	bind(RunService.Heartbeat,function()
-		if not P.anti or FLAGS.flinging then return end
-		local _,hrp=myParts()
-		if hrp and (hrp.AssemblyLinearVelocity.Magnitude>250 or hrp.AssemblyAngularVelocity.Magnitude>60) then
-			hrp.AssemblyLinearVelocity=Vector3.new(0,0,0); hrp.AssemblyAngularVelocity=Vector3.new(0,0,0)
-		end
-	end)
+    local orig = setmetatable({}, { __mode = "k" })
+    local noclipWas = false
+    bind(RunService.Stepped, function()
+        local c = player.Character
+        if not c then return end
+        if P.noclip and not FLAGS.flinging then
+            noclipWas = true
+            for _, d in ipairs(c:GetDescendants()) do
+                if d:IsA("BasePart") then
+                    if orig[d] == nil then orig[d] = d.CanCollide end
+                    d.CanCollide = false
+                end
+            end
+        elseif noclipWas then
+            noclipWas = false
+            for part, v in pairs(orig) do
+                if part.Parent then part.CanCollide = v end
+                orig[part] = nil
+            end
+        end
+    end)
 
-	hdP("// 🧍 PLAYER","// 🧍 PLAYER")
-	togP("Noclip (ทะลุกำแพง)","Noclip", function(v) P.noclip=v end)
-	togP("Speed (วิ่งเร็ว)","Speed", function(v) P.speed=v if not v then local _,_,hum=myParts() if hum then hum.WalkSpeed=WALK_BASE end end end)
-	togP("High Jump (กระโดดสูง)","High Jump", function(v) P.jump=v if not v then local _,_,hum=myParts() if hum then hum.JumpPower=JUMP_BASE end end end)
-	togP("Fly (บิน)","Fly", function(v) P.fly=v if not v then stopFly() end end)
-	togP("TP Tool (เครื่องมือเทเลพอร์ต)","TP Tool", function(v) P.tp=v if v then giveTool() elseif tpTool then tpTool:Destroy() tpTool=nil end end)
-	togP("Anti-Fling (กันโดนฟลิ้ง)","Anti-Fling", function(v) P.anti=v end)
+    bind(RunService.Heartbeat, function()
+        local _, _, hum = myParts()
+        if not hum then return end
+        if P.speed then hum.WalkSpeed = WALK_BASE + WALK_ADD end
+        if P.jump then
+            hum.UseJumpPower = true
+            hum.JumpPower = JUMP_BASE + JUMP_ADD
+        end
+    end)
 
-	onUnload(function()
-		for k in pairs(P) do P[k]=false end; stopFly()
-		local _,_,hum=myParts() if hum then hum.WalkSpeed=WALK_BASE hum.JumpPower=JUMP_BASE end
-		for part,v in pairs(origColl) do if part.Parent then part.CanCollide=v end origColl[part]=nil end
-		if tpTool then tpTool:Destroy() tpTool=nil end
-	end)
-end -- PLAYER
+    local flyBV, flyBG
+    local function stopFly()
+        if flyBV then flyBV:Destroy() flyBV = nil end
+        if flyBG then flyBG:Destroy() flyBG = nil end
+        local _, _, hum = myParts()
+        if hum then hum.AutoRotate = true end
+    end
 
--- ===================== หมวด COIN FARM =====================
+    local function startFly()
+        local _, hrp, hum = myParts()
+        if not hrp then return end
+        stopFly()
+        flyBV = Instance.new("BodyVelocity")
+        flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        flyBV.Velocity = Vector3.new(0, 0, 0)
+        flyBV.Parent = hrp
+        flyBG = Instance.new("BodyGyro")
+        flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        flyBG.P = 9e4
+        flyBG.CFrame = hrp.CFrame
+        flyBG.Parent = hrp
+        if hum then hum.AutoRotate = false end
+    end
+
+    bind(RunService.RenderStepped, function()
+        if not P.fly then return end
+        if FLAGS.flinging or FLAGS.floating then
+            if flyBV then stopFly() end
+            return
+        end
+        local _, hrp, hum = myParts()
+        local cam = workspace.CurrentCamera
+        if not (hrp and hum and cam) then return end
+        if not (flyBV and flyBV.Parent == hrp) then startFly() end
+        if not flyBV then return end
+        local look = cam.CFrame.LookVector
+        local right = cam.CFrame.RightVector
+        local fl = Vector3.new(look.X, 0, look.Z)
+        local fr = Vector3.new(right.X, 0, right.Z)
+        local vel = Vector3.new(0, 0, 0)
+        local md = hum.MoveDirection
+        if md.Magnitude > 0.05 and fl.Magnitude > 0.01 and fr.Magnitude > 0.01 then
+            vel = (look * md:Dot(fl.Unit) + right * md:Dot(fr.Unit)) * FLY_SPEED
+        end
+        flyBV.Velocity = vel
+        if flyBG and fl.Magnitude > 0.01 then
+            flyBG.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + fl)
+        end
+    end)
+
+    local tpTool
+    local function giveTool()
+        if tpTool and tpTool.Parent then return end
+        local bp = player:FindFirstChild("Backpack")
+        if not bp then return end
+        tpTool = Instance.new("Tool")
+        tpTool.Name = "TP NEXORA"
+        tpTool.ToolTip = "TP NEXORA"
+        tpTool.RequiresHandle = false
+        tpTool.CanBeDropped = false
+        tpTool.Activated:Connect(function()
+            local c = player.Character
+            local mouse = player:GetMouse()
+            if c and mouse and mouse.Hit then
+                c:PivotTo(CFrame.new(mouse.Hit.Position + Vector3.new(0, 3, 0)))
+            end
+        end)
+        tpTool.Parent = bp
+    end
+
+    task.spawn(function()
+        while not MM.dead do
+            task.wait(1)
+            if P.tp then giveTool() end
+        end
+    end)
+
+    bind(RunService.Stepped, function()
+        if not P.anti or FLAGS.flinging then return end
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                for _, d in ipairs(plr.Character:GetDescendants()) do
+                    if d:IsA("BasePart") then d.CanCollide = false end
+                end
+            end
+        end
+    end)
+
+    bind(RunService.Heartbeat, function()
+        if not P.anti or FLAGS.flinging then return end
+        local _, hrp = myParts()
+        if hrp and (hrp.AssemblyLinearVelocity.Magnitude > 250 or hrp.AssemblyAngularVelocity.Magnitude > 60) then
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        end
+    end)
+
+    tab:Section({ Title = "mm2_secPlayer" })
+    tab:Toggle({ Title = "mm2_pNoclip", Value = false, Callback = function(v) P.noclip = v end })
+    tab:Toggle({ Title = "mm2_pSpeed", Value = false, Callback = function(v)
+        P.speed = v
+        if not v then
+            local _, _, hum = myParts()
+            if hum then hum.WalkSpeed = WALK_BASE end
+        end
+    end })
+    tab:Toggle({ Title = "mm2_pJump", Value = false, Callback = function(v)
+        P.jump = v
+        if not v then
+            local _, _, hum = myParts()
+            if hum then hum.JumpPower = JUMP_BASE end
+        end
+    end })
+    tab:Toggle({ Title = "mm2_pFly", Value = false, Callback = function(v)
+        P.fly = v
+        if not v then stopFly() end
+    end })
+    tab:Toggle({ Title = "mm2_pTp", Value = false, Callback = function(v)
+        P.tp = v
+        if v then giveTool() elseif tpTool then tpTool:Destroy() tpTool = nil end
+    end })
+    tab:Toggle({ Title = "mm2_pAnti", Value = false, Callback = function(v) P.anti = v end })
+
+    onUnload(function()
+        for k in pairs(P) do P[k] = false end
+        stopFly()
+        local _, _, hum = myParts()
+        if hum then
+            hum.WalkSpeed = WALK_BASE
+            hum.JumpPower = JUMP_BASE
+        end
+        for part, v in pairs(orig) do
+            if part.Parent then part.CanCollide = v end
+            orig[part] = nil
+        end
+        if tpTool then tpTool:Destroy() tpTool = nil end
+    end)
+end
+
+---------------------------------------------------------------- หมวด FARM
 do
-	local farmSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["coinfarm"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},farmSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},farmSF)
-	local ordFm=0
-	local function hdFm(th,en) ordFm+=1 local h=mk("Frame",{LayoutOrder=ordFm,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},farmSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
+    local tab = Tabs.MFarm
+    local LIMIT = 40
+    local SPEED = 20 -- ความเร็วลอย (แก้เลขนี้ได้)
+    local FARM = { on = false }
+    local collected, lastCont, lastFind = 0, nil, 0
+    local done, target, tStart, tLimit, arrT = {}, nil, 0, 3, nil
+    local lastTouch = 0
+    local fv, fg = nil, nil
+    local floating = false
+    local orig = setmetatable({}, { __mode = "k" })
+    local toastedDone = false
 
-	local LIMIT,SPEED=40,20
-	local FARM={on=false}
-	local collected,lastCont,lastFind=0,nil,0
-	local done,target,tStart,tLimit,arrT={},nil,0,3,nil
-	local lastTouch=0; local fv,fg=nil,nil; local floating=false
-	local origFarm=setmetatable({},{__mode="k"}); local toastedDone=false
+    tab:Section({ Title = "mm2_secFarm" })
+    local countP = tab:Paragraph({ Title = "🪙 0 / " .. LIMIT })
 
-	hdFm("// 🪙 COIN FARM","// 🪙 COIN FARM")
+    local function coinPart(o)
+        if o:IsA("BasePart") then return o end
+        return o:FindFirstChildWhichIsA("BasePart", true)
+    end
 
-	-- counter paragraph
-	local cntRow=mk("Frame",{LayoutOrder=ordFm+1,Size=UDim2.new(1,0,0,36),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},farmSF)
-	ordFm+=1; corner2(cntRow,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},cntRow)
-	local cntLbl=mkLabel(cntRow,12,0,300,36,"🪙 0 / "..LIMIT,13,WHITE,HUD_FONT)
+    local function nextCoin(cont, hrp)
+        local best, bd
+        for _, o in ipairs(cont:GetChildren()) do
+            local p = coinPart(o)
+            if p and p.Parent and not done[p] then
+                local d = (p.Position - hrp.Position).Magnitude
+                if not bd or d < bd then best, bd = p, d end
+            end
+        end
+        return best, bd
+    end
 
-	local function coinPart(o) if o:IsA("BasePart") then return o end return o:FindFirstChildWhichIsA("BasePart",true) end
-	local function nextCoin(cont,hrp) local best,bd for _,o in ipairs(cont:GetChildren()) do local p=coinPart(o) if p and p.Parent and not done[p] then local d=(p.Position-hrp.Position).Magnitude if not bd or d<bd then best,bd=p,d end end end return best,bd end
-	local function releaseFarm()
-		if fv then fv:Destroy() fv=nil end if fg then fg:Destroy() fg=nil end
-		for part,v in pairs(origFarm) do if part.Parent then part.CanCollide=v end origFarm[part]=nil end
-		if floating then floating=false FLAGS.floating=false local _,_,hum=myParts() if hum then hum.PlatformStand=false pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end end
-	end
-	local function engageFarm(hrp,hum)
-		if not (fv and fv.Parent==hrp) then if fv then fv:Destroy() end fv=Instance.new("BodyVelocity") fv.MaxForce=Vector3.new(1e7,1e7,1e7) fv.Velocity=Vector3.new(0,0,0) fv.Parent=hrp end
-		if not (fg and fg.Parent==hrp) then if fg then fg:Destroy() end fg=Instance.new("BodyGyro") fg.MaxTorque=Vector3.new(1e7,1e7,1e7) fg.P=1e5 fg.D=1e3 fg.CFrame=hrp.CFrame fg.Parent=hrp end
-		floating=true; FLAGS.floating=true; hum.PlatformStand=true
-	end
-	local function resetRound() releaseFarm() collected=0 done={} target,arrT=nil,nil toastedDone=false end
-	bind(player.CharacterAdded,resetRound)
-	task.spawn(function()
-		while not MM.dead do task.wait(0.5)
-			cntLbl.Text="🪙 "..collected.." / "..LIMIT..(collected>=LIMIT and "  ✓" or (floating and "  ☁️" or ""))
-		end
-	end)
-	bind(RunService.Stepped,function()
-		if not floating then return end
-		local c=player.Character if not c then return end
-		for _,d in ipairs(c:GetDescendants()) do if d:IsA("BasePart") then if origFarm[d]==nil then origFarm[d]=d.CanCollide end d.CanCollide=false end end
-	end)
-	bind(RunService.Heartbeat,function()
-		if not FARM.on then return end
-		local c,hrp,hum=myParts() if not (c and hrp and hum and hum.Health>0) then return end
-		if collected>=LIMIT then if not toastedDone then toastedDone=true releaseFarm() toast("🪙 ครบ "..LIMIT.." เหรียญแล้ว!","🪙 Collected "..LIMIT.." coins!") end return end
-		local cont=lastCont
-		if not cont or not cont.Parent or os.clock()-lastFind>3 then
-			lastFind=os.clock()
-			for _,f in ipairs(workspace:GetDescendants()) do
-				if f:IsA("Folder") or f:IsA("Model") then
-					local n=f.Name:lower() if n:find("coin") then cont=f lastCont=f break end
-				end
-			end
-		end
-		if not cont then return end
-		if not target or not target.Parent or done[target] then
-			target,_=nextCoin(cont,hrp) arrT=nil tStart=os.clock()
-		end
-		if not target then releaseFarm() return end
-		engageFarm(hrp,hum)
-		local dir=(target.Position-hrp.Position) local dist=dir.Magnitude
-		if dist<3 then
-			done[target]=true; collected+=1; target=nil
-			if collected>=LIMIT then releaseFarm() end
-			return
-		end
-		fv.Velocity=dir.Unit*math.min(dist*4,SPEED*2)
-		if os.clock()-tStart>tLimit then done[target]=true target=nil tStart=os.clock() end
-	end)
+    local function release()
+        if fv then fv:Destroy() fv = nil end
+        if fg then fg:Destroy() fg = nil end
+        for part, v in pairs(orig) do
+            if part.Parent then part.CanCollide = v end
+            orig[part] = nil
+        end
+        if floating then
+            floating = false
+            FLAGS.floating = false
+            local _, _, hum = myParts()
+            if hum then
+                hum.PlatformStand = false
+                pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+            end
+        end
+    end
 
-	-- toggle
-	local togFmRow=mk("Frame",{LayoutOrder=ordFm+1,Size=UDim2.new(1,0,0,38),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},farmSF)
-	ordFm+=1; corner2(togFmRow,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},togFmRow)
-	tr(mkLabel(togFmRow,12,0,220,38,"",13,WHITE,HUD_FONT),"เปิด/ปิด Auto Farm","Auto Farm On/Off")
-	local track=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(42,22),BackgroundColor3=Color3.fromRGB(50,50,50),Text="",AutoButtonColor=false},togFmRow)
-	corner2(track,11)
-	local knobFm=mk("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,3,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Color3.fromRGB(170,170,170),BorderSizePixel=0},track)
-	corner2(knobFm,8); local farmState=false
-	local function paintFm(anim) local d=anim and 0.15 or 0 TweenService:Create(track,TweenInfo.new(d),{BackgroundColor3=farmState and ACCENT or Color3.fromRGB(50,50,50)}):Play() TweenService:Create(knobFm,TweenInfo.new(d),{Position=farmState and UDim2.new(1,-19,0.5,0) or UDim2.new(0,3,0.5,0)}):Play() end
-	onAccent(function() paintFm(false) end); paintFm(false)
-	track.MouseButton1Click:Connect(function()
-		farmState=not farmState; FARM.on=farmState; paintFm(true)
-		if not farmState then releaseFarm() end
-	end)
-	onUnload(function() FARM.on=false releaseFarm() end)
-end -- COIN FARM
+    local function engage(hrp, hum)
+        if not (fv and fv.Parent == hrp) then
+            if fv then fv:Destroy() end
+            fv = Instance.new("BodyVelocity")
+            fv.MaxForce = Vector3.new(1e7, 1e7, 1e7)
+            fv.Velocity = Vector3.new(0, 0, 0)
+            fv.Parent = hrp
+        end
+        if not (fg and fg.Parent == hrp) then
+            if fg then fg:Destroy() end
+            fg = Instance.new("BodyGyro")
+            fg.MaxTorque = Vector3.new(1e7, 1e7, 1e7)
+            fg.P = 1e5
+            fg.D = 1e3
+            fg.CFrame = hrp.CFrame
+            fg.Parent = hrp
+        end
+        floating = true
+        FLAGS.floating = true
+        hum.PlatformStand = true
+    end
 
--- ===================== หมวด EVENT =====================
+    local function resetRound()
+        release()
+        collected = 0
+        done = {}
+        target, arrT = nil, nil
+        toastedDone = false
+    end
+    bind(player.CharacterAdded, resetRound)
+
+    local function setCount()
+        pcall(function()
+            countP:SetTitle("🪙 " .. collected .. " / " .. LIMIT
+                .. (collected >= LIMIT and "  ✓" or (floating and "  ☁️" or "")))
+        end)
+    end
+    task.spawn(function()
+        while not MM.dead do
+            task.wait(0.5)
+            setCount()
+        end
+    end)
+
+    bind(RunService.Stepped, function()
+        if not floating then return end
+        local c = player.Character
+        if not c then return end
+        for _, d in ipairs(c:GetDescendants()) do
+            if d:IsA("BasePart") then
+                if orig[d] == nil then orig[d] = d.CanCollide end
+                d.CanCollide = false
+            end
+        end
+    end)
+
+    bind(RunService.Heartbeat, function()
+        if not FARM.on or FLAGS.flinging then release() return end
+        local c, hrp, hum = myParts()
+        if not (c and hrp and hum and hum.Health > 0) then release() return end
+
+        if os.clock() - lastFind > 1 or (lastCont and not lastCont.Parent) then
+            lastFind = os.clock()
+            local f = workspace:FindFirstChild("CoinContainer", true)
+            if f ~= lastCont then
+                lastCont = f
+                resetRound()
+            end
+        end
+        local cont = lastCont
+
+        if collected >= LIMIT then
+            release()
+            if not toastedDone then
+                toastedDone = true
+                toast("All coins collected ✓", "เก็บเหรียญครบแล้ว ✓")
+            end
+            return
+        end
+        if not cont then release() return end
+
+        if target then
+            if not target.Parent then
+                done[target] = true
+                collected += 1
+                target, arrT = nil, nil
+            elseif os.clock() - tStart > tLimit then
+                done[target] = true
+                target, arrT = nil, nil
+            end
+        end
+        if not target then
+            local coin, d0 = nextCoin(cont, hrp)
+            if not coin then release() return end
+            target = coin
+            tStart = os.clock()
+            tLimit = 1.5 + (d0 / SPEED) * 1.5
+        end
+
+        engage(hrp, hum)
+        local to = target.Position - hrp.Position
+        local dist = to.Magnitude
+        if dist < 1.2 then
+            fv.Velocity = Vector3.new(0, 0, 0)
+        else
+            fv.Velocity = to.Unit * math.min(SPEED, math.max(dist * 6, 12))
+            local flat = Vector3.new(to.X, 0, to.Z)
+            if flat.Magnitude > 0.5 then
+                fg.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + flat)
+            end
+        end
+
+        if dist < 2.5 then
+            arrT = arrT or os.clock()
+            if os.clock() - arrT > 0.4 then
+                done[target] = true
+                collected += 1
+                target, arrT = nil, nil
+            end
+        else
+            arrT = nil
+        end
+
+        if target and dist < 6 and firetouchinterest and os.clock() - lastTouch > 0.15 then
+            lastTouch = os.clock()
+            pcall(firetouchinterest, hrp, target, 0)
+            pcall(firetouchinterest, hrp, target, 1)
+        end
+    end)
+
+    tab:Toggle({ Title = "mm2_cfCoin", Value = false, Callback = function(v)
+        FARM.on = v
+        if not v then release() end
+    end })
+    onUnload(function() FARM.on = false release() end)
+
+    local afkOn = false
+    bind(player.Idled, function()
+        if afkOn then
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new(0, 0))
+            end)
+        end
+    end)
+    tab:Toggle({ Title = "mm2_afk", Value = false, Callback = function(v) afkOn = v end })
+end
+
+---------------------------------------------------------------- หมวด EVENT
+-- สแกนหาของอีเวนท์ในแมพเอง แล้วสร้างสวิตช์ให้ทีละชนิดอัตโนมัติ (ไม่มีอีเวนท์ = หมวดว่าง)
 do
-	local eventSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["event"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},eventSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},eventSF)
-	local ordEv=0
-	local function hdEv(th,en) ordEv+=1 local h=mk("Frame",{LayoutOrder=ordEv,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},eventSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local function rowEv(h2) ordEv+=1 local r=mk("Frame",{LayoutOrder=ordEv,Size=UDim2.new(1,0,0,h2),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},eventSF) corner2(r,12) mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r) return r end
+    local tab = Tabs.MEvent
+    local EV = { active = {}, groups = {} }
 
-	hdEv("// 🎉 EVENT","// 🎉 EVENT")
-	local infoRow=rowEv(50)
-	local infoLbl=mkLabel(infoRow,12,4,370,42,"",11,GRAY,HUD_FONT)
-	infoLbl.TextWrapped=true; infoLbl.TextYAlignment=Enum.TextYAlignment.Top
-	tr(infoLbl,"แสดงข้อมูล event ที่กำลังดำเนินในเกม (อ่านจาก ReplicatedStorage)","Displays active event data from ReplicatedStorage")
+    -- คำที่ใช้เดาว่าเป็นของอีเวนท์ (เติมเองได้ถ้าแอดมินตั้งชื่อแปลก)
+    local KEYWORDS = {
+        "shell", "seashell", "clam", "pearl", "candy", "pumpkin", "egg", "snowflake",
+        "gift", "present", "token", "orb", "crystal", "gem", "collect", "event",
+        "star", "ticket", "treat", "candies", "halloween", "spooky",
+    }
 
-	task.spawn(function()
-		while not MM.dead do task.wait(3)
-			pcall(function()
-				local evFolder=ReplicatedStorage:FindFirstChild("Event") or ReplicatedStorage:FindFirstChild("Events") or ReplicatedStorage:FindFirstChild("GameEvents")
-				if evFolder then
-					local lines={}
-					for _,v in ipairs(evFolder:GetDescendants()) do
-						if v:IsA("StringValue") or v:IsA("BoolValue") or v:IsA("IntValue") or v:IsA("NumberValue") then
-							lines[#lines+1]=v.Name.." = "..tostring(v.Value)
-						end
-					end
-					infoLbl.Text=#lines>0 and table.concat(lines,"\n") or T("No event data found","ไม่พบข้อมูล event")
-				else
-					infoLbl.Text=T("No event folder in ReplicatedStorage","ไม่พบ Event folder ใน ReplicatedStorage")
-				end
-			end)
-		end
-	end)
-end -- EVENT
+    local function matchName(n)
+        n = n:lower()
+        if n:find("coin") then return false end
+        for _, k in ipairs(KEYWORDS) do
+            if n:find(k, 1, true) then return true end
+        end
+        return false
+    end
 
--- ===================== หมวด MUSIC =====================
+    local function candyLike(s) return tostring(s):lower():find("cand", 1, true) ~= nil end
+    local CANDY_COLORS = { Purple = true, Green = true, Cyan = true, Orange = true, Pink = true }
+    local function attrId(d)
+        for _, k in ipairs({ "CoinID", "CoinType", "ItemType", "Type", "EventItem" }) do
+            local v = d:GetAttribute(k)
+            if type(v) == "string" and v ~= "" then return v end
+        end
+        return nil
+    end
+
+    local function inChar(d)
+        local a = d.Parent
+        while a and a ~= workspace do
+            if (a:IsA("Model") and Players:GetPlayerFromCharacter(a)) or a:IsA("Tool") then
+                return true
+            end
+            a = a.Parent
+        end
+        return false
+    end
+
+    local SPEED = 20
+    local release
+    local fv, fg, floating = nil, nil, false
+    local orig = setmetatable({}, { __mode = "k" })
+    local done = setmetatable({}, { __mode = "k" })
+    local target, tStart, tLimit, arrT, lastTouch = nil, 0, 3, nil, 0
+
+    tab:Section({ Title = "mm2_secEvent" })
+    tab:Toggle({ Title = "mm2_candy", Value = false, Callback = function(v)
+        EV.active["Candy"] = v or nil
+        if not v and not next(EV.active) then release() end
+    end })
+    tab:Paragraph({ Title = "mm2_evHint" })
+
+    function release()
+        if fv then fv:Destroy() fv = nil end
+        if fg then fg:Destroy() fg = nil end
+        for p, v in pairs(orig) do
+            if p.Parent then p.CanCollide = v end
+            orig[p] = nil
+        end
+        if floating then
+            floating = false
+            FLAGS.floating = false
+            local _, _, hum = myParts()
+            if hum then
+                hum.PlatformStand = false
+                pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+            end
+        end
+        target, arrT = nil, nil
+    end
+
+    local function addGroup(name)
+        EV.groups[name] = { items = setmetatable({}, { __mode = "k" }) }
+        if name == "Candy" then return end
+        tab:Toggle({ Title = "🎁 " .. name, Value = false, Callback = function(v)
+            EV.active[name] = v or nil
+            if not v and not next(EV.active) then release() end
+        end })
+    end
+
+    local function consider(d)
+        if not d:IsA("BasePart") or d:IsA("Terrain") then return end
+        local inCont = d:FindFirstAncestor("CoinContainer") ~= nil
+        if not inCont and not d:FindFirstChildWhichIsA("TouchTransmitter") then return end
+        if inChar(d) then return end
+        local id = attrId(d)
+        local name
+        if candyLike(d.Name) or (d.Parent and candyLike(d.Parent.Name)) or (id and candyLike(id))
+            or (inCont and CANDY_COLORS[d.Name]) then
+            name = "Candy"
+        elseif inCont and id and id:lower() ~= "coin" then
+            name = id
+        elseif matchName(d.Name) then
+            name = d.Name
+        elseif d.Parent and d.Parent ~= workspace and matchName(d.Parent.Name) then
+            name = d.Parent.Name
+        end
+        if not name then return end
+        if not EV.groups[name] then addGroup(name) end
+        EV.groups[name].items[d] = true
+    end
+
+    bind(workspace.DescendantAdded, function(d) task.defer(consider, d) end)
+
+    task.spawn(function()
+        local n = 0
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if MM.dead then return end
+            pcall(consider, d)
+            n += 1
+            if n % 300 == 0 then task.wait() end
+        end
+    end)
+
+    local function nextItem(hrp)
+        local best, bd
+        for name in pairs(EV.active) do
+            local g = EV.groups[name]
+            if g then
+                for p in pairs(g.items) do
+                    if p.Parent and p:IsDescendantOf(workspace) and not done[p] then
+                        local d = (p.Position - hrp.Position).Magnitude
+                        if not bd or d < bd then best, bd = p, d end
+                    end
+                end
+            end
+        end
+        return best, bd
+    end
+
+    bind(RunService.Stepped, function()
+        if not floating then return end
+        local c = player.Character
+        if not c then return end
+        for _, d in ipairs(c:GetDescendants()) do
+            if d:IsA("BasePart") then
+                if orig[d] == nil then orig[d] = d.CanCollide end
+                d.CanCollide = false
+            end
+        end
+    end)
+
+    bind(RunService.Heartbeat, function()
+        if not next(EV.active) or FLAGS.flinging then
+            if floating then release() end
+            return
+        end
+        if FLAGS.floating and not floating then return end -- ฟาร์มเหรียญกำลังลอยอยู่
+
+        local c, hrp, hum = myParts()
+        if not (c and hrp and hum and hum.Health > 0) then release() return end
+
+        if target then
+            if not target.Parent or os.clock() - tStart > tLimit then
+                done[target] = true
+                target, arrT = nil, nil
+            end
+        end
+        if not target then
+            local item, d0 = nextItem(hrp)
+            if not item then release() return end
+            target = item
+            tStart = os.clock()
+            tLimit = 1.5 + (d0 / SPEED) * 1.5
+        end
+
+        if not (fv and fv.Parent == hrp) then
+            if fv then fv:Destroy() end
+            fv = Instance.new("BodyVelocity")
+            fv.MaxForce = Vector3.new(1e7, 1e7, 1e7)
+            fv.Velocity = Vector3.new(0, 0, 0)
+            fv.Parent = hrp
+        end
+        if not (fg and fg.Parent == hrp) then
+            if fg then fg:Destroy() end
+            fg = Instance.new("BodyGyro")
+            fg.MaxTorque = Vector3.new(1e7, 1e7, 1e7)
+            fg.P = 1e5
+            fg.D = 1e3
+            fg.CFrame = hrp.CFrame
+            fg.Parent = hrp
+        end
+        floating = true
+        FLAGS.floating = true
+        hum.PlatformStand = true
+
+        local to = target.Position - hrp.Position
+        local dist = to.Magnitude
+        if dist < 1.2 then
+            fv.Velocity = Vector3.new(0, 0, 0)
+        else
+            fv.Velocity = to.Unit * math.min(SPEED, math.max(dist * 6, 12))
+        end
+
+        if dist < 2.5 then
+            arrT = arrT or os.clock()
+            if os.clock() - arrT > 0.4 then
+                done[target] = true
+                target, arrT = nil, nil
+            end
+        else
+            arrT = nil
+        end
+
+        if target and dist < 6 and firetouchinterest and os.clock() - lastTouch > 0.15 then
+            lastTouch = os.clock()
+            pcall(firetouchinterest, hrp, target, 0)
+            pcall(firetouchinterest, hrp, target, 1)
+        end
+    end)
+
+    onUnload(function()
+        EV.active = {}
+        release()
+    end)
+end
+
+
+---------------------------------------------------------------- EVENT : ออโต้รับรางวัล / ซื้อของ / เปิดกล่อง (ผ่านปุ่มใน UI ของเกม)
 do
-	local musicSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["music"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},musicSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},musicSF)
-	local ordMu=0
-	local function hdMu(th,en) ordMu+=1 local h=mk("Frame",{LayoutOrder=ordMu,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},musicSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local function rowMu(h2) ordMu+=1 local r=mk("Frame",{LayoutOrder=ordMu,Size=UDim2.new(1,0,0,h2),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},musicSF) corner2(r,12) mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r) return r end
-	local function btnMu(th,en,cb) local r=rowMu(36) tr(mkLabel(r,12,0,250,36,"",13,WHITE,HUD_FONT),th,en) local b=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-10,0.5,0),Size=UDim2.fromOffset(80,26),BackgroundColor3=ACCENT,Text="",AutoButtonColor=false},r) corner2(b,10) onAccent(function(c) b.BackgroundColor3=c end) tr(mkLabel(b,0,0,80,26,"",11,WHITE,HUD_FONT,Enum.TextXAlignment.Center),"GO","ทำ") b.MouseButton1Click:Connect(function() sfx("click",nil,1.5) pcall(cb) end) end
+    local tab = Tabs.MEvent
+    local AUTO = { claim = false, buy = false, box = false }
 
-	local MusicPlayer=Instance.new("Sound"); MusicPlayer.Volume=0.5; MusicPlayer.Parent=game:GetService("SoundService")
-	local SongList={
-		{Name="Spooky Scary Skeletons",Id="142376088"},
-		{Name="Sans Undertale",Id="469500782"},
-		{Name="Megalovania",Id="249054973"},
-		{Name="Take On Me",Id="142452081"},
-		{Name="Coffin Dance",Id="5932401751"},
-		{Name="Among Us Theme",Id="6033476021"},
-	}
-	local currentSong=0
-	local function LoadSong(i)
-		currentSong=i; MusicPlayer.SoundId="rbxassetid://"..SongList[i].Id
-		MusicPlayer:Play(); toast("🎵 "..SongList[i].Name,"🎵 "..SongList[i].Name)
-	end
+    -- กดปุ่มใน UI ของเกมโดยเรียกการเชื่อมต่อของปุ่มตรงๆ (ต้องใช้ตัวรันที่รองรับ getconnections หรือ firesignal)
+    local function clickBtn(b)
+        local fired = false
+        if getconnections then
+            for _, sig in ipairs({ b.Activated, b.MouseButton1Click }) do
+                pcall(function()
+                    for _, c in ipairs(getconnections(sig)) do
+                        pcall(function() c:Fire() end)
+                        fired = true
+                    end
+                end)
+                if fired then break end
+            end
+        end
+        if not fired and firesignal then
+            pcall(function() firesignal(b.Activated) fired = true end)
+            if not fired then pcall(function() firesignal(b.MouseButton1Click) fired = true end) end
+        end
+        return fired
+    end
 
-	hdMu("// 🎵 MUSIC","// 🎵 MUSIC")
-	btnMu("▶ เล่นเพลงถัดไป","▶ Next Song",function()
-		currentSong=currentSong%#SongList+1; LoadSong(currentSong)
-	end)
-	btnMu("⏹ หยุดเพลง","⏹ Stop Music",function()
-		MusicPlayer:Stop(); toast("⏹ หยุดเพลงแล้ว","⏹ Music stopped")
-	end)
+    local function isBtn(o) return o:IsA("TextButton") or o:IsA("ImageButton") end
 
-	-- Volume slider
-	local volRow=rowMu(50)
-	tr(mkLabel(volRow,12,5,260,16,"",13,WHITE,HUD_FONT),"ระดับเสียง","Volume")
-	local volLbl=mkLabel(volRow,0,5,370,16,"50%",12,GRAY,HUD_FONT,Enum.TextXAlignment.Right)
-	local volTrack=mk("TextButton",{Position=UDim2.new(0,12,0,30),Size=UDim2.new(1,-24,0,6),BackgroundColor3=Color3.fromRGB(50,50,50),Text="",AutoButtonColor=false},volRow)
-	corner2(volTrack,3)
-	local volFill=mk("Frame",{Size=UDim2.fromScale(0.5,1),BackgroundColor3=ACCENT,BorderSizePixel=0},volTrack)
-	corner2(volFill,3); onAccent(function(c) volFill.BackgroundColor3=c end)
-	local volKnob=mk("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=WHITE,BorderSizePixel=0},volFill)
-	corner2(volKnob,7)
-	local volDrag=false
-	local function setVol(x) local t=math.clamp((x-volTrack.AbsolutePosition.X)/math.max(1,volTrack.AbsoluteSize.X),0,1) volFill.Size=UDim2.fromScale(t,1) volKnob.Position=UDim2.fromScale(t,0.5) MusicPlayer.Volume=t volLbl.Text=math.floor(t*100).."%"	end
-	volTrack.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then volDrag=true setVol(i.Position.X) end end)
-	UIS.InputChanged:Connect(function(i) if volDrag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then setVol(i.Position.X) end end)
-	UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then volDrag=false end end)
+    local function cross() return playerGui:FindFirstChild("CrossPlatform") end
+    local function evRoot()
+        local c = cross()
+        return c and c:FindFirstChild("Halloween2026")
+    end
 
-	-- Song list
-	hdMu("🎵 รายการเพลง","🎵 Song List")
-	for i,sng in ipairs(SongList) do
-		local r=rowMu(36)
-		mkLabel(r,12,0,250,36,sng.Name,12,WHITE,HUD_FONT)
-		local b=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-10,0.5,0),Size=UDim2.fromOffset(60,24),BackgroundColor3=ACCENT,Text="▶",Font=Enum.Font.GothamBold,TextSize=11,TextColor3=WHITE,AutoButtonColor=false},r)
-		corner2(b,10); onAccent(function(c) b.BackgroundColor3=c end)
-		local idx=i; b.MouseButton1Click:Connect(function() sfx("click",nil,1.5) LoadSong(idx) end)
-	end
-	onUnload(function() MusicPlayer:Stop() MusicPlayer:Destroy() end)
+    -- แถวที่เป็นของแลกด้วย Robux จะไม่กด (กันเด้งหน้าต่างซื้อ)
+    local function robuxRow(btn)
+        local a = btn.Parent
+        for _ = 1, 4 do
+            if not a then break end
+            local r = a:FindFirstChild("RobuxCost", true) or a:FindFirstChild("RobuxIcon", true)
+            if r then return true end
+            a = a.Parent
+        end
+        return false
+    end
+
+    local function path(root, ...)
+        local o = root
+        for _, n in ipairs({ ... }) do
+            o = o and o:FindFirstChild(n)
+        end
+        return o
+    end
+
+    -- ออโต้รับรางวัล: เพลงบัตรผ่าน (Battle Pass) + เควสอีเวนท์
+    local function claimAll()
+        local ev = evRoot()
+        if not ev then return end
+        local spots = {
+            path(ev, "MainEvent", "Main", "BattlePass", "Rewards"),
+            path(ev, "MainEvent", "Main", "Quests"),
+            path(ev, "MainEvent", "Main", "QuestBoard"),
+            path(ev, "Event", "Main", "Rewards"),
+        }
+        for _, root in pairs(spots) do
+            for _, d in ipairs(root:GetDescendants()) do
+                if not (AUTO.claim and not MM.dead) then return end
+                if isBtn(d) and d.Name == "ActionButton" and d.Visible and not robuxRow(d) then
+                    clickBtn(d)
+                    task.wait(0.15)
+                end
+            end
+        end
+    end
+
+    -- ออโต้ซื้อของอีเวนท์ในร้าน (เฉพาะแถวที่เป็นของอีเวนท์ ไม่เอาแถว Robux)
+    local function buyAll()
+        local c = cross()
+        local shop = c and c:FindFirstChild("Shop")
+        if not shop then return end
+        for _, d in ipairs(shop:GetDescendants()) do
+            if not (AUTO.buy and not MM.dead) then return end
+            if isBtn(d) and d.Name == "ActionButton" and d.Visible then
+                local row = d.Parent and d.Parent.Parent
+                local isEvent = row and (row:GetAttribute("ItemType") == "Event" or row.Name:find("Halloween2026"))
+                if isEvent and not robuxRow(d) then
+                    clickBtn(d)
+                    task.wait(0.4)
+                end
+            end
+        end
+    end
+
+    -- ออโต้เปิดกล่องสุ่มอีเวนท์ (ปุ่มจ่ายด้วยเหรียญอีเวนท์)
+    local function openBox()
+        local ev = evRoot()
+        local btn = path(ev, "MainEvent", "Main", "MysteryBox", "BuyFrame", "Currency", "Button")
+        if btn and isBtn(btn) then clickBtn(btn) end
+    end
+
+    task.spawn(function()
+        while not MM.dead do
+            task.wait(3)
+            if AUTO.claim then pcall(claimAll) end
+            if AUTO.buy then pcall(buyAll) end
+        end
+    end)
+    task.spawn(function()
+        while not MM.dead do
+            task.wait(1.5)
+            if AUTO.box then pcall(openBox) end
+        end
+    end)
+
+    tab:Section({ Title = "mm2_secAuto" })
+    tab:Toggle({ Title = "mm2_claim", Value = false, Callback = function(v) AUTO.claim = v end })
+    tab:Toggle({ Title = "mm2_buy", Value = false, Callback = function(v) AUTO.buy = v end })
+    tab:Toggle({ Title = "mm2_box", Value = false, Callback = function(v) AUTO.box = v end })
+
+    onUnload(function() for k in pairs(AUTO) do AUTO[k] = false end end)
+
+    -- ปุ่มลัดจุดร้านค้าในล็อบบี้ (ใช้พร็อมต์ของเกมโดยตรง)
+    local function usePrompt(partName)
+        local part = workspace:FindFirstChild(partName, true)
+        local pp = part and part:FindFirstChildWhichIsA("ProximityPrompt", true)
+        if not pp then toast("Spot not found (go to lobby)", "ไม่พบจุดนี้ (ต้องอยู่ล็อบบี้)") return end
+        if fireproximityprompt then
+            pcall(function() pp.HoldDuration = 0 end)
+            pcall(fireproximityprompt, pp)
+        else
+            local c = player.Character
+            if c and part:IsA("BasePart") then c:PivotTo(part.CFrame * CFrame.new(0, 0, 4)) end
+        end
+    end
+
+    tab:Section({ Title = "mm2_secSpots" })
+    tab:Button({ Title = "mm2_pCraft", Callback = function() usePrompt("CraftingPrompt") end })
+    tab:Button({ Title = "mm2_pBox", Callback = function() usePrompt("MysteryBoxPrompt") end })
+    tab:Button({ Title = "mm2_pBundle", Callback = function() usePrompt("ItemBundlePrompt") end })
+    tab:Button({ Title = "mm2_pKnife", Callback = function() usePrompt("KnifePrompt") end })
+    tab:Button({ Title = "mm2_pGun", Callback = function() usePrompt("GunPrompt") end })
+end
+
+end) -- pcall MM2
+if not okM then warn("[Nexora] MM2 module error: " .. tostring(errM)) end
+end
+
+end
+
+
+--================================================================
+-- ส่วนที่ 5/10 — หน้า MUSIC ♫
+--================================================================
+do
+local NX=getgenv().NX
+local COL,make,round,L=NX.COL,NX.make,NX.round,NX.L
+local TS=game:GetService("TweenService")
+local SS=game:GetService("SoundService")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local c=NX.pages.music
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
+local function txt(p,props)
+  props.BackgroundTransparency=1
+  props.Font=props.Font or Enum.Font.GothamBold
+  props.TextColor3=props.TextColor3 or COL.Text
+  props.TextXAlignment=props.TextXAlignment or Enum.TextXAlignment.Left
+  return make("TextLabel",props,p)
+end
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
+  ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},c)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local ord=0
+local function row(h)
+  ord+=1
+  local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf)
+  round(r,14)
+  local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+  NX.onAccent(function(a,b) s.Color=b end)
+  return r
+end
+local function header(en,th)
+  ord+=1
+  local l=txt(sf,{LayoutOrder=ord,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink})
+  L(l,en,th)
+end
+local function btn(en,th,cb)
+  local r=row(36)
+  local b=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),
+    Size=UDim2.fromOffset(84,26),BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
+  round(b,13)
+  NX.onAccent(function(a) b.BackgroundColor3=a end)
+  L(txt(r,{Position=UDim2.fromOffset(14,0),Size=UDim2.new(1,-110,1,0),TextSize=12}),en,th)
+  L(txt(b,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),en,th)
+  b.MouseButton1Click:Connect(function() pcall(cb) end)
+  return r
+end
+
+-- ชื่อเพลงที่เล่นอยู่
+local nowR=row(42)
+local nowL=txt(nowR,{Position=UDim2.fromOffset(14,4),Size=UDim2.new(1,-28,0,14),TextSize=10,TextColor3=COL.Sub,TextTruncate=Enum.TextTruncate.AtEnd,Text="♫ ..."})
+local nowV=txt(nowR,{Position=UDim2.fromOffset(14,20),Size=UDim2.new(1,-28,0,14),TextSize=10,TextColor3=COL.Pink,TextTruncate=Enum.TextTruncate.AtEnd,Text="—"})
+
+local MusicPlayer=Instance.new("Sound")
+MusicPlayer.Name="NexoraHub_MusicPlayer"
+MusicPlayer.Looped=false
+MusicPlayer.Volume=0.5
+MusicPlayer.Parent=SS
+
+local SongList={
+  {Name="เพลง 1",Id="84944985070181"},
+  {Name="เพลง 2",Id="87570666848900"},
+  {Name="เพลง 3",Id="82746224492420"},
+  {Name="เพลง 4",Id="71393805905055"},
+  {Name="เพลง 5",Id="75688616622595"},
+  {Name="เพลง 6",Id="135609653444873"},
+  {Name="เพลง 7",Id="93699644879957"},
+  {Name="เพลง 8",Id="110398343528156"},
+  {Name="เพลง 9",Id="138863509657081"},
+  {Name="เพลง 10",Id="115440201770223"},
+  {Name="เพลง 11",Id="128048502331483"},
+  {Name="เพลง 12",Id="135321902579514"},
+  {Name="เพลง 13",Id="131465489873214"},
+}
+local CurrentIndex=1
+local ShuffleOn=false
+
+local function UpdateUI()
+  local s=SongList[CurrentIndex]
+  if s then
+    nowL.Text="♫ "..s.Name
+    nowV.Text=MusicPlayer.Playing and T("🔊 กำลังเล่น","🔊 กำลังเล่น") or T("⏸ หยุด","⏸ หยุด")
+  end
+end
+local function LoadSong(i)
+  CurrentIndex=i
+  MusicPlayer:Stop()
+  MusicPlayer.SoundId="rbxassetid://"..SongList[i].Id
+  MusicPlayer:Play()
+  UpdateUI()
+end
+local function PlaySong()
+  if MusicPlayer.SoundId=="" then LoadSong(CurrentIndex)
+  elseif not MusicPlayer.Playing then MusicPlayer:Resume() end
+  UpdateUI()
+end
+local function PauseSong() if MusicPlayer.Playing then MusicPlayer:Pause() end UpdateUI() end
+local function StopSong() MusicPlayer:Stop() MusicPlayer.SoundId="" UpdateUI() end
+local function NextSong()
+  local n=ShuffleOn and math.random(1,#SongList) or (CurrentIndex%#SongList)+1
+  LoadSong(n)
+end
+local function PrevSong()
+  local n=ShuffleOn and math.random(1,#SongList) or (CurrentIndex-2)%#SongList+1
+  LoadSong(n)
+end
+MusicPlayer.Ended:Connect(NextSong)
+
+header("♫ MUSIC CONTROLS","♫ ควบคุมเพลง")
+btn("▶ Play","▶ เล่น",PlaySong)
+btn("⏸ Pause","⏸ หยุดชั่วคราว",PauseSong)
+btn("⏹ Stop","⏹ หยุด",StopSong)
+btn("⏭ Next","⏭ ถัดไป",NextSong)
+btn("⏮ Prev","⏮ ก่อนหน้า",PrevSong)
+
+-- Volume slider
+header("🔊 Volume","🔊 ระดับเสียง")
+do
+  local r=row(50)
+  txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-90,0,16),TextSize=12,Text=T("Volume","ระดับเสียง"),
+    BackgroundTransparency=1,Font=Enum.Font.GothamBold,TextColor3=COL.Text,TextXAlignment=Enum.TextXAlignment.Left})
+  local vl=txt(r,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-14,0,6),Size=UDim2.fromOffset(50,16),TextSize=11,TextColor3=COL.Pink,
+    TextXAlignment=Enum.TextXAlignment.Right,BackgroundTransparency=1,Font=Enum.Font.GothamBold,TextColor3=COL.Pink})
+  local track=make("Frame",{Position=UDim2.new(0,14,0,34),Size=UDim2.new(1,-28,0,6),BackgroundColor3=COL.Bg},r)
+  round(track,3)
+  local fill=make("Frame",{Size=UDim2.fromScale(.5,1),BackgroundColor3=COL.Purple},track)
+  round(fill,3)
+  local knob=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=Color3.new(1,1,1)},track)
+  round(knob,7)
+  NX.onAccent(function(a) fill.BackgroundColor3=a end)
+  local UIS=game:GetService("UserInputService")
+  local dragging=false
+  local function set(x)
+    local t=math.clamp((x-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
+    fill.Size=UDim2.fromScale(t,1) knob.Position=UDim2.fromScale(t,.5)
+    MusicPlayer.Volume=t
+    vl.Text=math.floor(t*100).."%"
+  end
+  local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,14,0,22),Size=UDim2.new(1,-28,0,26)},r)
+  hit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true set(i.Position.X) end end)
+  UIS.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then set(i.Position.X) end end)
+  UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
+  set(0.5)
+end
+
+-- Song list dropdown
+header("🎵 Song List","🎵 รายการเพลง")
+do
+  local songNames={}
+  for _,s in ipairs(SongList) do songNames[#songNames+1]=s.Name end
+  ord+=1
+  local box=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},sf)
+  make("UIListLayout",{Padding=UDim.new(0,4)},box)
+  local r=make("Frame",{LayoutOrder=1,Size=UDim2.new(1,0,0,36),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},box)
+  round(r,14)
+  local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+  NX.onAccent(function(a,b) s.Color=b end)
+  txt(r,{Position=UDim2.fromOffset(14,0),Size=UDim2.new(1,-160,1,0),TextSize=12,Text=T("Select song","เลือกเพลง"),
+    BackgroundTransparency=1,Font=Enum.Font.GothamBold,TextColor3=COL.Text,TextXAlignment=Enum.TextXAlignment.Left})
+  local sel=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),
+    Size=UDim2.fromOffset(130,24),BackgroundColor3=COL.Bg,Text=T("Choose...","เลือก..."),
+    Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Text,AutoButtonColor=false,TextTruncate=Enum.TextTruncate.AtEnd},r)
+  round(sel,12)
+  local list=make("ScrollingFrame",{LayoutOrder=2,Size=UDim2.new(1,0,0,8),Visible=false,
+    BackgroundColor3=COL.Chip,BackgroundTransparency=.4,BorderSizePixel=0,
+    ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},box)
+  round(list,12)
+  make("UIListLayout",{Padding=UDim.new(0,3)},list)
+  make("UIPadding",{PaddingTop=UDim.new(0,4),PaddingBottom=UDim.new(0,4),PaddingLeft=UDim.new(0,4),PaddingRight=UDim.new(0,4)},list)
+  for i,sng in ipairs(SongList) do
+    local b=make("TextButton",{LayoutOrder=i,Size=UDim2.new(1,0,0,24),BackgroundColor3=COL.Bg,
+      Text=sng.Name,Font=Enum.Font.GothamBold,TextSize=11,TextColor3=COL.Text,AutoButtonColor=false},list)
+    round(b,10)
+    b.MouseButton1Click:Connect(function()
+      sel.Text=sng.Name list.Visible=false LoadSong(i)
+    end)
+  end
+  list.Size=UDim2.new(1,0,0,math.min(#SongList,5)*27+8)
+  sel.MouseButton1Click:Connect(function() list.Visible=not list.Visible end)
+end
 end -- MUSIC
 
--- ===================== หมวด IDENTITY =====================
+--================================================================
+-- ส่วนที่ 6/10 — หน้า IDENTITY ☻
+--================================================================
 do
-	local idSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["identity"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},idSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},idSF)
-	local ordId=0
-	local function hdId(th,en) ordId+=1 local h=mk("Frame",{LayoutOrder=ordId,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},idSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local function rowId(h2) ordId+=1 local r=mk("Frame",{LayoutOrder=ordId,Size=UDim2.new(1,0,0,h2),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},idSF) corner2(r,12) mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r) return r end
+local NX=getgenv().NX
+local COL,make,round,L=NX.COL,NX.make,NX.round,NX.L
+local TS=game:GetService("TweenService")
+local Players=game:GetService("Players")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local c=NX.pages.identity
+local lp=Players.LocalPlayer
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
 
-	local lp=Players.LocalPlayer
-	local fakeNameEnabled=false; local spoofNameText="Nexora"
-	local originalData={}; local visualConnections={}; local isWorkspaceLooping=false
-	local function safeReplace(str,find2,replace) local sf2=find2:gsub("[%-%^%$%(%)%%%.%[%]%*%+%?]","%%%1") return (str:gsub(sf2,replace)) end
-	local function processText(v,myName,myDisp)
-		local parentGui=v:FindFirstAncestorWhichIsA("ScreenGui")
-		if parentGui and (string.find(parentGui.Name,"NexoraHubUI") or string.find(parentGui.Name,"NEXORA")) then return end
-		if v:IsA("TextLabel") or v:IsA("TextBox") or v:IsA("TextButton") then
-			local t=v.Text if t and t~="" and (string.find(t,myName,1,true) or string.find(t,myDisp,1,true)) then
-				if not originalData[v] then originalData[v]={Text=t,Color=v.TextColor3} end
-			end
-			if originalData[v] then
-				if fakeNameEnabled then local nt=originalData[v].Text nt=safeReplace(nt,myName,spoofNameText) nt=safeReplace(nt,myDisp,spoofNameText) v.Text=nt
-				else v.Text=originalData[v].Text v.TextColor3=originalData[v].Color end
-			end
-		end
-	end
-	local function updateIdSystem()
-		local myName=lp.Name; local myDisp=lp.DisplayName
-		task.spawn(function()
-			for _,p in pairs(Players:GetPlayers()) do if p.Character then for _,v in pairs(p.Character:GetDescendants()) do pcall(processText,v,myName,myDisp) end end end
-			local pGui=lp:FindFirstChild("PlayerGui") if pGui then for _,v in pairs(pGui:GetDescendants()) do pcall(processText,v,myName,myDisp) end end
-		end)
-		if fakeNameEnabled and not isWorkspaceLooping then
-			isWorkspaceLooping=true
-			local pGui=lp:FindFirstChild("PlayerGui")
-			if pGui then table.insert(visualConnections,pGui.DescendantAdded:Connect(function(o) if isWorkspaceLooping and (o:IsA("TextLabel") or o:IsA("TextBox") or o:IsA("TextButton")) then task.spawn(processText,o,myName,myDisp) end end)) end
-		elseif not fakeNameEnabled then
-			isWorkspaceLooping=false for _,conn in ipairs(visualConnections) do conn:Disconnect() end visualConnections={}
-			for v,data in pairs(originalData) do if v and v.Parent then v.Text=data.Text v.TextColor3=data.Color end end originalData={}
-		end
-	end
-	lp.CharacterAdded:Connect(function() if fakeNameEnabled then task.wait(1) updateIdSystem() end end)
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
+  ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},c)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local ord=0
+local function txt(p,props)
+  props.BackgroundTransparency=1
+  props.Font=props.Font or Enum.Font.GothamBold
+  props.TextColor3=props.TextColor3 or COL.Text
+  props.TextXAlignment=props.TextXAlignment or Enum.TextXAlignment.Left
+  return make("TextLabel",props,p)
+end
+local function row(h)
+  ord+=1
+  local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf)
+  round(r,14)
+  local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+  NX.onAccent(function(a,b) s.Color=b end)
+  return r
+end
+local function header(en,th)
+  ord+=1
+  local l=txt(sf,{LayoutOrder=ord,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink})
+  L(l,en,th)
+end
 
-	hdId("// 🎭 IDENTITY","// 🎭 IDENTITY")
-	local togIdRow=rowId(42)
-	tr(mkLabel(togIdRow,12,6,250,16,"",12,WHITE,HUD_FONT),"ชื่อปลอม","Fake Name")
-	tr(mkLabel(togIdRow,12,22,250,14,"",9,GRAY,Enum.Font.Gotham),"แทนชื่อคุณในทุก UI","Replace your name in all UI")
-	local swId=mk("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(42,22),Position=UDim2.new(1,-52,0.5,-11),BackgroundColor3=Color3.fromRGB(50,50,50)},togIdRow)
-	corner2(swId,11)
-	local knobId=mk("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,3,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Color3.fromRGB(170,170,170),BorderSizePixel=0},swId)
-	corner2(knobId,8); local idState=false
-	local function paintId(anim) local d=anim and 0.15 or 0 TweenService:Create(swId,TweenInfo.new(d),{BackgroundColor3=idState and ACCENT or Color3.fromRGB(50,50,50)}):Play() TweenService:Create(knobId,TweenInfo.new(d),{Position=idState and UDim2.new(1,-19,0.5,0) or UDim2.new(0,3,0.5,0)}):Play() end
-	onAccent(function() paintId(false) end); paintId(false)
-	swId.MouseButton1Click:Connect(function() idState=not idState paintId(true) fakeNameEnabled=idState updateIdSystem() end)
+-- state
+local fakeNameEnabled=false
+local spoofNameText="Nexora"
+local originalData={}
+local visualConnections={}
+local nexvyrFakeTextConnections=setmetatable({},{__mode="k"})
+local isWorkspaceLooping=false
 
-	hdId("✏️ ใส่ชื่อใหม่","✏️ New Name")
-	local inpRow=rowId(42)
-	tr(mkLabel(inpRow,12,4,300,14,"",11,WHITE,HUD_FONT),"พิมพ์ชื่อปลอม","Type fake name below")
-	local inpBox=mk("TextBox",{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-28,0,14),BackgroundTransparency=1,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=WHITE,PlaceholderText="Nexora...",PlaceholderColor3=GRAY,TextXAlignment=Enum.TextXAlignment.Left},inpRow)
-	inpBox.FocusLost:Connect(function() if inpBox.Text~="" then spoofNameText=inpBox.Text if fakeNameEnabled then updateIdSystem() end end end)
-	local arRow=rowId(36)
-	local apB=mk("TextButton",{Position=UDim2.fromOffset(10,8),Size=UDim2.fromOffset(84,20),BackgroundColor3=ACCENT,Text="",AutoButtonColor=false},arRow)
-	corner2(apB,10); onAccent(function(c) apB.BackgroundColor3=c end)
-	tr(mkLabel(apB,0,0,84,20,"",10,WHITE,HUD_FONT,Enum.TextXAlignment.Center),"ใช้งาน","Apply")
-	apB.MouseButton1Click:Connect(function() if inpBox.Text~="" then spoofNameText=inpBox.Text end idState=true paintId(false) fakeNameEnabled=true updateIdSystem() end)
-	local rsB=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-10,0.5,0),Size=UDim2.fromOffset(84,20),BackgroundColor3=Color3.fromRGB(180,30,50),Text="",AutoButtonColor=false},arRow)
-	corner2(rsB,10); tr(mkLabel(rsB,0,0,84,20,"",10,WHITE,HUD_FONT,Enum.TextXAlignment.Center),"คืนค่า","Reset")
-	rsB.MouseButton1Click:Connect(function() idState=false paintId(false) fakeNameEnabled=false updateIdSystem() end)
+local function safeReplace(str,find,replace)
+  local sf2=find:gsub("[%-%^%$%(%)%%%.%[%]%*%+%?]","%%%1")
+  return (str:gsub(sf2,replace))
+end
+
+local function processText(v,myName,myDisp)
+  local parentGui=v:FindFirstAncestorWhichIsA("ScreenGui")
+  if parentGui and (string.find(parentGui.Name,"NexoraHubUI") or string.find(parentGui.Name,"NEXORA")) then return end
+  if v:IsA("TextLabel") or v:IsA("TextBox") or v:IsA("TextButton") then
+    local t=v.Text
+    if t and t~="" and (string.find(t,myName,1,true) or string.find(t,myDisp,1,true)) then
+      if not originalData[v] then originalData[v]={Text=t,Color=v.TextColor3} end
+    end
+    if originalData[v] then
+      if fakeNameEnabled then
+        local newText=originalData[v].Text
+        newText=safeReplace(newText,myName,spoofNameText)
+        newText=safeReplace(newText,myDisp,spoofNameText)
+        v.Text=newText
+      else
+        v.Text=originalData[v].Text
+        v.TextColor3=originalData[v].Color
+      end
+    end
+  end
+end
+
+local function updateSystem()
+  local myName=lp.Name
+  local myDisp=lp.DisplayName
+  task.spawn(function()
+    for _,p in pairs(Players:GetPlayers()) do
+      if p.Character then
+        for _,v in pairs(p.Character:GetDescendants()) do pcall(processText,v,myName,myDisp) end
+      end
+    end
+    local pGui=lp:FindFirstChild("PlayerGui")
+    if pGui then
+      for _,v in pairs(pGui:GetDescendants()) do pcall(processText,v,myName,myDisp) end
+    end
+  end)
+  if fakeNameEnabled and not isWorkspaceLooping then
+    isWorkspaceLooping=true
+    local pGui=lp:FindFirstChild("PlayerGui")
+    if pGui then
+      table.insert(visualConnections,pGui.DescendantAdded:Connect(function(o)
+        if isWorkspaceLooping and (o:IsA("TextLabel") or o:IsA("TextBox") or o:IsA("TextButton")) then
+          task.spawn(processText,o,myName,myDisp)
+        end
+      end))
+    end
+  elseif not fakeNameEnabled then
+    isWorkspaceLooping=false
+    for _,conn in ipairs(visualConnections) do conn:Disconnect() end
+    visualConnections={}
+    for v,data in pairs(originalData) do
+      if v and v.Parent then v.Text=data.Text v.TextColor3=data.Color end
+    end
+    originalData={}
+  end
+end
+
+lp.CharacterAdded:Connect(function()
+  if fakeNameEnabled then task.wait(1) updateSystem() end
+end)
+
+header("☻ FAKE IDENTITY","☻ ชื่อปลอม")
+
+-- Toggle
+local togR=row(42)
+L(txt(togR,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-70,0,16),TextSize=12}),"Fake Name","ชื่อปลอม")
+L(txt(togR,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-70,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),"Replace your name in all UI","แทนชื่อคุณในทุก UI")
+local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},togR)
+round(sw,10)
+local knob=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw)
+round(knob,7)
+local function paintSw(v)
+  TS:Create(sw,TI,{BackgroundColor3=v and COL.Purple or COL.Bg}):Play()
+  TS:Create(knob,TI,{Position=v and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
+end
+sw.MouseButton1Click:Connect(function()
+  fakeNameEnabled=not fakeNameEnabled paintSw(fakeNameEnabled) updateSystem()
+end)
+NX.onAccent(function() sw.BackgroundColor3=fakeNameEnabled and COL.Purple or COL.Bg end)
+
+-- Input box
+header("✏️ New name","✏️ ใส่ชื่อใหม่")
+local inpR=row(42)
+L(txt(inpR,{Position=UDim2.fromOffset(14,4),Size=UDim2.new(1,-28,0,14),TextSize=11}),"Type fake name below","พิมพ์ชื่อปลอมด้านล่าง")
+local inpBox=make("TextBox",{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-28,0,14),
+  BackgroundTransparency=1,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=Color3.new(1,1,1),
+  PlaceholderText="Nexora...",PlaceholderColor3=COL.Sub,TextXAlignment=Enum.TextXAlignment.Left},inpR)
+inpBox.FocusLost:Connect(function()
+  if inpBox.Text~="" then
+    spoofNameText=inpBox.Text
+    if fakeNameEnabled then updateSystem() end
+  end
+end)
+
+-- Apply / Reset buttons
+local ar=row(36)
+local apB=make("TextButton",{Position=UDim2.fromOffset(10,8),Size=UDim2.fromOffset(84,20),BackgroundColor3=COL.Purple,
+  Text=T("Apply","ใช้งาน"),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},ar)
+round(apB,10) NX.onAccent(function(a) apB.BackgroundColor3=a end)
+apB.MouseButton1Click:Connect(function()
+  if inpBox.Text~="" then spoofNameText=inpBox.Text end
+  fakeNameEnabled=true paintSw(true) updateSystem()
+end)
+local rsB=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,20),
+  BackgroundColor3=COL.Red,Text=T("Reset","คืนค่า"),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},ar)
+round(rsB,10)
+rsB.MouseButton1Click:Connect(function()
+  fakeNameEnabled=false paintSw(false) updateSystem()
+end)
 end -- IDENTITY
 
--- ===================== หมวด INVISIBLE =====================
+--================================================================
+-- ส่วนที่ 7/10 — หน้า INVISIBLE ◌
+--================================================================
 do
-	local invSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["invisible"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},invSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},invSF)
-	local ordInv=0
-	local function hdInv(th,en) ordInv+=1 local h=mk("Frame",{LayoutOrder=ordInv,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},invSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local function rowInv(h2) ordInv+=1 local r=mk("Frame",{LayoutOrder=ordInv,Size=UDim2.new(1,0,0,h2),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},invSF) corner2(r,12) mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r) return r end
-	local lp=Players.LocalPlayer
-	local InvisibilityActive=false; local nexvyrInvisibleConnection=nil
-	local function AplicarTransparencia(state)
-		if lp.Character then for _,v in pairs(lp.Character:GetDescendants()) do if v:IsA("BasePart") then
-			if state and v.Transparency==0 then v:SetAttribute("NX_OrigTrans",0) v.Transparency=0.5
-			elseif not state and v:GetAttribute("NX_OrigTrans")~=nil then v.Transparency=v:GetAttribute("NX_OrigTrans") v:SetAttribute("NX_OrigTrans",nil) end
-		end end end
-	end
-	local function setInvisibleWorker(state)
-		if nexvyrInvisibleConnection then nexvyrInvisibleConnection:Disconnect() nexvyrInvisibleConnection=nil end
-		if not state then return end
-		nexvyrInvisibleConnection=RunService.Heartbeat:Connect(function()
-			if not InvisibilityActive then return end
-			local Char=lp.Character if Char then local Root=Char:FindFirstChild("HumanoidRootPart") local Hum=Char:FindFirstChildOfClass("Humanoid")
-				if Root and Hum and Hum.Health>0 and Root.Position.Y<200 then
-					local oldCF=Root.CFrame local oldCamOffset=Hum.CameraOffset
-					Root.CFrame=oldCF*CFrame.new(0,-40,0); Hum.CameraOffset=(oldCF*CFrame.new(0,-40,0)):ToObjectSpace(CFrame.new(oldCF.Position)).Position
-					RunService.RenderStepped:Wait()
-					if Root.Parent and Hum.Parent then Root.CFrame=oldCF Hum.CameraOffset=oldCamOffset end
-				end
-			end
-		end)
-	end
-	lp.CharacterAdded:Connect(function(character) if InvisibilityActive then task.wait(0.5) AplicarTransparencia(true) end end)
+local NX=getgenv().NX
+local COL,make,round,L=NX.COL,NX.make,NX.round,NX.L
+local TS=game:GetService("TweenService")
+local RS=game:GetService("RunService")
+local Players=game:GetService("Players")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local c=NX.pages.invisible
+local lp=Players.LocalPlayer
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
 
-	hdInv("// 👻 INVISIBLE","// 👻 INVISIBLE")
-	local invTogRow=rowInv(42)
-	tr(mkLabel(invTogRow,12,6,250,16,"",12,WHITE,HUD_FONT),"โหมดผี (ล่องหน)","Ghost Mode (Invisible)")
-	tr(mkLabel(invTogRow,12,22,250,14,"",9,GRAY,Enum.Font.Gotham),"ซ่อนตัวละครจากผู้เล่นอื่น","Hides character from others")
-	local swInv=mk("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(42,22),Position=UDim2.new(1,-52,0.5,-11),BackgroundColor3=Color3.fromRGB(50,50,50)},invTogRow)
-	corner2(swInv,11)
-	local knobInv=mk("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,3,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Color3.fromRGB(170,170,170),BorderSizePixel=0},swInv)
-	corner2(knobInv,8); local invState=false
-	local function paintInv(anim) local d=anim and 0.15 or 0 TweenService:Create(swInv,TweenInfo.new(d),{BackgroundColor3=invState and ACCENT or Color3.fromRGB(50,50,50)}):Play() TweenService:Create(knobInv,TweenInfo.new(d),{Position=invState and UDim2.new(1,-19,0.5,0) or UDim2.new(0,3,0.5,0)}):Play() end
-	onAccent(function() paintInv(false) end); paintInv(false)
-	swInv.MouseButton1Click:Connect(function() invState=not invState paintInv(true) InvisibilityActive=invState AplicarTransparencia(invState) setInvisibleWorker(invState) end)
-	local noteRow=rowInv(50)
-	local noteLbl=mkLabel(noteRow,12,4,370,42,"",10,GRAY,HUD_FONT)
-	noteLbl.TextWrapped=true; noteLbl.TextYAlignment=Enum.TextYAlignment.Top
-	tr(noteLbl,"โหมดล่องหนใช้การเลื่อนตำแหน่ง ทำงานได้ดีที่สุดเมื่อยืนนิ่ง อาจไม่ทำงานในบางเซิร์ฟ","Invisible mode uses position offset. Works best when standing still. May not work in all servers.")
-	onUnload(function() if nexvyrInvisibleConnection then nexvyrInvisibleConnection:Disconnect() end InvisibilityActive=false AplicarTransparencia(false) end)
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
+  ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},c)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local ord=0
+local function txt(p,props)
+  props.BackgroundTransparency=1
+  props.Font=props.Font or Enum.Font.GothamBold
+  props.TextColor3=props.TextColor3 or COL.Text
+  props.TextXAlignment=props.TextXAlignment or Enum.TextXAlignment.Left
+  return make("TextLabel",props,p)
+end
+local function row(h)
+  ord+=1
+  local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf)
+  round(r,14)
+  local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+  NX.onAccent(function(a,b) s.Color=b end)
+  return r
+end
+local function header(en,th)
+  ord+=1
+  local l=txt(sf,{LayoutOrder=ord,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink})
+  L(l,en,th)
+end
+local function toggle(en,th,dEn,dTh,cb)
+  local r=row(42)
+  L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-70,0,16),TextSize=12}),en,th)
+  if dEn then L(txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-70,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),dEn,dTh) end
+  local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
+  round(sw,10)
+  local knob=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw)
+  round(knob,7)
+  local val=false
+  local function paint()
+    TS:Create(sw,TI,{BackgroundColor3=val and COL.Purple or COL.Bg}):Play()
+    TS:Create(knob,TI,{Position=val and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
+  end
+  sw.MouseButton1Click:Connect(function() val=not val paint() pcall(cb,val) end)
+  NX.onAccent(function() sw.BackgroundColor3=val and COL.Purple or COL.Bg end)
+  paint()
+  return {Set=function(_,v) val=v paint() end}
+end
+
+-- State
+local InvisibilityActive=false
+local nexvyrInvisibleConnection=nil
+
+local function AplicarTransparencia(state)
+  if lp.Character then
+    for _,v in pairs(lp.Character:GetDescendants()) do
+      if v:IsA("BasePart") then
+        if state and v.Transparency==0 then
+          v:SetAttribute("NX_OrigTrans",0)
+          v.Transparency=0.5
+        elseif not state and v:GetAttribute("NX_OrigTrans")~=nil then
+          v.Transparency=v:GetAttribute("NX_OrigTrans")
+          v:SetAttribute("NX_OrigTrans",nil)
+        end
+      end
+    end
+  end
+end
+
+local function setInvisibleWorker(state)
+  if nexvyrInvisibleConnection then nexvyrInvisibleConnection:Disconnect() nexvyrInvisibleConnection=nil end
+  if not state then return end
+  nexvyrInvisibleConnection=RS.Heartbeat:Connect(function()
+    if not InvisibilityActive then return end
+    local Char=lp.Character
+    if Char then
+      local Root=Char:FindFirstChild("HumanoidRootPart")
+      local Hum=Char:FindFirstChildOfClass("Humanoid")
+      if Root and Hum and Hum.Health>0 and Root.Position.Y<200 then
+        local oldCF=Root.CFrame
+        local oldCamOffset=Hum.CameraOffset
+        Root.CFrame=oldCF*CFrame.new(0,-40,0)
+        Hum.CameraOffset=(oldCF*CFrame.new(0,-40,0)):ToObjectSpace(CFrame.new(oldCF.Position)).Position
+        RS.RenderStepped:Wait()
+        if Root.Parent and Hum.Parent then
+          Root.CFrame=oldCF
+          Hum.CameraOffset=oldCamOffset
+        end
+      end
+    end
+  end)
+end
+
+lp.CharacterAdded:Connect(function(character)
+  if InvisibilityActive then task.wait(0.5) AplicarTransparencia(true) end
+end)
+
+header("◌ INVISIBLE","◌ ล่องหน")
+toggle("Ghost Mode (Invisible)","โหมดผี (ล่องหน)",
+  "Hides your character from others","ซ่อนตัวละครจากผู้เล่นอื่น",
+  function(v)
+    InvisibilityActive=v
+    AplicarTransparencia(v)
+    setInvisibleWorker(v)
+  end)
+
+header("⚠️ Note","⚠️ หมายเหตุ")
+local nr=row(50)
+txt(nr,{Position=UDim2.fromOffset(14,4),Size=UDim2.new(1,-28,1,-8),TextSize=10,TextColor3=COL.Sub,
+  TextWrapped=true,Text=T("Invisible mode uses position offset. Works best when standing still. May not work in all servers.",
+  "โหมดล่องหนใช้การเลื่อนตำแหน่ง ทำงานได้ดีที่สุดเมื่อยืนนิ่ง อาจไม่ทำงานในบางเซิร์ฟ")})
 end -- INVISIBLE
 
--- ===================== หมวด ANIMATIONS =====================
+--================================================================
+-- ส่วนที่ 8/10 — หน้า ANIMATIONS ☺
+--================================================================
 do
-	local animSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["animations"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},animSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},animSF)
-	local ordAn=0
-	local function hdAn(th,en) ordAn+=1 local h=mk("Frame",{LayoutOrder=ordAn,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},animSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local lp=Players.LocalPlayer
-	local emoteAnims={
-		{Name="R15 Laugh",Id="3576823512"},{Name="R15 Point",Id="3576823512"},{Name="Tpose",Id="3576823512"},
-		{Name="Dance",Id="507771019"},{Name="Wave",Id="507770239"},{Name="Cheer",Id="507770677"},
-		{Name="Laugh",Id="507770818"},{Name="Point",Id="507770453"},
-	}
-	local currentAnim,animTrack=nil,nil
-	local function stopAnim() if animTrack then pcall(function() animTrack:Stop() end) animTrack=nil end currentAnim=nil end
-	local function playAnim(id)
-		stopAnim()
-		local char=lp.Character if not char then return end
-		local hum=char:FindFirstChildOfClass("Humanoid") if not hum then return end
-		local animator=hum:FindFirstChildOfClass("Animator") if not animator then animator=Instance.new("Animator") animator.Parent=hum end
-		local anim=Instance.new("Animation"); anim.AnimationId="rbxassetid://"..id
-		local ok,track=pcall(function() return animator:LoadAnimation(anim) end)
-		if ok and track then track:Play() animTrack=track currentAnim=id end
-		anim:Destroy()
-	end
+local NX=getgenv().NX
+local COL,make,round,L=NX.COL,NX.make,NX.round,NX.L
+local TS=game:GetService("TweenService")
+local Players=game:GetService("Players")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local c=NX.pages.animations
+local lp=Players.LocalPlayer
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
 
-	hdAn("// 🕺 ANIMATIONS","// 🕺 ANIMATIONS")
-	for _,e in ipairs(emoteAnims) do
-		ordAn+=1
-		local r=mk("Frame",{LayoutOrder=ordAn,Size=UDim2.new(1,0,0,36),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},animSF)
-		corner2(r,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r)
-		mkLabel(r,12,0,250,36,e.Name,13,WHITE,HUD_FONT)
-		local b=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-10,0.5,0),Size=UDim2.fromOffset(80,26),BackgroundColor3=ACCENT,Text="",AutoButtonColor=false},r)
-		corner2(b,10); onAccent(function(c) b.BackgroundColor3=c end)
-		tr(mkLabel(b,0,0,80,26,"",11,WHITE,HUD_FONT,Enum.TextXAlignment.Center),"เล่น","Play")
-		local eid=e.Id; b.MouseButton1Click:Connect(function() sfx("click",nil,1.5) playAnim(eid) end)
-	end
-	local stopRow=mk("Frame",{LayoutOrder=ordAn+1,Size=UDim2.new(1,0,0,36),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},animSF)
-	ordAn+=1; corner2(stopRow,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},stopRow)
-	local stopB=mk("TextButton",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.new(0.6,0,0,26),BackgroundColor3=Color3.fromRGB(180,30,50),Text="",AutoButtonColor=false},stopRow)
-	corner2(stopB,10)
-	tr(mkLabel(stopB,0,0,0,0,"",11,WHITE,HUD_FONT,Enum.TextXAlignment.Center),"⏹ หยุดแอนิเมชัน","⏹ Stop Animation")
-	stopB.Size=UDim2.new(0.6,0,0,26)
-	stopB.MouseButton1Click:Connect(function() sfx("click",nil,1.5) stopAnim() end)
-	onUnload(stopAnim)
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
+  ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},c)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local ord=0
+local function txt(p,props)
+  props.BackgroundTransparency=1
+  props.Font=props.Font or Enum.Font.GothamBold
+  props.TextColor3=props.TextColor3 or COL.Text
+  props.TextXAlignment=props.TextXAlignment or Enum.TextXAlignment.Left
+  return make("TextLabel",props,p)
+end
+local function row(h)
+  ord+=1
+  local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf)
+  round(r,14)
+  local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+  NX.onAccent(function(a,b) s.Color=b end)
+  return r
+end
+local function header(en,th)
+  ord+=1
+  local l=txt(sf,{LayoutOrder=ord,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink})
+  L(l,en,th)
+end
+local function btnRow(en,th,cb)
+  local r=row(36)
+  L(txt(r,{Position=UDim2.fromOffset(14,0),Size=UDim2.new(1,-110,1,0),TextSize=12}),en,th)
+  local b=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(84,26),
+    BackgroundColor3=COL.Purple,Text="",AutoButtonColor=false},r)
+  round(b,13) NX.onAccent(function(a) b.BackgroundColor3=a end)
+  L(txt(b,{Size=UDim2.fromScale(1,1),TextSize=10,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Center}),"Apply","ใช้")
+  b.MouseButton1Click:Connect(function() pcall(cb) end)
+  return r
+end
+local function dropdown(en,th,vals,cb)
+  ord+=1
+  local box=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},sf)
+  make("UIListLayout",{Padding=UDim.new(0,4)},box)
+  local r=make("Frame",{LayoutOrder=1,Size=UDim2.new(1,0,0,36),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},box)
+  round(r,14)
+  local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+  NX.onAccent(function(a,b) s.Color=b end)
+  L(txt(r,{Position=UDim2.fromOffset(14,0),Size=UDim2.new(1,-160,1,0),TextSize=12}),en,th)
+  local sel=make("TextButton",{AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(130,24),
+    BackgroundColor3=COL.Bg,Text=T("Select...","เลือก..."),Font=Enum.Font.GothamBold,TextSize=10,TextColor3=COL.Text,
+    AutoButtonColor=false,TextTruncate=Enum.TextTruncate.AtEnd},r)
+  round(sel,12)
+  local list=make("ScrollingFrame",{LayoutOrder=2,Size=UDim2.new(1,0,0,8),Visible=false,
+    BackgroundColor3=COL.Chip,BackgroundTransparency=.4,BorderSizePixel=0,
+    ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},box)
+  round(list,12)
+  make("UIListLayout",{Padding=UDim.new(0,3)},list)
+  make("UIPadding",{PaddingTop=UDim.new(0,4),PaddingBottom=UDim.new(0,4),PaddingLeft=UDim.new(0,4),PaddingRight=UDim.new(0,4)},list)
+  local cur=nil
+  for i,v in ipairs(vals) do
+    local b=make("TextButton",{LayoutOrder=i,Size=UDim2.new(1,0,0,24),BackgroundColor3=COL.Bg,Text=v,
+      Font=Enum.Font.GothamBold,TextSize=11,TextColor3=COL.Text,AutoButtonColor=false},list)
+    round(b,10)
+    b.MouseButton1Click:Connect(function() cur=v sel.Text=v list.Visible=false pcall(cb,v) end)
+  end
+  list.Size=UDim2.new(1,0,0,math.min(#vals,5)*27+8)
+  sel.MouseButton1Click:Connect(function() list.Visible=not list.Visible end)
+  return {GetValue=function() return cur end}
+end
+
+-- Animation data
+local animationData={
+  ["R15 Default"]={Idle=507766666,Idle2=507766951,Walk=507777826,Run=507767714,Jump=507765000,Climb=507765644,Fall=507767968,Swim=507784897,SwimIdle=507785072},
+  ["Zombie"]={Idle=616163682,Idle2=616163682,Walk=616166807,Run=616166807,Jump=507765000,Climb=507765644,Fall=507767968,Swim=507784897,SwimIdle=507785072},
+  ["Robot"]={Idle=616158929,Idle2=616158929,Walk=616163682,Run=616163682,Jump=507765000,Climb=507765644,Fall=507767968,Swim=507784897,SwimIdle=507785072},
+  ["Superhero"]={Idle=616117076,Idle2=616117076,Walk=616115533,Run=616115533,Jump=616114909,Climb=507765644,Fall=507767968,Swim=507784897,SwimIdle=507785072},
+  ["Knight"]={Idle=656127975,Idle2=656127975,Walk=656132599,Run=656132599,Jump=507765000,Climb=507765644,Fall=507767968,Swim=507784897,SwimIdle=507785072},
+  ["Mage"]={Idle=707073905,Idle2=707073905,Walk=707077018,Run=707077018,Jump=507765000,Climb=507765644,Fall=507767968,Swim=507784897,SwimIdle=507785072},
+}
+local misAnimacionesOriginales=nil
+
+local function applyCustomAnims(anims)
+  local char=lp.Character
+  if not char then return end
+  local hum=char:FindFirstChildOfClass("Humanoid")
+  if not hum then return end
+  local animate=char:FindFirstChild("Animate")
+  if not animate then return end
+  if not misAnimacionesOriginales then
+    misAnimacionesOriginales={}
+    local folders={"idle","walk","run","jump","fall","climb","swim","swimidle"}
+    for _,fn in ipairs(folders) do
+      local f=animate:FindFirstChild(fn)
+      if f then
+        for _,a in ipairs(f:GetChildren()) do
+          if a:IsA("Animation") then
+            misAnimacionesOriginales[fn]=a.AnimationId break
+          end
+        end
+      end
+    end
+  end
+  local map={Idle="idle",Walk="walk",Run="run",Jump="jump",Fall="fall",Climb="climb",Swim="swim",SwimIdle="swimidle"}
+  for animName,folderName in pairs(map) do
+    if anims[animName] then
+      local f=animate:FindFirstChild(folderName)
+      if f then
+        for _,a in ipairs(f:GetChildren()) do
+          if a:IsA("Animation") then a.AnimationId="rbxassetid://"..anims[animName] end
+        end
+      end
+    end
+  end
+  local animator=hum:FindFirstChildOfClass("Animator")
+  if animator then
+    for _,track in ipairs(animator:GetPlayingAnimationTracks()) do track:Stop(0) end
+  end
+end
+
+local animNames={"None"}
+for n,_ in pairs(animationData) do animNames[#animNames+1]=n end
+table.sort(animNames)
+
+header("☺ ANIMATION PACKS","☺ ชุดแอนิเมชัน")
+local selBundle="None"
+local bd=dropdown("Select Pack","เลือกชุด",animNames,function(v) selBundle=v end)
+btnRow("Apply Pack","ใช้ชุดแอนิเมชัน",function()
+  if selBundle~="None" and animationData[selBundle] then
+    task.spawn(applyCustomAnims,animationData[selBundle])
+  end
+end)
+btnRow("Restore Default","คืนค่าแอนิเมชันเดิม",function()
+  if misAnimacionesOriginales then
+    local def={Idle=507766666,Walk=507777826,Run=507767714,Jump=507765000,Climb=507765644,Fall=507767968}
+    task.spawn(applyCustomAnims,def)
+  end
+end)
+
+header("🎮 MIX ANIMATIONS","🎮 ผสมแอนิเมชัน")
+local mixParts={Idle="None",Walk="None",Run="None",Jump="None",Fall="None",Climb="None"}
+dropdown("Idle","ท่ายืน",animNames,function(v) mixParts.Idle=v end)
+dropdown("Walk","ท่าเดิน",animNames,function(v) mixParts.Walk=v end)
+dropdown("Run","ท่าวิ่ง",animNames,function(v) mixParts.Run=v end)
+dropdown("Jump","ท่ากระโดด",animNames,function(v) mixParts.Jump=v end)
+dropdown("Fall","ท่าตก",animNames,function(v) mixParts.Fall=v end)
+dropdown("Climb","ท่าปีน",animNames,function(v) mixParts.Climb=v end)
+btnRow("Mix & Apply","ผสมและใช้งาน",function()
+  local customMix={}
+  for part,packName in pairs(mixParts) do
+    if packName~="None" and animationData[packName] then
+      customMix[part]=animationData[packName][part]
+    end
+  end
+  if next(customMix) then task.spawn(applyCustomAnims,customMix) end
+end)
 end -- ANIMATIONS
 
--- ===================== หมวด ITEMS =====================
+--================================================================
+-- ส่วนที่ 9/10 — หน้า ITEMS ♛
+--================================================================
 do
-	local itemSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["items"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},itemSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},itemSF)
-	local ordIt=0
-	local function hdIt(th,en) ordIt+=1 local h=mk("Frame",{LayoutOrder=ordIt,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},itemSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local function togIt(th,en,desc,cb)
-		ordIt+=1
-		local r=mk("Frame",{LayoutOrder=ordIt,Size=UDim2.new(1,0,0,desc and 46 or 38),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},itemSF)
-		corner2(r,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r)
-		tr(mkLabel(r,12,6,220,16,"",12,WHITE,HUD_FONT),th,en)
-		if desc then tr(mkLabel(r,12,22,220,14,"",9,GRAY,Enum.Font.Gotham),desc,desc) end
-		local track=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(42,22),BackgroundColor3=Color3.fromRGB(50,50,50),Text="",AutoButtonColor=false},r)
-		corner2(track,11)
-		local knob=mk("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,3,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Color3.fromRGB(170,170,170),BorderSizePixel=0},track)
-		corner2(knob,8); local state=false
-		local function paint(anim) local d=anim and 0.15 or 0 TweenService:Create(track,TweenInfo.new(d),{BackgroundColor3=state and ACCENT or Color3.fromRGB(50,50,50)}):Play() TweenService:Create(knob,TweenInfo.new(d),{Position=state and UDim2.new(1,-19,0.5,0) or UDim2.new(0,3,0.5,0)}):Play() end
-		onAccent(function() paint(false) end); paint(false)
-		track.MouseButton1Click:Connect(function() state=not state paint(true) pcall(cb,state) end)
-	end
-	local lp=Players.LocalPlayer
-	local HeadlessEnabled=false
-	local function setHeadlessTransparency(enabled)
-		local char=lp.Character if not char then return end
-		for _,name in ipairs({"Head","face"}) do local part=char:FindFirstChild(name) if part and part:IsA("BasePart") then part.Transparency=enabled and 1 or 0 for _,d in ipairs(part:GetDescendants()) do if d:IsA("Decal") or d:IsA("SpecialMesh") then d.Transparency=enabled and 1 or 0 end end end end
-	end
-	local KorbloxEnabled=false; local korbloxParts={}
-	local function removeKorblox() for _,p in ipairs(korbloxParts) do pcall(function() p:Destroy() end) end korbloxParts={} local char=lp.Character if not char then return end local rightLeg=char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("Right Leg") if rightLeg and rightLeg:IsA("BasePart") then rightLeg.Transparency=0 end end
-	local function applyKorblox()
-		removeKorblox()
-		local char=lp.Character if not char then return end
-		local root=char:FindFirstChild("HumanoidRootPart"); local rightLeg=char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("Right Leg")
-		if not (root and rightLeg) then return end; rightLeg.Transparency=1
-		local part=mk("Part",{Name="KorbloxMesh",Anchored=false,CanCollide=false,Size=Vector3.new(1,1,1),CFrame=rightLeg.CFrame,Parent=char})
-		mk("SpecialMesh",{MeshType=Enum.MeshType.FileMesh,MeshId="rbxassetid://19380685",TextureId="rbxassetid://26424018",Scale=Vector3.new(1,1,1)},part)
-		mk("WeldConstraint",{Part0=part,Part1=rightLeg,Parent=part}); korbloxParts={part}
-	end
-	lp.CharacterAdded:Connect(function() task.wait(0.5) if HeadlessEnabled then setHeadlessTransparency(true) end if KorbloxEnabled then task.spawn(applyKorblox) end end)
+local NX=getgenv().NX
+local COL,make,round,L=NX.COL,NX.make,NX.round,NX.L
+local TS=game:GetService("TweenService")
+local Players=game:GetService("Players")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local c=NX.pages.items
+local lp=Players.LocalPlayer
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
 
-	hdIt("// 🎒 ITEMS","// 🎒 ITEMS")
-	togIt("หัวล่องหน","Headless Head","ทำให้หัวของคุณล่องหน",function(v) HeadlessEnabled=v setHeadlessTransparency(v) end)
-	togIt("ขา Korblox","Korblox Deathspeaker","ใส่เมช Korblox ขาขวา",function(v) KorbloxEnabled=v if v then task.spawn(applyKorblox) else removeKorblox() end end)
-	local noteItRow=mk("Frame",{LayoutOrder=ordIt+1,Size=UDim2.new(1,0,0,50),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},itemSF)
-	ordIt+=1; corner2(noteItRow,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},noteItRow)
-	local notItLbl=mkLabel(noteItRow,12,4,370,42,"",10,GRAY,HUD_FONT); notItLbl.TextWrapped=true; notItLbl.TextYAlignment=Enum.TextYAlignment.Top
-	tr(notItLbl,"แสดงผลฝั่งตัวเองเท่านั้น ผู้เล่นอื่นยังเห็นหัวอยู่ รีเซ็ตเมื่อเกิดใหม่","Client-side only. Other players can still see your head. Resets on respawn.")
-	onUnload(function() setHeadlessTransparency(false) removeKorblox() end)
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
+  ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},c)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local ord=0
+local function txt(p,props)
+  props.BackgroundTransparency=1
+  props.Font=props.Font or Enum.Font.GothamBold
+  props.TextColor3=props.TextColor3 or COL.Text
+  props.TextXAlignment=props.TextXAlignment or Enum.TextXAlignment.Left
+  return make("TextLabel",props,p)
+end
+local function row(h)
+  ord+=1
+  local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf)
+  round(r,14)
+  local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+  NX.onAccent(function(a,b) s.Color=b end)
+  return r
+end
+local function header(en,th)
+  ord+=1
+  local l=txt(sf,{LayoutOrder=ord,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink})
+  L(l,en,th)
+end
+local function toggle(en,th,dEn,dTh,cb)
+  local r=row(42)
+  L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-70,0,16),TextSize=12}),en,th)
+  if dEn then L(txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-70,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),dEn,dTh) end
+  local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
+  round(sw,10)
+  local knob=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw)
+  round(knob,7)
+  local val=false
+  local function paint()
+    TS:Create(sw,TI,{BackgroundColor3=val and COL.Purple or COL.Bg}):Play()
+    TS:Create(knob,TI,{Position=val and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
+  end
+  sw.MouseButton1Click:Connect(function() val=not val paint() pcall(cb,val) end)
+  NX.onAccent(function() sw.BackgroundColor3=val and COL.Purple or COL.Bg end)
+  paint()
+  return {Set=function(_,v) val=v paint() end}
+end
+
+-- Headless logic
+local HeadlessEnabled=false
+local headlessMorphs={}
+
+local function setHeadlessTransparency(enabled)
+  local char=lp.Character
+  if not char then return end
+  local targets={"Head","face"}
+  for _,name in ipairs(targets) do
+    local part=char:FindFirstChild(name)
+    if part and part:IsA("BasePart") then
+      part.Transparency=enabled and 1 or 0
+      for _,d in ipairs(part:GetDescendants()) do
+        if d:IsA("Decal") or d:IsA("SpecialMesh") then d.Transparency=enabled and 1 or 0 end
+      end
+    end
+  end
+end
+
+local function setHeadless(enabled)
+  HeadlessEnabled=enabled
+  setHeadlessTransparency(enabled)
+end
+
+lp.CharacterAdded:Connect(function()
+  task.wait(0.5)
+  if HeadlessEnabled then setHeadlessTransparency(true) end
+  if KorbloxEnabled then task.spawn(applyKorblox) end
+end)
+
+-- Korblox logic
+local KorbloxEnabled=false
+local korbloxParts={}
+
+local function removeKorblox()
+  for _,p in ipairs(korbloxParts) do pcall(function() p:Destroy() end) end
+  korbloxParts={}
+  local char=lp.Character
+  if not char then return end
+  local rightLeg=char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("Right Leg")
+  if rightLeg and rightLeg:IsA("BasePart") then rightLeg.Transparency=0 end
+end
+
+local function applyKorblox()
+  removeKorblox()
+  local char=lp.Character
+  if not char then return end
+  local root=char:FindFirstChild("HumanoidRootPart")
+  local rightLeg=char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("Right Leg")
+  if not (root and rightLeg) then return end
+  rightLeg.Transparency=1
+  local part=make("Part",{Name="KorbloxMesh",Anchored=false,CanCollide=false,
+    Size=Vector3.new(1,1,1),CFrame=rightLeg.CFrame,Parent=char})
+  local mesh=make("SpecialMesh",{MeshType=Enum.MeshType.FileMesh,
+    MeshId="rbxassetid://19380685",TextureId="rbxassetid://26424018",Scale=Vector3.new(1,1,1)},part)
+  local weld=make("WeldConstraint",{Part0=part,Part1=rightLeg,Parent=part})
+  korbloxParts={part}
+end
+
+header("♛ ITEMS","♛ ไอเทม")
+toggle("Headless Head","หัวล่องหน","Makes your head invisible","ทำให้หัวของคุณล่องหน",function(v)
+  HeadlessEnabled=v setHeadless(v)
+end)
+toggle("Korblox Deathspeaker","ขา Korblox","Applies Korblox right leg mesh","ใส่เมช Korblox ขาขวา",function(v)
+  KorbloxEnabled=v
+  if v then task.spawn(applyKorblox) else removeKorblox() end
+end)
+
+header("⚠️ Note","⚠️ หมายเหตุ")
+local nr=row(50)
+txt(nr,{Position=UDim2.fromOffset(14,4),Size=UDim2.new(1,-28,1,-8),TextSize=10,TextColor3=COL.Sub,
+  TextWrapped=true,Text=T("Client-side only. Other players can still see your head. Resets on respawn.",
+  "แสดงผลฝั่งตัวเองเท่านั้น ผู้เล่นอื่นยังเห็นหัวอยู่ รีเซ็ตเมื่อเกิดใหม่")})
 end -- ITEMS
 
--- ===================== หมวด LIGHTING =====================
+--================================================================
+-- ส่วนที่ 10/10 — หน้า LIGHTING ✦
+--================================================================
 do
-	local litSF=mk("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
-		ScrollBarThickness=3,ScrollBarImageColor3=Color3.new(1,1,1),ScrollBarImageTransparency=0.5,
-		AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),ScrollingDirection=Enum.ScrollingDirection.Y},NX.pages["lighting"])
-	mk("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},litSF)
-	mk("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},litSF)
-	local ordLi=0
-	local Lighting=game:GetService("Lighting")
-	local function hdLi(th,en) ordLi+=1 local h=mk("Frame",{LayoutOrder=ordLi,Size=UDim2.new(1,0,0,20),BackgroundTransparency=1},litSF) local bar=mk("Frame",{Position=UDim2.fromOffset(2,4),Size=UDim2.fromOffset(3,12),BackgroundColor3=ACCENT,BorderSizePixel=0},h) corner2(bar,2) onAccent(function(c) bar.BackgroundColor3=c end) tr(mkLabel(h,12,3,300,14,"",11,WHITE,TITLE_FONT),th,en) end
-	local function togLi(th,en,desc,initState,cb)
-		ordLi+=1
-		local r=mk("Frame",{LayoutOrder=ordLi,Size=UDim2.new(1,0,0,desc and 46 or 38),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},litSF)
-		corner2(r,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},r)
-		tr(mkLabel(r,12,6,220,16,"",12,WHITE,HUD_FONT),th,en)
-		if desc then tr(mkLabel(r,12,22,220,14,"",9,GRAY,Enum.Font.Gotham),desc,desc) end
-		local track=mk("TextButton",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-12,0.5,0),Size=UDim2.fromOffset(42,22),BackgroundColor3=Color3.fromRGB(50,50,50),Text="",AutoButtonColor=false},r)
-		corner2(track,11)
-		local knob=mk("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,3,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Color3.fromRGB(170,170,170),BorderSizePixel=0},track)
-		corner2(knob,8); local state=initState or false
-		local function paint(anim) local d=anim and 0.15 or 0 TweenService:Create(track,TweenInfo.new(d),{BackgroundColor3=state and ACCENT or Color3.fromRGB(50,50,50)}):Play() TweenService:Create(knob,TweenInfo.new(d),{Position=state and UDim2.new(1,-19,0.5,0) or UDim2.new(0,3,0.5,0)}):Play() end
-		onAccent(function() paint(false) end); paint(false)
-		track.MouseButton1Click:Connect(function() state=not state paint(true) pcall(cb,state) end)
-		return {Set=function(_,v) state=v paint(false) end}
-	end
-	local function SaveLighting(tag) if Lighting:GetAttribute("OrigSaved_"..tag) then return end local props={"Ambient","OutdoorAmbient","Brightness","ClockTime","FogColor","FogEnd","FogStart","ColorShift_Top","ColorShift_Bottom","ExposureCompensation","GlobalShadows","EnvironmentDiffuseScale","EnvironmentSpecularScale"} for _,k in ipairs(props) do Lighting:SetAttribute("Orig_"..k.."_"..tag,Lighting[k]) end Lighting:SetAttribute("OrigSaved_"..tag,true) end
-	local function RestoreLighting(tag) if not Lighting:GetAttribute("OrigSaved_"..tag) then return end local props={"Ambient","OutdoorAmbient","Brightness","ClockTime","FogColor","FogEnd","FogStart","ColorShift_Top","ColorShift_Bottom","ExposureCompensation","GlobalShadows","EnvironmentDiffuseScale","EnvironmentSpecularScale"} for _,k in ipairs(props) do Lighting[k]=Lighting:GetAttribute("Orig_"..k.."_"..tag) end Lighting:SetAttribute("OrigSaved_"..tag,nil) end
-	local function ClearEffects(list) for _,v in ipairs(list) do pcall(function() v:Destroy() end) end table.clear(list) end
-	local nocheSangrientaEffects,atardecerEffects,sinVidaEffects={},{},{}
-	local nocheSangrientaSkyFolder=nil
-	local nocheTog,atardecerTog,sinVidaTog
+local NX=getgenv().NX
+local COL,make,round,L=NX.COL,NX.make,NX.round,NX.L
+local TS=game:GetService("TweenService")
+local Lighting=game:GetService("Lighting")
+local TI=TweenInfo.new(.2,Enum.EasingStyle.Quint)
+local c=NX.pages.lighting
+local function T(en,th) return (NX.getLang()=="TH") and th or en end
 
-	local function ApplyNocheSangrienta(state)
-		if state then
-			SaveLighting("NS"); ClearEffects(nocheSangrientaEffects)
-			if nocheSangrientaSkyFolder then nocheSangrientaSkyFolder:Destroy() end
-			nocheSangrientaSkyFolder=Instance.new("Folder"); nocheSangrientaSkyFolder.Name="NX_NS_Sky"; nocheSangrientaSkyFolder.Parent=workspace
-			local sky=Instance.new("Sky"); sky.StarCount=9000 sky.MoonAngularSize=30 sky.SunAngularSize=0 sky.CelestialBodiesShown=true sky.Parent=Lighting table.insert(nocheSangrientaEffects,sky)
-			local cc=Instance.new("ColorCorrectionEffect"); cc.Brightness=0.05 cc.Contrast=0.32 cc.Saturation=-0.15 cc.TintColor=Color3.fromRGB(255,130,130) cc.Parent=Lighting table.insert(nocheSangrientaEffects,cc)
-			local bloom=Instance.new("BloomEffect"); bloom.Intensity=1 bloom.Size=90 bloom.Threshold=0.45 bloom.Parent=Lighting table.insert(nocheSangrientaEffects,bloom)
-			local atmo=Instance.new("Atmosphere"); atmo.Density=0.42 atmo.Color=Color3.fromRGB(60,12,12) atmo.Decay=Color3.fromRGB(80,20,20) atmo.Glare=0.5 atmo.Haze=1.6 atmo.Parent=Lighting table.insert(nocheSangrientaEffects,atmo)
-			Lighting.ClockTime=0 Lighting.Brightness=1.2 Lighting.Ambient=Color3.fromRGB(130,110,110) Lighting.OutdoorAmbient=Color3.fromRGB(180,140,140)
-			Lighting.FogColor=Color3.fromRGB(22,5,5) Lighting.FogEnd=1200 Lighting.FogStart=150
-			Lighting.ColorShift_Top=Color3.fromRGB(125,25,25) Lighting.ColorShift_Bottom=Color3.fromRGB(65,8,8) Lighting.GlobalShadows=true
-		else ClearEffects(nocheSangrientaEffects) if nocheSangrientaSkyFolder then nocheSangrientaSkyFolder:Destroy() nocheSangrientaSkyFolder=nil end RestoreLighting("NS") end
-	end
-	local function ApplyAtardecer(state)
-		if state then
-			SaveLighting("AF"); ClearEffects(atardecerEffects)
-			local cc=Instance.new("ColorCorrectionEffect"); cc.Brightness=0.05 cc.Contrast=0.14 cc.Saturation=0.22 cc.TintColor=Color3.fromRGB(255,205,165) cc.Parent=Lighting table.insert(atardecerEffects,cc)
-			local bloom=Instance.new("BloomEffect"); bloom.Intensity=0.32 bloom.Size=40 bloom.Threshold=0.92 bloom.Parent=Lighting table.insert(atardecerEffects,bloom)
-			local rays=Instance.new("SunRaysEffect"); rays.Intensity=0.15 rays.Spread=0.9 rays.Parent=Lighting table.insert(atardecerEffects,rays)
-			local sky=Instance.new("Sky"); sky.SunAngularSize=18 sky.StarCount=2000 sky.Parent=Lighting table.insert(atardecerEffects,sky)
-			local atmo=Instance.new("Atmosphere"); atmo.Density=0.36 atmo.Color=Color3.fromRGB(255,185,135) atmo.Decay=Color3.fromRGB(255,125,85) atmo.Glare=0.2 atmo.Haze=1.2 atmo.Parent=Lighting table.insert(atardecerEffects,atmo)
-			Lighting.ClockTime=6.3 Lighting.Brightness=2.4 Lighting.Ambient=Color3.fromRGB(85,62,55) Lighting.OutdoorAmbient=Color3.fromRGB(125,92,80)
-			Lighting.FogColor=Color3.fromRGB(240,185,145) Lighting.FogEnd=2500 Lighting.FogStart=200
-			Lighting.ColorShift_Top=Color3.fromRGB(255,185,105) Lighting.ColorShift_Bottom=Color3.fromRGB(205,105,85) Lighting.GlobalShadows=true
-		else ClearEffects(atardecerEffects) RestoreLighting("AF") end
-	end
-	local function ApplySinVida(state)
-		if state then
-			SaveLighting("SV"); ClearEffects(sinVidaEffects)
-			local cc=Instance.new("ColorCorrectionEffect"); cc.Brightness=0.05 cc.Contrast=0.22 cc.Saturation=-1 cc.TintColor=Color3.fromRGB(222,226,232) cc.Parent=Lighting table.insert(sinVidaEffects,cc)
-			local bloom=Instance.new("BloomEffect"); bloom.Intensity=1.25 bloom.Size=75 bloom.Threshold=0.38 bloom.Parent=Lighting table.insert(sinVidaEffects,bloom)
-			local sky=Instance.new("Sky"); sky.StarCount=0 sky.SunAngularSize=0 sky.MoonAngularSize=0 sky.CelestialBodiesShown=false sky.Parent=Lighting table.insert(sinVidaEffects,sky)
-			local atmo=Instance.new("Atmosphere"); atmo.Density=0.3 atmo.Color=Color3.fromRGB(180,185,190) atmo.Decay=Color3.fromRGB(140,145,150) atmo.Glare=0 atmo.Haze=1.0 atmo.Parent=Lighting table.insert(sinVidaEffects,atmo)
-			Lighting.ClockTime=14 Lighting.Brightness=2.2 Lighting.Ambient=Color3.fromRGB(92,96,100) Lighting.OutdoorAmbient=Color3.fromRGB(132,136,140)
-			Lighting.FogColor=Color3.fromRGB(172,176,180) Lighting.FogEnd=3000 Lighting.FogStart=200
-			Lighting.ColorShift_Top=Color3.fromRGB(152,156,160) Lighting.ColorShift_Bottom=Color3.fromRGB(122,126,130) Lighting.GlobalShadows=true
-		else ClearEffects(sinVidaEffects) RestoreLighting("SV") end
-	end
+local sf=make("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,
+  ScrollBarThickness=2,ScrollBarImageColor3=COL.Pink,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},c)
+make("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},sf)
+make("UIPadding",{PaddingRight=UDim.new(0,6),PaddingBottom=UDim.new(0,8)},sf)
+local ord=0
+local function txt(p,props)
+  props.BackgroundTransparency=1
+  props.Font=props.Font or Enum.Font.GothamBold
+  props.TextColor3=props.TextColor3 or COL.Text
+  props.TextXAlignment=props.TextXAlignment or Enum.TextXAlignment.Left
+  return make("TextLabel",props,p)
+end
+local function row(h)
+  ord+=1
+  local r=make("Frame",{LayoutOrder=ord,Size=UDim2.new(1,0,0,h),BackgroundColor3=COL.Chip,BackgroundTransparency=.4},sf)
+  round(r,14)
+  local s=make("UIStroke",{Color=COL.Pink,Transparency=.65,Thickness=1},r)
+  NX.onAccent(function(a,b) s.Color=b end)
+  return r
+end
+local function header(en,th)
+  ord+=1
+  local l=txt(sf,{LayoutOrder=ord,Size=UDim2.new(1,0,0,16),TextSize=10,TextColor3=COL.Pink})
+  L(l,en,th)
+end
+local function toggle(en,th,dEn,dTh,cb)
+  local r=row(42)
+  L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-70,0,16),TextSize=12}),en,th)
+  if dEn then L(txt(r,{Position=UDim2.fromOffset(14,22),Size=UDim2.new(1,-70,0,14),Font=Enum.Font.Gotham,TextSize=9,TextColor3=COL.Sub}),dEn,dTh) end
+  local sw=make("TextButton",{Text="",AutoButtonColor=false,Size=UDim2.fromOffset(38,20),Position=UDim2.new(1,-52,.5,-10),BackgroundColor3=COL.Bg},r)
+  round(sw,10)
+  local knob=make("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(3,3),BackgroundColor3=Color3.new(1,1,1)},sw)
+  round(knob,7)
+  local val=false
+  local function paint()
+    TS:Create(sw,TI,{BackgroundColor3=val and COL.Purple or COL.Bg}):Play()
+    TS:Create(knob,TI,{Position=val and UDim2.fromOffset(21,3) or UDim2.fromOffset(3,3)}):Play()
+  end
+  sw.MouseButton1Click:Connect(function() val=not val paint() pcall(cb,val) end)
+  NX.onAccent(function() sw.BackgroundColor3=val and COL.Purple or COL.Bg end)
+  paint()
+  return {Set=function(_,v) val=v paint() end}
+end
 
-	hdLi("// 💡 LIGHTING","// 💡 LIGHTING")
-	nocheTog=togLi("🔴 คืนเลือด","🔴 Bloody Night","Dark red horror atmosphere",false,function(state)
-		if state then if atardecerTog then pcall(function() atardecerTog:Set(false) end) end if sinVidaTog then pcall(function() sinVidaTog:Set(false) end) end end
-		ApplyNocheSangrienta(state)
-	end)
-	atardecerTog=togLi("🌅 พระอาทิตย์ตก","🌅 Sunset","Warm golden sunset glow",false,function(state)
-		if state then if nocheTog then pcall(function() nocheTog:Set(false) end) end if sinVidaTog then pcall(function() sinVidaTog:Set(false) end) end end
-		ApplyAtardecer(state)
-	end)
-	sinVidaTog=togLi("⬜ ไร้ชีวิต (ขาวดำ)","⬜ Lifeless (Grayscale)","Desaturated bleak world",false,function(state)
-		if state then if nocheTog then pcall(function() nocheTog:Set(false) end) end if atardecerTog then pcall(function() atardecerTog:Set(false) end) end end
-		ApplySinVida(state)
-	end)
+-- Lighting effect state
+local nocheSangrientaEffects={}
+local atardecerEffects={}
+local sinVidaEffects={}
+local nocheSangrientaSkyFolder=nil
+local nocheTog,atardecerTog,sinVidaTog
 
-	-- Brightness slider
-	hdLi("🔆 ปรับเร็ว","🔆 Quick Adjust")
-	local briRow=mk("Frame",{LayoutOrder=ordLi+1,Size=UDim2.new(1,0,0,50),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},litSF)
-	ordLi+=1; corner2(briRow,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},briRow)
-	tr(mkLabel(briRow,12,5,260,16,"",13,WHITE,HUD_FONT),"ความสว่าง","Brightness")
-	local briLbl=mkLabel(briRow,0,5,370,16,"",12,GRAY,HUD_FONT,Enum.TextXAlignment.Right)
-	local briTrack=mk("TextButton",{Position=UDim2.new(0,12,0,30),Size=UDim2.new(1,-24,0,8),BackgroundColor3=Color3.fromRGB(50,50,50),Text="",AutoButtonColor=false},briRow)
-	corner2(briTrack,4)
-	local briFill=mk("Frame",{Size=UDim2.fromScale(0.5,1),BackgroundColor3=ACCENT,BorderSizePixel=0},briTrack)
-	corner2(briFill,4); onAccent(function(c) briFill.BackgroundColor3=c end)
-	local briKnob=mk("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=WHITE,BorderSizePixel=0},briFill)
-	corner2(briKnob,7); local briDrag=false
-	local function setBri(x) local t=math.clamp((x-briTrack.AbsolutePosition.X)/math.max(1,briTrack.AbsoluteSize.X),0,1) briFill.Size=UDim2.fromScale(t,1) briKnob.Position=UDim2.fromScale(t,0.5) Lighting.Brightness=t*5 briLbl.Text=string.format("%.1f",t*5) end
-	briTrack.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then briDrag=true setBri(i.Position.X) end end)
-	UIS.InputChanged:Connect(function(i) if briDrag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then setBri(i.Position.X) end end)
-	UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then briDrag=false end end)
-	do local t=math.clamp(Lighting.Brightness/5,0,1) briFill.Size=UDim2.fromScale(t,1) briKnob.Position=UDim2.fromScale(t,0.5) briLbl.Text=string.format("%.1f",Lighting.Brightness) end
+local function SaveLighting(tag)
+  if Lighting:GetAttribute("OrigSaved_"..tag) then return end
+  local props={"Ambient","OutdoorAmbient","Brightness","ClockTime","FogColor","FogEnd","FogStart",
+    "ColorShift_Top","ColorShift_Bottom","ExposureCompensation","GlobalShadows","EnvironmentDiffuseScale","EnvironmentSpecularScale"}
+  for _,k in ipairs(props) do Lighting:SetAttribute("Orig_"..k.."_"..tag,Lighting[k]) end
+  Lighting:SetAttribute("OrigSaved_"..tag,true)
+end
 
-	-- Reset
-	local rstRow=mk("Frame",{LayoutOrder=ordLi+1,Size=UDim2.new(1,0,0,36),BackgroundColor3=Color3.fromRGB(14,14,14),BackgroundTransparency=0.25,BorderSizePixel=0},litSF)
-	ordLi+=1; corner2(rstRow,12); mk("UIStroke",{Color=Color3.fromRGB(120,120,120),Transparency=0.6,Thickness=1},rstRow)
-	local rstB=mk("TextButton",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(160,24),BackgroundColor3=ACCENT,Text="",AutoButtonColor=false},rstRow)
-	corner2(rstB,12); onAccent(function(c) rstB.BackgroundColor3=c end)
-	tr(mkLabel(rstB,0,0,0,0,"",11,WHITE,HUD_FONT,Enum.TextXAlignment.Center),"คืนค่าแสงฉาก","Restore Lighting")
-	rstB.Size=UDim2.fromOffset(160,24)
-	rstB.MouseButton1Click:Connect(function()
-		if nocheTog then pcall(function() nocheTog:Set(false) end) end
-		if atardecerTog then pcall(function() atardecerTog:Set(false) end) end
-		if sinVidaTog then pcall(function() sinVidaTog:Set(false) end) end
-		for _,tag in ipairs({"NS","AF","SV"}) do RestoreLighting(tag) end
-		toast("คืนค่าแสงฉากแล้ว","Lighting restored")
-	end)
-	onUnload(function()
-		if nocheTog then pcall(function() nocheTog:Set(false) end) end
-		if atardecerTog then pcall(function() atardecerTog:Set(false) end) end
-		if sinVidaTog then pcall(function() sinVidaTog:Set(false) end) end
-		for _,tag in ipairs({"NS","AF","SV"}) do RestoreLighting(tag) end
-	end)
+local function RestoreLighting(tag)
+  if not Lighting:GetAttribute("OrigSaved_"..tag) then return end
+  local props={"Ambient","OutdoorAmbient","Brightness","ClockTime","FogColor","FogEnd","FogStart",
+    "ColorShift_Top","ColorShift_Bottom","ExposureCompensation","GlobalShadows","EnvironmentDiffuseScale","EnvironmentSpecularScale"}
+  for _,k in ipairs(props) do Lighting[k]=Lighting:GetAttribute("Orig_"..k.."_"..tag) end
+  Lighting:SetAttribute("OrigSaved_"..tag,nil)
+end
+
+local function ClearEffects(list)
+  for _,v in ipairs(list) do pcall(function() v:Destroy() end) end
+  table.clear(list)
+end
+
+local function ApplyNocheSangrienta(state)
+  if state then
+    SaveLighting("NS")
+    ClearEffects(nocheSangrientaEffects)
+    if nocheSangrientaSkyFolder then nocheSangrientaSkyFolder:Destroy() end
+    nocheSangrientaSkyFolder=Instance.new("Folder")
+    nocheSangrientaSkyFolder.Name="NX_NS_Sky"
+    nocheSangrientaSkyFolder.Parent=workspace
+    local sky=Instance.new("Sky")
+    sky.StarCount=9000 sky.MoonAngularSize=30 sky.SunAngularSize=0 sky.CelestialBodiesShown=true
+    sky.Parent=Lighting table.insert(nocheSangrientaEffects,sky)
+    local cc=Instance.new("ColorCorrectionEffect")
+    cc.Brightness=0.05 cc.Contrast=0.32 cc.Saturation=-0.15 cc.TintColor=Color3.fromRGB(255,130,130)
+    cc.Parent=Lighting table.insert(nocheSangrientaEffects,cc)
+    local bloom=Instance.new("BloomEffect")
+    bloom.Intensity=1 bloom.Size=90 bloom.Threshold=0.45
+    bloom.Parent=Lighting table.insert(nocheSangrientaEffects,bloom)
+    local atmo=Instance.new("Atmosphere")
+    atmo.Density=0.42 atmo.Color=Color3.fromRGB(60,12,12) atmo.Decay=Color3.fromRGB(80,20,20)
+    atmo.Glare=0.5 atmo.Haze=1.6
+    atmo.Parent=Lighting table.insert(nocheSangrientaEffects,atmo)
+    Lighting.ClockTime=0 Lighting.Brightness=1.2
+    Lighting.Ambient=Color3.fromRGB(130,110,110) Lighting.OutdoorAmbient=Color3.fromRGB(180,140,140)
+    Lighting.FogColor=Color3.fromRGB(22,5,5) Lighting.FogEnd=1200 Lighting.FogStart=150
+    Lighting.ColorShift_Top=Color3.fromRGB(125,25,25) Lighting.ColorShift_Bottom=Color3.fromRGB(65,8,8)
+    Lighting.GlobalShadows=true
+  else
+    ClearEffects(nocheSangrientaEffects)
+    if nocheSangrientaSkyFolder then nocheSangrientaSkyFolder:Destroy() nocheSangrientaSkyFolder=nil end
+    RestoreLighting("NS")
+  end
+end
+
+local function ApplyAtardecer(state)
+  if state then
+    SaveLighting("AF")
+    ClearEffects(atardecerEffects)
+    local cc=Instance.new("ColorCorrectionEffect")
+    cc.Brightness=0.05 cc.Contrast=0.14 cc.Saturation=0.22 cc.TintColor=Color3.fromRGB(255,205,165)
+    cc.Parent=Lighting table.insert(atardecerEffects,cc)
+    local bloom=Instance.new("BloomEffect")
+    bloom.Intensity=0.32 bloom.Size=40 bloom.Threshold=0.92
+    bloom.Parent=Lighting table.insert(atardecerEffects,bloom)
+    local rays=Instance.new("SunRaysEffect")
+    rays.Intensity=0.15 rays.Spread=0.9
+    rays.Parent=Lighting table.insert(atardecerEffects,rays)
+    local sky=Instance.new("Sky")
+    sky.SunAngularSize=18 sky.StarCount=2000
+    sky.Parent=Lighting table.insert(atardecerEffects,sky)
+    local atmo=Instance.new("Atmosphere")
+    atmo.Density=0.36 atmo.Color=Color3.fromRGB(255,185,135) atmo.Decay=Color3.fromRGB(255,125,85)
+    atmo.Glare=0.2 atmo.Haze=1.2
+    atmo.Parent=Lighting table.insert(atardecerEffects,atmo)
+    Lighting.ClockTime=6.3 Lighting.Brightness=2.4
+    Lighting.Ambient=Color3.fromRGB(85,62,55) Lighting.OutdoorAmbient=Color3.fromRGB(125,92,80)
+    Lighting.FogColor=Color3.fromRGB(240,185,145) Lighting.FogEnd=2500 Lighting.FogStart=200
+    Lighting.ColorShift_Top=Color3.fromRGB(255,185,105) Lighting.ColorShift_Bottom=Color3.fromRGB(205,105,85)
+    Lighting.GlobalShadows=true
+  else
+    ClearEffects(atardecerEffects) RestoreLighting("AF")
+  end
+end
+
+local function ApplySinVida(state)
+  if state then
+    SaveLighting("SV")
+    ClearEffects(sinVidaEffects)
+    local cc=Instance.new("ColorCorrectionEffect")
+    cc.Brightness=0.05 cc.Contrast=0.22 cc.Saturation=-1 cc.TintColor=Color3.fromRGB(222,226,232)
+    cc.Parent=Lighting table.insert(sinVidaEffects,cc)
+    local bloom=Instance.new("BloomEffect")
+    bloom.Intensity=1.25 bloom.Size=75 bloom.Threshold=0.38
+    bloom.Parent=Lighting table.insert(sinVidaEffects,bloom)
+    local sky=Instance.new("Sky")
+    sky.StarCount=0 sky.SunAngularSize=0 sky.MoonAngularSize=0 sky.CelestialBodiesShown=false
+    sky.Parent=Lighting table.insert(sinVidaEffects,sky)
+    local atmo=Instance.new("Atmosphere")
+    atmo.Density=0.3 atmo.Color=Color3.fromRGB(180,185,190) atmo.Decay=Color3.fromRGB(140,145,150)
+    atmo.Glare=0 atmo.Haze=1.0
+    atmo.Parent=Lighting table.insert(sinVidaEffects,atmo)
+    Lighting.ClockTime=14 Lighting.Brightness=2.2
+    Lighting.Ambient=Color3.fromRGB(92,96,100) Lighting.OutdoorAmbient=Color3.fromRGB(132,136,140)
+    Lighting.FogColor=Color3.fromRGB(172,176,180) Lighting.FogEnd=3000 Lighting.FogStart=200
+    Lighting.ColorShift_Top=Color3.fromRGB(152,156,160) Lighting.ColorShift_Bottom=Color3.fromRGB(122,126,130)
+    Lighting.GlobalShadows=true
+  else
+    ClearEffects(sinVidaEffects) RestoreLighting("SV")
+  end
+end
+
+header("✦ LIGHTING PRESETS","✦ พรีเซ็ตแสงฉาก")
+
+nocheTog=toggle("🔴 Bloody Night","🔴 คืนเลือด","Dark red horror atmosphere","บรรยากาศสยองขวัญสีแดงเข้ม",function(state)
+  if state then
+    if atardecerTog then pcall(function() atardecerTog:Set(false) end) end
+    if sinVidaTog then pcall(function() sinVidaTog:Set(false) end) end
+  end
+  ApplyNocheSangrienta(state)
+end)
+
+atardecerTog=toggle("🌅 Sunset","🌅 พระอาทิตย์ตก","Warm golden sunset glow","แสงอาทิตย์ตกสีทอง",function(state)
+  if state then
+    if nocheTog then pcall(function() nocheTog:Set(false) end) end
+    if sinVidaTog then pcall(function() sinVidaTog:Set(false) end) end
+  end
+  ApplyAtardecer(state)
+end)
+
+sinVidaTog=toggle("⬜ Lifeless (Grayscale)","⬜ ไร้ชีวิต (ขาวดำ)","Desaturated bleak world","โลกสีเทาไม่มีชีวิตชีวา",function(state)
+  if state then
+    if nocheTog then pcall(function() nocheTog:Set(false) end) end
+    if atardecerTog then pcall(function() atardecerTog:Set(false) end) end
+  end
+  ApplySinVida(state)
+end)
+
+header("🔆 QUICK ADJUST","🔆 ปรับเร็ว")
+-- Brightness slider
+do
+  local r=row(50)
+  L(txt(r,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-90,0,16),TextSize=12}),"Brightness","ความสว่าง")
+  local vl=txt(r,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-14,0,6),Size=UDim2.fromOffset(60,16),
+    TextSize=11,TextColor3=COL.Pink,TextXAlignment=Enum.TextXAlignment.Right,
+    BackgroundTransparency=1,Font=Enum.Font.GothamBold})
+  local track=make("Frame",{Position=UDim2.new(0,14,0,34),Size=UDim2.new(1,-28,0,6),BackgroundColor3=COL.Bg},r)
+  round(track,3)
+  local fill=make("Frame",{Size=UDim2.fromScale(.5,1),BackgroundColor3=COL.Purple},track)
+  round(fill,3)
+  local knob2=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(14,14),BackgroundColor3=Color3.new(1,1,1)},track)
+  round(knob2,7)
+  NX.onAccent(function(a) fill.BackgroundColor3=a end)
+  local UIS=game:GetService("UserInputService")
+  local dragging=false
+  local function set(x)
+    local t=math.clamp((x-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
+    fill.Size=UDim2.fromScale(t,1) knob2.Position=UDim2.fromScale(t,.5)
+    local v=t*5
+    Lighting.Brightness=v
+    vl.Text=string.format("%.1f",v)
+  end
+  local hit=make("TextButton",{Text="",BackgroundTransparency=1,Position=UDim2.new(0,14,0,22),Size=UDim2.new(1,-28,0,26)},r)
+  hit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true set(i.Position.X) end end)
+  UIS.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then set(i.Position.X) end end)
+  UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
+  vl.Text=string.format("%.1f",Lighting.Brightness)
+  do
+    local t=math.clamp(Lighting.Brightness/5,0,1)
+    fill.Size=UDim2.fromScale(t,1) knob2.Position=UDim2.fromScale(t,.5)
+  end
+end
+
+-- Reset button
+local rr=row(36)
+local rb=make("TextButton",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(140,24),
+  BackgroundColor3=COL.Purple,Text=T("Restore Lighting","คืนค่าแสงฉาก"),Font=Enum.Font.GothamBold,TextSize=11,TextColor3=Color3.new(1,1,1),AutoButtonColor=false},rr)
+round(rb,12) NX.onAccent(function(a) rb.BackgroundColor3=a end)
+rb.MouseButton1Click:Connect(function()
+  if nocheTog then pcall(function() nocheTog:Set(false) end) end
+  if atardecerTog then pcall(function() atardecerTog:Set(false) end) end
+  if sinVidaTog then pcall(function() sinVidaTog:Set(false) end) end
+  for _,tag in ipairs({"NS","AF","SV"}) do RestoreLighting(tag) end
+end)
 end -- LIGHTING
 
-end) -- guard("mm2_features")
 
-guard("settings", buildSettings)
+end) -- guard mm2
 
 end
 
