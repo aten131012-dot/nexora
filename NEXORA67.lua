@@ -2188,25 +2188,26 @@ local function buildEye()
 	end
 
 	-- ===== STATE =====
-	local espEnabled        = false
-	local espNames          = false
-	local espDist           = false
-	local espLines          = false
-	local espBoxes          = false
-	local espHealth         = false
-	local espFovEnabled     = false
-	local espFovRadius      = 120
-	local aimEnabled        = false
-	local aimNearestOnly    = false
-	local hitboxEnabled     = false
-	local hitboxSize        = 20
-	local hitboxTransp      = 0.5
-	local noTeamlock        = true  -- ไม่ล็อคทีมตัวเอง
-	local noSelflock        = true  -- ไม่ล็อคตัวเอง
-	local lockedTarget      = nil   -- ผู้เล่นที่ถูกล็อกอยู่
-	local highlightObjects  = {}
-	local lineObjects       = {}
-	local hitboxParts       = {}
+	local espNames       = false
+	local espDist        = false
+	local espLines       = false
+	local espBoxes       = false
+	local espHealth      = false
+	local espColor       = Color3.fromRGB(255, 255, 255)   -- สีหลัก ESP (ปรับได้)
+	local espFovEnabled  = false
+	local espFovRadius   = 120
+	local aimEnabled     = false
+	local aimNearestOnly = false
+	local hitboxEnabled  = false
+	local hitboxSize     = 20
+	local hitboxTransp   = 0.5
+	local hitboxColor    = Color3.fromRGB(255, 60, 60)
+	local noTeamlock     = true
+	local noSelflock     = true
+	local lockedTarget   = nil
+	-- Drawing objects per player  { box, hpBg, hpFill, nameDraw, distDraw, line }
+	local espDrawings    = {}
+	local hitboxParts    = {}
 
 	-- ===== HELPERS =====
 	local cam = workspace.CurrentCamera
@@ -2218,7 +2219,7 @@ local function buildEye()
 	end
 	local function getHP(char)
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if not hum then return 1, 1 end
+		if not hum then return 100, 100 end
 		return math.max(hum.Health, 0), math.max(hum.MaxHealth, 1)
 	end
 	local function isSameTeam(p)
@@ -2230,9 +2231,7 @@ local function buildEye()
 		end)
 		return ok and same
 	end
-	local function isSelf(p)
-		return noSelflock and (p == LocalPlayer)
-	end
+	local function isSelf(p) return noSelflock and (p == LocalPlayer) end
 	local function isValidTarget(p)
 		if isSelf(p) then return false end
 		if isSameTeam(p) then return false end
@@ -2260,171 +2259,79 @@ local function buildEye()
 		return tostring(math.floor(dist / 3)) .. " steps"
 	end
 
-	-- ===== FOV CIRCLE (กลางจอ) =====
-	local fovCircle
-	do
-		local drawing_ok = pcall(function()
-			fovCircle = Drawing.new("Circle")
-			fovCircle.Visible = false
-			fovCircle.Thickness = 1.5
-			fovCircle.Color = Color3.fromRGB(255, 255, 255)
-			fovCircle.Transparency = 0.5
-			fovCircle.Filled = false
-			fovCircle.NumSides = 64
-			fovCircle.Radius = espFovRadius
-			fovCircle.Position = Vector2.new(vp.X / 2, vp.Y / 2)
+	-- Drawing helper: สร้าง Drawing object แบบ pcall
+	local hasDrawing = pcall(function() return Drawing end)
+	local function mkDraw(kind, props)
+		if not hasDrawing then return nil end
+		local ok, d = pcall(function()
+			local obj = Drawing.new(kind)
+			for k, v in pairs(props) do obj[k] = v end
+			return obj
 		end)
-		if not drawing_ok then fovCircle = nil end
+		return ok and d or nil
 	end
 
-	-- ===== ESP FRAME DRAWING (Highlight + HealthBar ใน BillboardGui) =====
-	local function removeESPFor(p)
-		if highlightObjects[p] then
-			for _, o in ipairs(highlightObjects[p]) do
-				pcall(function() o:Destroy() end)
-			end
-			highlightObjects[p] = nil
+	-- ===== FOV CIRCLE =====
+	local fovCircle = mkDraw("Circle", {
+		Visible = false, Thickness = 1.5,
+		Color = Color3.fromRGB(255, 255, 255), Transparency = 0,
+		Filled = false, NumSides = 64,
+		Radius = espFovRadius,
+		Position = Vector2.new(vp.X / 2, vp.Y / 2),
+	})
+
+	-- ===== ESP PER-PLAYER Drawing objects =====
+	local function removeESPDrawings(p)
+		local d = espDrawings[p]
+		if not d then return end
+		for _, obj in pairs(d) do
+			pcall(function() obj:Remove() end)
 		end
-		if lineObjects[p] then
-			pcall(function() lineObjects[p]:Destroy() end)
-			lineObjects[p] = nil
-		end
+		espDrawings[p] = nil
 	end
 
-	local function buildESPFor(p)
-		removeESPFor(p)
-		local char = p.Character
-		if not char then return end
-		local head = getHead(char)
-		if not head then return end
-		local objs = {}
-
-		-- BillboardGui ติดที่หัว: ชื่อ + ระยะ + กล่อง + HP
-		local bb = new("BillboardGui", {
-			Size = UDim2.fromOffset(140, 60),
-			StudsOffset = Vector3.new(0, 2.5, 0),
-			AlwaysOnTop = true,
-			ResetOnSpawn = false,
-			ZIndexBehavior = Enum.ZIndexBehavior.Global,
-		}, head)
-		objs[#objs+1] = bb
-
-		-- กรอบสีเหลี่ยม (outer border)
-		local boxOuter = new("Frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 2,
-		}, bb)
-		stroke(boxOuter, tint, 0.1, 1.5)
-
-		-- ชื่อ
-		local nameLbl = new("TextLabel", {
-			Position = UDim2.new(0, 0, 0, -18),
-			Size = UDim2.new(1, 0, 0, 16),
-			BackgroundTransparency = 1,
-			Font = FONT,
-			TextSize = 11,
-			TextColor3 = WHITE,
-			TextStrokeTransparency = 0.5,
-			TextStrokeColor3 = Color3.new(0, 0, 0),
-			Text = p.DisplayName,
-			ZIndex = 3,
-			Visible = false,
-		}, bb)
-		objs[#objs+1] = nameLbl
-
-		-- ระยะห่าง
-		local distLbl = new("TextLabel", {
-			Position = UDim2.new(0, 0, 1, 2),
-			Size = UDim2.new(1, 0, 0, 14),
-			BackgroundTransparency = 1,
-			Font = HUD_FONT,
-			TextSize = 10,
-			TextColor3 = tint,
-			TextStrokeTransparency = 0.5,
-			TextStrokeColor3 = Color3.new(0, 0, 0),
-			Text = "",
-			ZIndex = 3,
-			Visible = false,
-		}, bb)
-		objs[#objs+1] = distLbl
-
-		-- HP bar (แนบขอบซ้ายของ BillboardGui)
-		local hpBg = new("Frame", {
-			Position = UDim2.new(0, -8, 0, 0),
-			Size = UDim2.fromOffset(4, 60),
-			BackgroundColor3 = Color3.fromRGB(40, 40, 40),
-			BorderSizePixel = 0,
-			ZIndex = 2,
-			Visible = false,
-		}, bb)
-		corner(hpBg, 2)
-		local hpFill = new("Frame", {
-			AnchorPoint = Vector2.new(0, 1),
-			Position = UDim2.fromScale(0, 1),
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = Color3.fromRGB(80, 220, 80),
-			BorderSizePixel = 0,
-			ZIndex = 3,
-		}, hpBg)
-		corner(hpFill, 2)
-		objs[#objs+1] = hpBg
-
-		highlightObjects[p] = objs
-
-		-- อัปเดตทุก frame
-		local disconnect
-		disconnect = onFrame(function()
-			if not char or not char.Parent then
-				removeESPFor(p)
-				if disconnect then disconnect() end
-				return
-			end
-			if not espEnabled then
-				bb.Enabled = false
-				return
-			end
-			bb.Enabled = true
-			-- ชื่อ
-			nameLbl.Visible = espNames
-			nameLbl.Text = p.DisplayName
-
-			-- ระยะ + สเต็ก
-			local d = distTo(p)
-			distLbl.Visible = espDist
-			if espDist then
-				distLbl.Text = string.format("%.0f studs  (%s)", d, stepsStr(d))
-			end
-
-			-- HP
-			hpBg.Visible = espHealth
-			if espHealth then
-				local hp, maxhp = getHP(char)
-				local ratio = math.clamp(hp / maxhp, 0, 1)
-				hpFill.Size = UDim2.fromScale(1, ratio)
-				local r = math.floor((1 - ratio) * 255)
-				local g = math.floor(ratio * 220)
-				hpFill.BackgroundColor3 = Color3.fromRGB(r, g, 40)
-			end
-		end)
-	end
-
-	-- เส้นลากจากกลางบนสุดจอ → หัวผู้เล่น (Drawing API)
-	local function buildLineFor(p)
-		if lineObjects[p] then
-			pcall(function() lineObjects[p]:Destroy() end)
-			lineObjects[p] = nil
-		end
-		local ok, line = pcall(function()
-			local l = Drawing.new("Line")
-			l.Visible = false
-			l.Thickness = 1
-			l.Color = tint
-			l.Transparency = 0.1
-			return l
-		end)
-		if ok then lineObjects[p] = line end
+	local function ensureESPDrawings(p)
+		if espDrawings[p] then return end
+		if not hasDrawing then return end
+		local d = {}
+		-- Box (Square)
+		d.box = mkDraw("Square", {
+			Visible = false, Thickness = 1.5,
+			Color = espColor, Transparency = 0,
+			Filled = false,
+		})
+		-- HP background bar (filled dark rect)
+		d.hpBg = mkDraw("Square", {
+			Visible = false, Thickness = 0,
+			Color = Color3.fromRGB(20, 20, 20), Transparency = 0.3,
+			Filled = true,
+		})
+		-- HP fill bar (filled colored rect)
+		d.hpFill = mkDraw("Square", {
+			Visible = false, Thickness = 0,
+			Color = Color3.fromRGB(80, 220, 80), Transparency = 0,
+			Filled = true,
+		})
+		-- Name text
+		d.name = mkDraw("Text", {
+			Visible = false, Size = 13,
+			Color = WHITE, Transparency = 0,
+			Outline = true, OutlineColor = Color3.new(0,0,0),
+			Center = true, Text = p.DisplayName,
+		})
+		-- Distance text
+		d.dist = mkDraw("Text", {
+			Visible = false, Size = 11,
+			Color = espColor, Transparency = 0,
+			Outline = true, OutlineColor = Color3.new(0,0,0),
+			Center = true, Text = "",
+		})
+		-- Line from top-center of screen to head
+		d.line = mkDraw("Line", {
+			Visible = false, Thickness = 1.5,
+			Color = espColor, Transparency = 0,
+		})
+		espDrawings[p] = d
 	end
 
 	-- ===== HITBOX =====
@@ -2442,35 +2349,25 @@ local function buildEye()
 		if not char then return end
 		local head = char:FindFirstChild("Head")
 		if not head then return end
-		local part = new("Part", {
-			Name = "NEXORA_HITBOX",
-			Size = Vector3.new(hitboxSize / 10, hitboxSize / 10, hitboxSize / 10),
-			Anchored = false,
-			CanCollide = false,
-			Massless = true,
-			Transparency = hitboxTransp,
-			BrickColor = BrickColor.new("Bright red"),
-			Material = Enum.Material.Neon,
-		}, char)
-		local weld = new("WeldConstraint", {}, part)
+		local sz = hitboxSize / 10
+		local part = Instance.new("Part")
+		part.Name = "NEXORA_HITBOX"
+		part.Size = Vector3.new(sz, sz, sz)
+		part.Anchored = false
+		part.CanCollide = false
+		part.Massless = true
+		part.Transparency = hitboxTransp
+		part.Color = hitboxColor
+		part.Material = Enum.Material.Neon
+		part.Parent = char
+		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = head
 		weld.Part1 = part
+		weld.Parent = part
 		hitboxParts[p] = {part, weld}
 	end
 
-	-- ===== TARGET SELECTOR UI =====
-	local targetListFrame
-	local targetRows = {}
-	local targetSelConn
-
-	local function getLockedLabel()
-		if lockedTarget and lockedTarget.Character then
-			return lockedTarget.DisplayName
-		end
-		return "—"
-	end
-
-	-- ===== AIMBOT (ล็อกหัว) =====
+	-- ===== AIMBOT =====
 	local aimConn
 	local function getNearestPlayer()
 		local best, bestDist = nil, math.huge
@@ -2484,13 +2381,11 @@ local function buildEye()
 			if not inView then continue end
 			local d = (sp - center).Magnitude
 			if d < espFovRadius and d < bestDist then
-				bestDist = d
-				best = p
+				bestDist = d; best = p
 			end
 		end
 		return best
 	end
-
 	local function startAim()
 		if aimConn then aimConn:Disconnect() end
 		aimConn = RunService.Heartbeat:Connect(function()
@@ -2506,79 +2401,147 @@ local function buildEye()
 			local char = target.Character
 			local head = getHead(char)
 			if not head then return end
-			local ok = pcall(function()
+			pcall(function()
 				cam.CFrame = CFrame.lookAt(cam.CFrame.Position, head.Position)
 			end)
-			if not ok then
-				pcall(function()
-					cam.CFrame = CFrame.new(cam.CFrame.Position, head.Position)
-				end)
-			end
 		end)
 	end
 
-	-- ===== MASTER ESP LOOP =====
-	local espConn
+	-- ===== MASTER RENDER LOOP =====
 	local function startESP()
-		if espConn then espConn:Disconnect() end
-		espConn = RunService.Heartbeat:Connect(function()
+		onFrame(function()
 			local vpNow = cam and cam.ViewportSize or vp
-			-- อัปเดต FOV circle
+			local ctr = Vector2.new(vpNow.X / 2, vpNow.Y / 2)
+
+			-- FOV circle
 			if fovCircle then
-				fovCircle.Visible = espFovEnabled and espEnabled
+				fovCircle.Visible = espFovEnabled
 				fovCircle.Radius = espFovRadius
-				fovCircle.Position = Vector2.new(vpNow.X / 2, vpNow.Y / 2)
+				fovCircle.Position = ctr
 			end
-			-- อัปเดตเส้น
+
 			for _, p in ipairs(Players:GetPlayers()) do
 				if p == LocalPlayer then continue end
-				local line = lineObjects[p]
-				if not line then continue end
-				if not espEnabled or not espLines then
-					line.Visible = false
+				-- ตรวจสอบ char
+				local char = p.Character
+				local hrp = getHRP(char)
+				if not hrp or not char then
+					removeESPDrawings(p)
 					continue
 				end
-				local char = p.Character
-				local head = getHead(char)
-				if not head then line.Visible = false continue end
-				local sp, inView = worldToVP(head.Position)
-				if inView then
-					line.Visible = true
-					line.From = Vector2.new(vpNow.X / 2, 0)
-					line.To = sp
-				else
-					line.Visible = false
+
+				-- ต้องการอย่างน้อยหนึ่ง feature
+				local needESP = espNames or espDist or espLines or espBoxes or espHealth
+				if not needESP then
+					local d = espDrawings[p]
+					if d then
+						for _, obj in pairs(d) do pcall(function() obj.Visible = false end) end
+					end
+					continue
+				end
+
+				ensureESPDrawings(p)
+				local d = espDrawings[p]
+				if not d then continue end
+
+				-- หา bounding box 2D จาก HumanoidRootPart
+				local head = char:FindFirstChild("Head") or hrp
+				local spHead, inView = worldToVP(head.Position)
+				local spFoot, _ = worldToVP(hrp.Position + Vector3.new(0, -3, 0))
+				local spTop, _ = worldToVP(head.Position + Vector3.new(0, 1.2, 0))
+
+				if not inView then
+					for _, obj in pairs(d) do pcall(function() obj.Visible = false end) end
+					continue
+				end
+
+				-- คำนวณ box
+				local boxH = math.max(math.abs(spTop.Y - spFoot.Y), 20)
+				local boxW = boxH * 0.55
+				local boxX = spHead.X - boxW / 2
+				local boxY = spTop.Y
+
+				-- Box
+				if d.box then
+					d.box.Visible = espBoxes
+					d.box.Color = espColor
+					if espBoxes then
+						d.box.Position = Vector2.new(boxX, boxY)
+						d.box.Size = Vector2.new(boxW, boxH)
+					end
+				end
+
+				-- HP bar (ซ้ายกรอบ, กว้าง 4px)
+				if d.hpBg and d.hpFill then
+					d.hpBg.Visible = espHealth
+					d.hpFill.Visible = espHealth
+					if espHealth then
+						local hp, maxhp = getHP(char)
+						local ratio = math.clamp(hp / maxhp, 0, 1)
+						local barX = boxX - 6
+						d.hpBg.Position  = Vector2.new(barX, boxY)
+						d.hpBg.Size      = Vector2.new(4, boxH)
+						d.hpFill.Position = Vector2.new(barX, boxY + boxH * (1 - ratio))
+						d.hpFill.Size    = Vector2.new(4, boxH * ratio)
+						local r2 = math.floor((1 - ratio) * 255)
+						local g2 = math.floor(ratio * 220)
+						d.hpFill.Color = Color3.fromRGB(r2, g2, 40)
+					end
+				end
+
+				-- ชื่อ (เหนือกรอบ)
+				if d.name then
+					d.name.Visible = espNames
+					if espNames then
+						d.name.Text = p.DisplayName
+						d.name.Color = espColor
+						d.name.Position = Vector2.new(spHead.X, boxY - 16)
+					end
+				end
+
+				-- ระยะ (ใต้กรอบ)
+				if d.dist then
+					d.dist.Visible = espDist
+					if espDist then
+						local dist = distTo(p)
+						d.dist.Text = string.format("%.0f  (%s)", dist, stepsStr(dist))
+						d.dist.Color = espColor
+						d.dist.Position = Vector2.new(spHead.X, boxY + boxH + 2)
+					end
+				end
+
+				-- เส้น
+				if d.line then
+					d.line.Visible = espLines
+					if espLines then
+						d.line.Color = espColor
+						d.line.From = Vector2.new(ctr.X, 0)
+						d.line.To = spHead
+					end
 				end
 			end
 		end)
 	end
 
-	-- ===== ตั้ง / ถอน ESP เมื่อผู้เล่นเข้า-ออก =====
+	-- ===== ตั้ง / ถอน เมื่อผู้เล่นเข้า-ออก =====
 	local function setupPlayer(p)
 		if p == LocalPlayer then return end
 		p.CharacterAdded:Connect(function()
 			task.wait(0.5)
-			if espEnabled then
-				buildESPFor(p)
-				buildLineFor(p)
-			end
 			if hitboxEnabled then buildHitboxFor(p) end
 		end)
 		if p.Character then
-			if espEnabled then buildESPFor(p); buildLineFor(p) end
 			if hitboxEnabled then buildHitboxFor(p) end
 		end
 	end
 	for _, p in ipairs(Players:GetPlayers()) do setupPlayer(p) end
 	Players.PlayerAdded:Connect(setupPlayer)
 	Players.PlayerRemoving:Connect(function(p)
-		removeESPFor(p)
+		removeESPDrawings(p)
 		removeHitboxFor(p)
 	end)
 
 	-- ===== BUILD UI =====
-
-	-- หัวข้อ
 	do
 		local h = new("Frame", {Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, LayoutOrder = nextOrder(), ZIndex = 5}, P)
 		local bar2 = new("Frame", {Position = UDim2.fromOffset(2, 4), Size = UDim2.fromOffset(3, 12), BackgroundColor3 = tint, BorderSizePixel = 0, ZIndex = 5}, h)
@@ -2586,30 +2549,44 @@ local function buildEye()
 		tr(mkLabel(h, 12, 3, 300, 14, "", 11, tint, TITLE_FONT), "// ดวงตาเทพ", "// GOD EYE")
 	end
 
-	-- ===== หมวด ESP =====
+	-- ===== หมวด ESP (แต่ละอันอิสระ) =====
 	section("// ESP", "// ESP")
 
-	toggle("เปิดใช้ ESP", "Enable ESP", false, function(v)
-		espEnabled = v
-		if v then
-			for _, p in ipairs(Players:GetPlayers()) do
-				if p ~= LocalPlayer then buildESPFor(p); buildLineFor(p) end
-			end
-		else
-			for _, p in ipairs(Players:GetPlayers()) do removeESPFor(p) end
+	-- สีตัวเลือก ESP
+	do
+		local espColors = {
+			{"ขาว", Color3.fromRGB(255,255,255)},
+			{"เหลือง", Color3.fromRGB(255,220,0)},
+			{"แดง", Color3.fromRGB(255,60,60)},
+			{"เขียว", Color3.fromRGB(60,220,100)},
+			{"ฟ้า", Color3.fromRGB(60,180,255)},
+			{"ม่วง", Color3.fromRGB(180,100,255)},
+		}
+		local r = row(52)
+		tr(mkLabel(r, 12, 5, 260, 14, "", 12), "สี ESP", "ESP color")
+		local espColorRings = {}
+		for i, ec in ipairs(espColors) do
+			local b = new("TextButton", {
+				Position = UDim2.fromOffset(10 + (i-1)*34, 24),
+				Size = UDim2.fromOffset(26, 26),
+				BackgroundColor3 = ec[2], Text = "",
+				AutoButtonColor = false, ZIndex = 5,
+			}, r)
+			corner(b, 13)
+			espColorRings[i] = stroke(b, WHITE, (i == 1) and 0 or 1, 2)
+			local idx = i
+			b.MouseButton1Click:Connect(function()
+				espColor = espColors[idx][2]
+				for j, st in ipairs(espColorRings) do st.Transparency = (j == idx) and 0 or 1 end
+				sfx("click", nil, 1.6)
+			end)
 		end
-	end)
+	end
+
 	toggle("แสดงชื่อผู้เล่น", "Show names", false, function(v) espNames = v end)
 	toggle("แสดงระยะห่าง (สเต็ก)", "Show distance (steps)", false, function(v) espDist = v end)
-	toggle("เส้นลากไปหัวผู้เล่น", "Draw head lines", false, function(v)
-		espLines = v
-		if v then
-			for _, p in ipairs(Players:GetPlayers()) do
-				if p ~= LocalPlayer then buildLineFor(p) end
-			end
-		end
-	end)
-	toggle("กรอบสีเหลี่ยม", "ESP Boxes", false, function(v) espBoxes = v end)
+	toggle("เส้นลากจากบนจอ → หัว", "Head lines from top", false, function(v) espLines = v end)
+	toggle("กรอบสีเหลี่ยม", "ESP boxes", false, function(v) espBoxes = v end)
 	toggle("แถบ HP", "Health bar", false, function(v) espHealth = v end)
 
 	-- ===== หมวด FOV =====
@@ -2628,18 +2605,56 @@ local function buildEye()
 	)
 
 	-- ===== หมวด Aimbot =====
-	section("// Aimbot (ล็อกหัว)", "// Aimbot (Head lock)")
+	section("// Aimbot (ล็อกหัว)", "// Aimbot")
 
 	toggle("เปิดล็อกหัว", "Enable aimbot", false, function(v)
 		aimEnabled = v
 		if v then startAim() end
 	end)
-	toggle("ล็อกคนที่ใกล้ที่สุด (FOV)", "Lock nearest in FOV", false, function(v)
+	toggle("ล็อกคนใกล้ที่สุดใน FOV", "Lock nearest in FOV", false, function(v)
 		aimNearestOnly = v
 	end)
 
 	-- ===== หมวด Hitbox =====
 	section("// Hitbox", "// Hitbox")
+
+	-- สี Hitbox
+	do
+		local hbColors = {
+			{"แดง",  Color3.fromRGB(255,60,60)},
+			{"ส้ม",  Color3.fromRGB(255,140,0)},
+			{"เหลือง", Color3.fromRGB(255,220,0)},
+			{"เขียว", Color3.fromRGB(60,220,100)},
+			{"ฟ้า",  Color3.fromRGB(60,180,255)},
+			{"ม่วง", Color3.fromRGB(180,100,255)},
+		}
+		local r = row(52)
+		tr(mkLabel(r, 12, 5, 260, 14, "", 12), "สี Hitbox", "Hitbox color")
+		local hbColorRings = {}
+		for i, ec in ipairs(hbColors) do
+			local b = new("TextButton", {
+				Position = UDim2.fromOffset(10 + (i-1)*34, 24),
+				Size = UDim2.fromOffset(26, 26),
+				BackgroundColor3 = ec[2], Text = "",
+				AutoButtonColor = false, ZIndex = 5,
+			}, r)
+			corner(b, 13)
+			hbColorRings[i] = stroke(b, WHITE, (i == 1) and 0 or 1, 2)
+			local idx = i
+			b.MouseButton1Click:Connect(function()
+				hitboxColor = hbColors[idx][2]
+				for j, st in ipairs(hbColorRings) do st.Transparency = (j == idx) and 0 or 1 end
+				sfx("click", nil, 1.6)
+				-- อัปเดต part ที่มีอยู่
+				for _, p2 in ipairs(Players:GetPlayers()) do
+					if hitboxParts[p2] then
+						local pt = hitboxParts[p2][1]
+						if pt and pt.Parent then pt.Color = hitboxColor end
+					end
+				end
+			end)
+		end
+	end
 
 	toggle("เปิด Hitbox", "Enable Hitbox", false, function(v)
 		hitboxEnabled = v
@@ -2655,12 +2670,12 @@ local function buildEye()
 		function(v) return math.floor(v) end,
 		function(v)
 			hitboxSize = v
-			-- อัปเดต part ที่มีอยู่
 			for _, p in ipairs(Players:GetPlayers()) do
 				if hitboxParts[p] then
-					local part = hitboxParts[p][1]
-					if part and part.Parent then
-						part.Size = Vector3.new(v / 10, v / 10, v / 10)
+					local pt = hitboxParts[p][1]
+					if pt and pt.Parent then
+						local sz = v / 10
+						pt.Size = Vector3.new(sz, sz, sz)
 					end
 				end
 			end
@@ -2672,15 +2687,15 @@ local function buildEye()
 			hitboxTransp = 1 - v
 			for _, p in ipairs(Players:GetPlayers()) do
 				if hitboxParts[p] then
-					local part = hitboxParts[p][1]
-					if part and part.Parent then part.Transparency = hitboxTransp end
+					local pt = hitboxParts[p][1]
+					if pt and pt.Parent then pt.Transparency = hitboxTransp end
 				end
 			end
 		end
 	)
 
 	-- ===== หมวด ทีม/ตัวเอง =====
-	section("// ตรวจสอบทีม / ป้องกันตนเอง", "// Team check / Self protect")
+	section("// ตรวจสอบทีม / ป้องกัน", "// Team check / Self protect")
 
 	toggle("ไม่ล็อคทีมตัวเอง", "No team lock", noTeamlock, function(v)
 		noTeamlock = v
@@ -2693,12 +2708,14 @@ local function buildEye()
 	-- ===== หมวด เลือกเป้าหมาย =====
 	section("// เลือกเป้าหมาย", "// Select Target")
 
-	-- แสดงชื่อที่ล็อกอยู่
 	local lockInfoCard = row(32)
 	local lockInfoLbl = mkLabel(lockInfoCard, 12, 0, CW - 20, 32, "", 12, tint, HUD_FONT)
 	lockInfoLbl.TextYAlignment = Enum.TextYAlignment.Center
 	local lockInfoE = tr(lockInfoLbl, "ล็อกอยู่: —", "Locked: —")
-
+	local function getLockedLabel()
+		if lockedTarget and lockedTarget.Character then return lockedTarget.DisplayName end
+		return "—"
+	end
 	local function refreshLockInfo()
 		local name = getLockedLabel()
 		lockInfoE.th = "ล็อกอยู่: " .. name
@@ -2707,7 +2724,6 @@ local function buildEye()
 	end
 	refreshLockInfo()
 
-	-- รายชื่อผู้เล่น
 	local plListFrame = new("Frame", {
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -2717,68 +2733,51 @@ local function buildEye()
 	}, P)
 	new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, plListFrame)
 
+	local targetRows = {}
 	local function refreshTargetList()
-		for _, r in ipairs(targetRows) do
-			pcall(function() r:Destroy() end)
-		end
+		for _, r in ipairs(targetRows) do pcall(function() r:Destroy() end) end
 		targetRows = {}
 		local list = Players:GetPlayers()
 		for i, p in ipairs(list) do
 			if p == LocalPlayer then continue end
 			local r = mkCard(plListFrame, 34, i)
 			targetRows[#targetRows + 1] = r
-			-- Avatar
 			local hs = new("ImageLabel", {
-				Position = UDim2.fromOffset(5, 5),
-				Size = UDim2.fromOffset(24, 24),
-				BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+				Position = UDim2.fromOffset(5, 5), Size = UDim2.fromOffset(24, 24),
+				BackgroundColor3 = Color3.fromRGB(30,30,30),
 				Image = "rbxthumb://type=AvatarHeadShot&id=" .. p.UserId .. "&w=48&h=48",
 				ZIndex = 6,
 			}, r)
 			corner(hs, 12)
-			-- Display name
-			mkLabel(r, 36, 2, 180, 14, p.DisplayName, 11, WHITE, FONT)
-			mkLabel(r, 36, 16, 180, 12, "@" .. p.Name, 9, GRAY, HUD_FONT)
-			-- ทีม indicator
+			mkLabel(r, 36, 2,  180, 14, p.DisplayName, 11, WHITE, FONT)
+			mkLabel(r, 36, 16, 180, 12, "@" .. p.Name,  9, GRAY,  HUD_FONT)
 			local teamDot = new("Frame", {
-				Position = UDim2.fromOffset(220, 10),
-				Size = UDim2.fromOffset(8, 8),
-				BackgroundColor3 = isSameTeam(p) and Color3.fromRGB(80, 220, 80) or Color3.fromRGB(220, 60, 60),
-				BorderSizePixel = 0,
-				ZIndex = 6,
+				Position = UDim2.fromOffset(224, 11), Size = UDim2.fromOffset(8, 8),
+				BackgroundColor3 = isSameTeam(p) and Color3.fromRGB(80,220,80) or Color3.fromRGB(220,60,60),
+				BorderSizePixel = 0, ZIndex = 6,
 			}, r)
 			corner(teamDot, 4)
-			-- ปุ่มล็อก
 			local isLocked = (lockedTarget == p)
 			local lockBtn = new("TextButton", {
 				AnchorPoint = Vector2.new(1, 0.5),
 				Position = UDim2.new(1, -6, 0.5, 0),
 				Size = UDim2.fromOffset(60, 22),
-				BackgroundColor3 = isLocked and tint or Color3.fromRGB(32, 32, 32),
+				BackgroundColor3 = isLocked and tint or Color3.fromRGB(32,32,32),
 				BackgroundTransparency = 0.1,
-				Font = FONT,
-				TextSize = 10,
-				TextColor3 = WHITE,
-				AutoButtonColor = false,
-				ZIndex = 6,
+				Font = FONT, TextSize = 10, TextColor3 = WHITE,
+				AutoButtonColor = false, ZIndex = 6,
 			}, r)
 			corner(lockBtn, 6)
-			stroke(lockBtn, Color3.fromRGB(110, 110, 110), 0.4, 1)
-			fxFlat(lockBtn, Color3.fromRGB(80, 50, 80))
+			stroke(lockBtn, Color3.fromRGB(110,110,110), 0.4, 1)
+			fxFlat(lockBtn, Color3.fromRGB(80,50,80))
 			tr(lockBtn, isLocked and "ปลดล็อก" or "ล็อกหัว", isLocked and "Unlock" or "Lock head")
 			lockBtn.MouseButton1Click:Connect(function()
 				sfx("click", nil, 1.5)
 				if lockedTarget == p then
 					lockedTarget = nil
 				else
-					if isSelf(p) then
-						toast("ป้องกันล็อคตัวเอง", "Cannot lock yourself")
-						return
-					end
-					if noTeamlock and isSameTeam(p) then
-						toast("ป้องกันล็อคทีมตัวเอง", "Cannot lock your own team")
-						return
-					end
+					if isSelf(p) then toast("ป้องกันล็อคตัวเอง", "Cannot lock yourself") return end
+					if noTeamlock and isSameTeam(p) then toast("ไม่ล็อคทีมตัวเอง", "Cannot lock your own team") return end
 					lockedTarget = p
 				end
 				refreshLockInfo()
