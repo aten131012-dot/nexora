@@ -2145,6 +2145,445 @@ local function buildCategory(name, th, en)
 	tr(note, "ยังไม่มีเมนูในหมวดนี้", "No items in this category yet")
 end
 
+-- ===================== TOOLS =====================
+local function buildTools()
+	local P    = Pages["tools"]
+	local tint = CAT_TINT["tools"]
+	local CW   = 384
+	local order = 0
+	local function nextOrder() order = order + 1 return order end
+
+	-- Section header
+	local function section(th, en)
+		local h2 = new("Frame", {Size = UDim2.new(1,0,0,22), BackgroundTransparency=1,
+			LayoutOrder=nextOrder(), ZIndex=5}, P)
+		local bar2 = new("Frame", {Position=UDim2.fromOffset(2,5), Size=UDim2.fromOffset(3,12),
+			BackgroundColor3=tint, BorderSizePixel=0, ZIndex=5}, h2)
+		corner(bar2,2)
+		tr(mkLabel(h2,12,4,300,14,"",10,tint,TITLE_FONT), "// "..th, "// "..en)
+	end
+	local function row(h2)
+		local f = new("Frame", {Size=UDim2.new(1,0,0,h2), BackgroundTransparency=1,
+			LayoutOrder=nextOrder(), ZIndex=5}, P)
+		return f
+	end
+
+	-- mini toggle helper
+	local function mkTog(parent, ox, oy, state, cb)
+		local BW,BH=44,22
+		local bg2=new("Frame",{Position=UDim2.fromOffset(ox,oy),Size=UDim2.fromOffset(BW,BH),
+			BackgroundColor3=state and tint or Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},parent)
+		corner(bg2,BH/2)
+		local dot=new("Frame",{AnchorPoint=Vector2.new(0,0.5),
+			Position=UDim2.fromOffset(state and(BW-BH+2) or 2,BH/2),
+			Size=UDim2.fromOffset(BH-4,BH-4),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=8},bg2)
+		corner(dot,(BH-4)/2)
+		local btn=new("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",ZIndex=9},bg2)
+		local cur=state
+		btn.MouseButton1Click:Connect(function()
+			cur=not cur
+			bg2.BackgroundColor3=cur and tint or Color3.fromRGB(50,50,50)
+			dot.Position=UDim2.fromOffset(cur and(BW-BH+2) or 2,BH/2)
+			cb(cur) sfx("click",nil,1.5)
+		end)
+		return bg2
+	end
+
+	-- ===== ตัวแปร tools =====
+	local flyEnabled   = false
+	local flySpeed     = 50
+	local flyConn
+	local speedEnabled = false
+	local speedVal     = 50
+	local speedConn
+	local jumpEnabled  = false
+	local jumpVal      = 50
+	local noclipEnabled= false
+	local noclipConn
+	local infiniteJump = false
+	local godEnabled   = false
+	local godConn
+	local tpToolEnabled= false
+	local tpTool
+
+	local UIS = game:GetService("UserInputService")
+	local RunS= game:GetService("RunService")
+
+	-- ===== บิน =====
+	section("บิน", "Fly")
+	do
+		local r=row(36)
+		mkLabel(r,12,10,200,16,"บิน",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,7,false,function(v)
+			flyEnabled=v
+			if flyConn then flyConn:Disconnect(); flyConn=nil end
+			local char=LocalPlayer.Character
+			local hrp=char and char:FindFirstChild("HumanoidRootPart")
+			local hum=char and char:FindFirstChildOfClass("Humanoid")
+			if not v then
+				if hum then hum.PlatformStand=false end
+				return
+			end
+			if not hrp or not hum then return end
+			hum.PlatformStand=true
+			local bodyV=hrp:FindFirstChild("FlyBV") or Instance.new("BodyVelocity")
+			bodyV.Name="FlyBV"; bodyV.MaxForce=Vector3.new(1e5,1e5,1e5); bodyV.Velocity=Vector3.zero
+			local bodyG=hrp:FindFirstChild("FlyBG") or Instance.new("BodyGyro")
+			bodyG.Name="FlyBG"; bodyG.MaxTorque=Vector3.new(1e5,1e5,1e5); bodyG.P=1e4
+			bodyV.Parent=hrp; bodyG.Parent=hrp
+			flyConn=RunS.Heartbeat:Connect(function()
+				if not flyEnabled then return end
+				local c=workspace.CurrentCamera
+				local cf=c.CFrame
+				local dir=Vector3.zero
+				local kb={
+					[Enum.KeyCode.W]=cf.LookVector,
+					[Enum.KeyCode.S]=-cf.LookVector,
+					[Enum.KeyCode.A]=-cf.RightVector,
+					[Enum.KeyCode.D]=cf.RightVector,
+					[Enum.KeyCode.Space]=Vector3.new(0,1,0),
+					[Enum.KeyCode.LeftControl]=Vector3.new(0,-1,0),
+				}
+				for k,vec in pairs(kb) do
+					if UIS:IsKeyDown(k) then dir=dir+vec end
+				end
+				if dir.Magnitude>0 then dir=dir.Unit end
+				bodyV.Velocity=dir*flySpeed
+				bodyG.CFrame=cf
+			end)
+		end)
+	end
+	do
+		local r=row(52)
+		mkLabel(r,12,2,CW-20,13,"ความเร็วบิน  |  max 5000",11,GRAY,HUD_FONT)
+		local TRK_W=CW-24
+		local trk=new("Frame",{Position=UDim2.fromOffset(12,20),Size=UDim2.fromOffset(TRK_W,4),
+			BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},r)
+		corner(trk,2)
+		local curV=50
+		local rat=(curV-1)/(5000-1)
+		local fill2=new("Frame",{Size=UDim2.fromScale(rat,1),BackgroundColor3=tint,BorderSizePixel=0,ZIndex=8},trk)
+		corner(fill2,2)
+		local thumb=new("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(rat,0.5),
+			Size=UDim2.fromOffset(14,14),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk)
+		corner(thumb,7)
+		local valLbl=mkLabel(r,12,30,CW-20,16,"50 sp",12,WHITE,Enum.Font.GothamBold)
+		local function setFly(raw)
+			curV=math.clamp(raw,1,5000)
+			local r2=(curV-1)/4999
+			fill2.Size=UDim2.fromScale(r2,1); thumb.Position=UDim2.fromScale(r2,0.5)
+			valLbl.Text=math.floor(curV).." sp"; flySpeed=curV
+		end
+		local drag=false
+		local function fromPos(pos)
+			local abs=trk.AbsolutePosition; local sz=trk.AbsoluteSize
+			setFly(1+(5000-1)*math.clamp((pos.X-abs.X)/sz.X,0,1))
+		end
+		trk.InputBegan:Connect(function(i)
+			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true; fromPos(i.Position) end
+		end)
+		UIS.InputEnded:Connect(function(i)
+			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
+		end)
+		UIS.InputChanged:Connect(function(i)
+			if drag and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos(i.Position) end
+		end)
+	end
+
+	-- ===== สปีด =====
+	section("สปีด", "Speed")
+	do
+		local r=row(36)
+		mkLabel(r,12,10,200,16,"สปีด",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,7,false,function(v)
+			speedEnabled=v
+			if speedConn then speedConn:Disconnect(); speedConn=nil end
+			if not v then
+				local char=LocalPlayer.Character
+				local hum=char and char:FindFirstChildOfClass("Humanoid")
+				if hum then hum.WalkSpeed=16 end
+				return
+			end
+			speedConn=RunS.Heartbeat:Connect(function()
+				local char=LocalPlayer.Character
+				local hum=char and char:FindFirstChildOfClass("Humanoid")
+				if hum then hum.WalkSpeed=speedVal end
+			end)
+		end)
+	end
+	do
+		local r=row(52)
+		mkLabel(r,12,2,CW-20,13,"ความเร็ววิ่ง  |  max 10000",11,GRAY,HUD_FONT)
+		local TRK_W=CW-24
+		local trk=new("Frame",{Position=UDim2.fromOffset(12,20),Size=UDim2.fromOffset(TRK_W,4),
+			BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},r)
+		corner(trk,2)
+		local curV=50; local rat=(curV-1)/9999
+		local fill2=new("Frame",{Size=UDim2.fromScale(rat,1),BackgroundColor3=tint,BorderSizePixel=0,ZIndex=8},trk)
+		corner(fill2,2)
+		local thumb=new("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(rat,0.5),
+			Size=UDim2.fromOffset(14,14),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk)
+		corner(thumb,7)
+		local valLbl=mkLabel(r,12,30,CW-20,16,"50 sp",12,WHITE,Enum.Font.GothamBold)
+		local function setSpd(raw)
+			curV=math.clamp(raw,1,10000); local r2=(curV-1)/9999
+			fill2.Size=UDim2.fromScale(r2,1); thumb.Position=UDim2.fromScale(r2,0.5)
+			valLbl.Text=math.floor(curV).." sp"; speedVal=curV
+			if speedEnabled then
+				local ch=LocalPlayer.Character
+				local hm=ch and ch:FindFirstChildOfClass("Humanoid")
+				if hm then hm.WalkSpeed=curV end
+			end
+		end
+		local drag=false
+		local function fromPos(pos)
+			local abs=trk.AbsolutePosition; local sz=trk.AbsoluteSize
+			setSpd(1+(10000-1)*math.clamp((pos.X-abs.X)/sz.X,0,1))
+		end
+		trk.InputBegan:Connect(function(i)
+			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true; fromPos(i.Position) end
+		end)
+		UIS.InputEnded:Connect(function(i)
+			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
+		end)
+		UIS.InputChanged:Connect(function(i)
+			if drag and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos(i.Position) end
+		end)
+	end
+
+	-- ===== กระโดดสูง =====
+	section("กระโดด", "Jump Power")
+	do
+		local r=row(36)
+		mkLabel(r,12,10,200,16,"กระโดด",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,7,false,function(v)
+			jumpEnabled=v
+			local char=LocalPlayer.Character
+			local hum=char and char:FindFirstChildOfClass("Humanoid")
+			if hum then hum.JumpPower=v and jumpVal or 50 end
+		end)
+	end
+	do
+		local r=row(52)
+		mkLabel(r,12,2,CW-20,13,"พลังกระโดด  |  max 1000",11,GRAY,HUD_FONT)
+		local TRK_W=CW-24
+		local trk=new("Frame",{Position=UDim2.fromOffset(12,20),Size=UDim2.fromOffset(TRK_W,4),
+			BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},r)
+		corner(trk,2)
+		local curV=50; local rat=(curV-1)/999
+		local fill2=new("Frame",{Size=UDim2.fromScale(rat,1),BackgroundColor3=tint,BorderSizePixel=0,ZIndex=8},trk)
+		corner(fill2,2)
+		local thumb=new("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(rat,0.5),
+			Size=UDim2.fromOffset(14,14),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk)
+		corner(thumb,7)
+		local valLbl=mkLabel(r,12,30,CW-20,16,"50 jp",12,WHITE,Enum.Font.GothamBold)
+		local function setJmp(raw)
+			curV=math.clamp(raw,1,1000); local r2=(curV-1)/999
+			fill2.Size=UDim2.fromScale(r2,1); thumb.Position=UDim2.fromScale(r2,0.5)
+			valLbl.Text=math.floor(curV).." jp"; jumpVal=curV
+			if jumpEnabled then
+				local ch=LocalPlayer.Character
+				local hm=ch and ch:FindFirstChildOfClass("Humanoid")
+				if hm then hm.JumpPower=curV end
+			end
+		end
+		local drag=false
+		local function fromPos(pos)
+			local abs=trk.AbsolutePosition; local sz=trk.AbsoluteSize
+			setJmp(1+(1000-1)*math.clamp((pos.X-abs.X)/sz.X,0,1))
+		end
+		trk.InputBegan:Connect(function(i)
+			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true; fromPos(i.Position) end
+		end)
+		UIS.InputEnded:Connect(function(i)
+			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
+		end)
+		UIS.InputChanged:Connect(function(i)
+			if drag and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos(i.Position) end
+		end)
+	end
+
+	-- ===== กระโดดไม่จำกัด =====
+	section("ฟังก์ชันพิเศษ", "Special")
+	do
+		local r=row(36)
+		mkLabel(r,12,10,200,16,"กระโดดไม่จำกัด",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,7,false,function(v)
+			infiniteJump=v
+		end)
+	end
+	-- hook jump event ครั้งเดียว
+	UIS.JumpRequest:Connect(function()
+		if infiniteJump then
+			local char=LocalPlayer.Character
+			local hum=char and char:FindFirstChildOfClass("Humanoid")
+			if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+		end
+	end)
+
+	-- ===== ทะลุทุกอย่าง (Noclip) =====
+	do
+		local r=row(36)
+		mkLabel(r,12,10,200,16,"ทะลุได้ทุกอย่าง (Noclip)",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,7,false,function(v)
+			noclipEnabled=v
+			if noclipConn then noclipConn:Disconnect(); noclipConn=nil end
+			if not v then
+				local char=LocalPlayer.Character
+				if char then
+					for _,p in ipairs(char:GetDescendants()) do
+						if p:IsA("BasePart") then p.CanCollide=true end
+					end
+				end
+				return
+			end
+			noclipConn=RunS.Stepped:Connect(function()
+				local char=LocalPlayer.Character
+				if not char then return end
+				for _,p in ipairs(char:GetDescendants()) do
+					if p:IsA("BasePart") then p.CanCollide=false end
+				end
+			end)
+		end)
+	end
+
+	-- ===== อมตะ (God Mode) =====
+	do
+		local r=row(50)
+		mkLabel(r,12,2,CW-20,13,"อมตะ — ใช้ได้บางแมพ",11,GRAY,HUD_FONT)
+		mkLabel(r,12,16,200,16,"God Mode",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,20,false,function(v)
+			godEnabled=v
+			if godConn then godConn:Disconnect(); godConn=nil end
+			local char=LocalPlayer.Character
+			local hum=char and char:FindFirstChildOfClass("Humanoid")
+			if not v then
+				if hum then hum.MaxHealth=100; hum.Health=100 end
+				return
+			end
+			if hum then hum.MaxHealth=math.huge; hum.Health=math.huge end
+			godConn=RunS.Heartbeat:Connect(function()
+				local c=LocalPlayer.Character
+				local h=c and c:FindFirstChildOfClass("Humanoid")
+				if h then h.Health=math.huge end
+			end)
+		end)
+	end
+
+	-- ===== Teleport Tool (TP NEXORA) =====
+	section("เทเลพอต", "Teleport")
+	do
+		local r=row(50)
+		mkLabel(r,12,2,CW-20,13,"กดปุ่มรับ Tool แล้วคลิกพื้นเพื่อ TP",11,GRAY,HUD_FONT)
+		mkLabel(r,12,16,200,16,"TP NEXORA Tool",12,WHITE,Enum.Font.GothamBold)
+		local getBtnT=new("TextButton",{
+			AnchorPoint=Vector2.new(1,0.5),
+			Position=UDim2.new(1,-8,0.5,8),
+			Size=UDim2.fromOffset(80,26),
+			BackgroundColor3=tint,
+			Font=Enum.Font.GothamBold,TextSize=11,TextColor3=WHITE,
+			Text="รับ Tool",
+			AutoButtonColor=false,ZIndex=7,
+		},r)
+		corner(getBtnT,6)
+		stroke(getBtnT,tint,0.3,1)
+		getBtnT.MouseButton1Click:Connect(function()
+			sfx("click",nil,1.5)
+			-- สร้าง Tool TP ใน Backpack
+			local existing=LocalPlayer.Backpack:FindFirstChild("TP NEXORA")
+				or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("TP NEXORA"))
+			if existing then existing:Destroy() end
+			local tool=Instance.new("Tool")
+			tool.Name="TP NEXORA"
+			tool.RequiresHandle=false
+			tool.ToolTip="NEXORA Teleport — คลิกพื้นเพื่อ TP"
+			local sc=Instance.new("LocalScript")
+			sc.Name="TPScript"
+			sc.Source=[[
+local Players=game:GetService("Players")
+local LP=Players.LocalPlayer
+local mouse=LP:GetMouse()
+script.Parent.Activated:Connect(function()
+	local char=LP.Character
+	local hrp=char and char:FindFirstChild("HumanoidRootPart")
+	if hrp and mouse.Target then
+		hrp.CFrame=CFrame.new(mouse.Hit.Position+Vector3.new(0,3,0))
+	end
+end)
+]]
+			sc.Parent=tool
+			tool.Parent=LocalPlayer.Backpack
+			toast("TP NEXORA อยู่ใน Backpack แล้ว!", "TP NEXORA added to Backpack!")
+		end)
+	end
+end
+
+-- ===== FAKE IDENTITY STATE (upvalue — ใช้ทั้ง buildFake + buildEye) =====
+local fakeEnabled      = false
+local fakeName         = ""
+local fakeVerified     = true
+local fakeLimbsOff     = false
+local fakeHeadOff      = false
+local fakeNameFont     = Enum.Font.GothamBold
+local fakeNameSize     = 14
+local fakeNameColor    = Color3.fromRGB(255,255,255)
+local fakeShowNameTag  = false
+local fakeNameBB, fakeNameLbl
+
+local LIMB_PARTS = {"LeftUpperArm","RightUpperArm","LeftLowerArm","RightLowerArm",
+                    "LeftHand","RightHand","LeftUpperLeg","RightUpperLeg",
+                    "LeftLowerLeg","RightLowerLeg","LeftFoot","RightFoot"}
+
+local function applyFakeBody()
+	local char = LocalPlayer.Character
+	if not char then return end
+	for _, pname in ipairs(LIMB_PARTS) do
+		local p = char:FindFirstChild(pname)
+		if p and p:IsA("BasePart") then
+			p.LocalTransparencyModifier = fakeLimbsOff and 1 or 0
+		end
+	end
+	local head = char:FindFirstChild("Head")
+	if head then
+		head.LocalTransparencyModifier = fakeHeadOff and 1 or 0
+	end
+end
+
+local function applyFakeNameTag()
+	if fakeNameBB then pcall(function() fakeNameBB:Destroy() end) end
+	fakeNameBB, fakeNameLbl = nil, nil
+	if not fakeShowNameTag then return end
+	local char = LocalPlayer.Character
+	local head = char and char:FindFirstChild("Head")
+	if not head then return end
+	fakeNameBB = Instance.new("BillboardGui")
+	fakeNameBB.Size = UDim2.fromOffset(220, 30)
+	fakeNameBB.StudsOffset = Vector3.new(0, 2.5, 0)
+	fakeNameBB.AlwaysOnTop = false
+	fakeNameBB.ResetOnSpawn = false
+	fakeNameBB.Parent = head
+	fakeNameLbl = Instance.new("TextLabel")
+	fakeNameLbl.Size = UDim2.fromScale(1,1)
+	fakeNameLbl.BackgroundTransparency = 1
+	fakeNameLbl.Font = fakeNameFont
+	fakeNameLbl.TextSize = fakeNameSize
+	fakeNameLbl.TextColor3 = fakeNameColor
+	fakeNameLbl.TextStrokeTransparency = 0
+	fakeNameLbl.TextStrokeColor3 = Color3.new(0,0,0)
+	fakeNameLbl.RichText = true
+	local dispName = (fakeName ~= "") and fakeName or LocalPlayer.DisplayName
+	fakeNameLbl.Text = dispName .. (fakeVerified and ' <font color="#00aaff">✓</font>' or "")
+	fakeNameLbl.Parent = fakeNameBB
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(0.5)
+	if fakeEnabled then
+		applyFakeBody()
+		applyFakeNameTag()
+	end
+end)
+
 -- ===================== FAKE IDENTITY =====================
 local function buildFake()
 	local P      = Pages["fake"]
@@ -2527,78 +2966,7 @@ local function buildEye()
 	local espDrawings    = {}
 	local hitboxParts    = {}
 
-	-- ===== FAKE IDENTITY STATE =====
-	local fakeEnabled      = false   -- เปิด/ปิด fake identity ทั้งหมด
-	local fakeName         = ""      -- ชื่อปลอม (ถ้าว่างใช้ชื่อจริง)
-	local fakeVerified     = true    -- แสดง ✓ ฟ้า
-	local fakeLimbsOff     = false   -- ซ่อนแขน-ขา (ท่าลอย)
-	local fakeHeadOff      = false   -- ซ่อนหัว
-	local fakeNameFont     = Enum.Font.GothamBold  -- ฟอนต์ชื่อปลอม
-	local fakeNameSize     = 14
-	local fakeNameColor    = Color3.fromRGB(255,255,255)
-	local fakeShowNameTag  = false   -- แสดง nametag ปลอมบนหัว (เห็นแค่เรา)
-
-	-- อวัยวะที่ซ่อนได้
-	local LIMB_PARTS = {"LeftUpperArm","RightUpperArm","LeftLowerArm","RightLowerArm",
-	                    "LeftHand","RightHand","LeftUpperLeg","RightUpperLeg",
-	                    "LeftLowerLeg","RightLowerLeg","LeftFoot","RightFoot"}
-
-	-- BillboardGui nametag ปลอม (เห็นเฉพาะ local)
-	local fakeNameBB    -- สร้างตอน apply
-	local fakeNameLbl
-
-	local function applyFakeBody()
-		local char = LocalPlayer.Character
-		if not char then return end
-		for _, pname in ipairs(LIMB_PARTS) do
-			local p = char:FindFirstChild(pname)
-			if p and p:IsA("BasePart") then
-				p.LocalTransparencyModifier = fakeLimbsOff and 1 or 0
-			end
-		end
-		local head = char:FindFirstChild("Head")
-		if head then
-			head.LocalTransparencyModifier = fakeHeadOff and 1 or 0
-		end
-	end
-
-	local function applyFakeNameTag()
-		-- ลบอันเก่า
-		if fakeNameBB then pcall(function() fakeNameBB:Destroy() end) end
-		fakeNameBB, fakeNameLbl = nil, nil
-		if not fakeShowNameTag then return end
-		local char = LocalPlayer.Character
-		local head = char and char:FindFirstChild("Head")
-		if not head then return end
-		fakeNameBB = Instance.new("BillboardGui")
-		fakeNameBB.Size = UDim2.fromOffset(220, 30)
-		fakeNameBB.StudsOffset = Vector3.new(0, 2.5, 0)
-		fakeNameBB.AlwaysOnTop = false
-		fakeNameBB.ResetOnSpawn = false
-		fakeNameBB.Parent = head
-		fakeNameLbl = Instance.new("TextLabel")
-		fakeNameLbl.Size = UDim2.fromScale(1,1)
-		fakeNameLbl.BackgroundTransparency = 1
-		fakeNameLbl.Font = fakeNameFont
-		fakeNameLbl.TextSize = fakeNameSize
-		fakeNameLbl.TextColor3 = fakeNameColor
-		fakeNameLbl.TextStrokeTransparency = 0
-		fakeNameLbl.TextStrokeColor3 = Color3.new(0,0,0)
-		local dispName = (fakeName ~= "") and fakeName or LocalPlayer.DisplayName
-		local badge = fakeVerified and " ✓" or ""
-		fakeNameLbl.RichText = true
-		fakeNameLbl.Text = dispName .. (fakeVerified and ' <font color="#00aaff">✓</font>' or "")
-		fakeNameLbl.Parent = fakeNameBB
-	end
-
-	-- เมื่อ character respawn ให้ apply ใหม่
-	LocalPlayer.CharacterAdded:Connect(function()
-		task.wait(0.5)
-		if fakeEnabled then
-			applyFakeBody()
-			applyFakeNameTag()
-		end
-	end)
+	-- (fake identity state อยู่ที่ upvalue ก่อน buildFake)
 
 	-- ===== HELPERS =====
 	local cam = workspace.CurrentCamera
@@ -2669,9 +3037,9 @@ local function buildEye()
 		fovFrame = new("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Size        = UDim2.fromOffset(sz, sz),
-			Position    = UDim2.fromOffset(vp.X / 2, vp.Y / 2),
+			Position    = UDim2.fromScale(0.5, 0.5),  -- กลางจอเสมอ
 			BackgroundColor3 = Color3.new(1,1,1),
-			BackgroundTransparency = 0.7,
+			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Visible = false,
 			ZIndex  = 55,
@@ -2982,14 +3350,14 @@ local function buildEye()
 			local vpNow = cam and cam.ViewportSize or vp
 			local ctr   = Vector2.new(vpNow.X / 2, vpNow.Y / 2)
 
-			-- FOV circle (ScreenGui Frame + UICorner)
+			-- FOV circle — กลางจอเสมอ (AnchorPoint 0.5,0.5 + fromScale 0.5,0.5)
 			if fovFrame then
 				fovFrame.Visible = espFovEnabled
 				if espFovEnabled then
-					local sz = espFovRadius * 2
-					fovFrame.Size     = UDim2.fromOffset(sz, sz)
-					fovFrame.Position = UDim2.fromOffset(ctr.X - espFovRadius, ctr.Y - espFovRadius)
-					fovFrame.BackgroundColor3 = espColor
+					fovFrame.Size = UDim2.fromOffset(espFovRadius * 2, espFovRadius * 2)
+					-- อัปเดตสี stroke
+					local st = fovFrame:FindFirstChildOfClass("UIStroke")
+					if st then st.Color = espColor end
 				end
 			end
 
@@ -3203,8 +3571,7 @@ local function buildEye()
 		function(v)
 			espFovRadius = v
 			if fovFrame then
-				local sz = v * 2
-				fovFrame.Size = UDim2.fromOffset(sz, sz)
+				fovFrame.Size = UDim2.fromOffset(v * 2, v * 2)
 			end
 		end
 	)
@@ -3441,10 +3808,10 @@ end
 
 guard("categories", function()
 	buildEye()
-	buildCategory("tools", "เครื่องมือ", "TOOLS")
+	buildTools()
 	buildCategory("prank", "แกล้ง", "PRANK")
 	buildCategory("music", "เพลง", "MUSIC")
-	buildCategory("fake", "ปลอม", "FAKE")
+	buildFake()
 end)
 
 end
