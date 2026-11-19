@@ -446,6 +446,38 @@ local BtnClose = topBtn("×", 26, 8)
 local BtnMin = topBtn("-", 26, 38)
 local BtnSize = topBtn("□", 26, 68)
 
+-- ===== ปุ่ม Auto-Refresh (⟳) บนสุด – รีเซ็ต ESP/ผู้เล่นทุก 5 วิเมื่อเปิด =====
+local autoRefreshOn = false
+local autoRefreshThread = nil
+local autoRefreshCallbacks = {}  -- { fn } จาก ESP/player list
+local function registerRefreshCb(fn) autoRefreshCallbacks[#autoRefreshCallbacks+1] = fn end
+local BtnRefresh = topBtn("⟳", 26, 128)
+BtnRefresh.TextSize = 16
+local function setRefreshVisual()
+	BtnRefresh.TextColor3 = autoRefreshOn and ACCENT or WHITE
+	onAccent(function(c) if autoRefreshOn then BtnRefresh.TextColor3 = c end end)
+end
+BtnRefresh.MouseButton1Click:Connect(function()
+	autoRefreshOn = not autoRefreshOn
+	setRefreshVisual()
+	if autoRefreshOn then
+		if autoRefreshThread then task.cancel(autoRefreshThread) end
+		autoRefreshThread = task.spawn(function()
+			while autoRefreshOn and gui.Parent do
+				task.wait(5)
+				if not autoRefreshOn or not gui.Parent then break end
+				for _, fn in ipairs(autoRefreshCallbacks) do
+					pcall(fn)
+				end
+			end
+		end)
+		toast("เปิด Auto-Refresh ทุก 5 วิ", "Auto-Refresh ON (5s)")
+	else
+		if autoRefreshThread then task.cancel(autoRefreshThread) autoRefreshThread = nil end
+		toast("ปิด Auto-Refresh", "Auto-Refresh OFF")
+	end
+end)
+
 -- ปุ่มภาษา แสดงเป็น TH/EN (ภาษาที่ใช้อยู่เป็นตัวขาว)
 local function langText()
 	if lang == "TH" then
@@ -1586,6 +1618,11 @@ local function buildHome()
 	Players.PlayerAdded:Connect(queueRefresh)
 	Players.PlayerRemoving:Connect(queueRefresh)
 
+	-- ลงทะเบียน auto-refresh สำหรับ home page player list
+	registerRefreshCb(function()
+		if gui.Parent then refreshPlayers() end
+	end)
+
 	-- ===== อัปเดตสด =====
 	onFrame(function(t)
 		if opened and currentTab == "home" then
@@ -2204,7 +2241,8 @@ local function buildEye()
 	local hitboxColor    = Color3.fromRGB(255, 60, 60)
 	local noTeamlock     = true
 	local noSelflock     = true
-	local lockedTarget   = nil
+	-- multi-lock: table ของผู้เล่นที่ถูกล็อก
+	local lockedTargets  = {}
 	-- Drawing objects per player  { box, hpBg, hpFill, nameDraw, distDraw, line }
 	local espDrawings    = {}
 	local hitboxParts    = {}
@@ -2241,6 +2279,7 @@ local function buildEye()
 		if not hum or hum.Health <= 0 then return false end
 		return true
 	end
+	local function isLocked(p) return lockedTargets[p] == true end
 	local function worldToVP(pos)
 		local ok, sp = pcall(function() return cam:WorldToViewportPoint(pos) end)
 		if ok then return Vector2.new(sp.X, sp.Y), sp.Z > 0 end
@@ -2309,9 +2348,61 @@ local function buildEye()
 			for _, l in ipairs(d.hpLines) do pcall(function() l:Remove() end) end
 		end
 		if d.tracerLine then pcall(function() d.tracerLine:Remove() end) end
+		-- ลบ Frame-based box fallback
+		if d.bbBox then pcall(function() d.bbBox:Destroy() end) end
 		-- ลบ BillboardGui
 		if d.bb then pcall(function() d.bb:Destroy() end) end
+		if d.bbDist then pcall(function() d.bbDist:Destroy() end) end
 		espDrawings[p] = nil
+	end
+
+	-- Frame-based box fallback (ใช้เมื่อ Drawing API ไม่มี)
+	-- ใช้ SurfaceGui ติดตัวผู้เล่นแทน Drawing lines
+	local function mkBillboardBox(head)
+		-- กรอบสี่เหลี่ยมรอบตัวผู้เล่นผ่าน BillboardGui overlay
+		local bbBox = Instance.new("BillboardGui")
+		bbBox.Size = UDim2.fromOffset(60, 90)
+		bbBox.StudsOffset = Vector3.new(0, 0, 0)
+		bbBox.AlwaysOnTop = true
+		bbBox.ResetOnSpawn = false
+		bbBox.Enabled = false
+		bbBox.LightInfluence = 0
+		bbBox.Parent = head
+		-- 4 ขอบ (top, bottom, left, right)
+		local sides = {}
+		local function side(ax, ay, sw, sh)
+			local f = Instance.new("Frame")
+			f.AnchorPoint = Vector2.new(ax, ay)
+			f.Position = UDim2.new(ax, 0, ay, 0)
+			f.Size = UDim2.new(sw, 0, sh, 0)
+			f.BackgroundColor3 = Color3.new(1,1,1)
+			f.BackgroundTransparency = 0
+			f.BorderSizePixel = 0
+			f.Parent = bbBox
+			sides[#sides+1] = f
+		end
+		side(0, 0, 1, 0); sides[#sides].Size = UDim2.new(1, 0, 0, 1)   -- top
+		side(0, 1, 1, 0); sides[#sides].Size = UDim2.new(1, 0, 0, 1)   -- bottom
+		side(0, 0, 0, 1); sides[#sides].Size = UDim2.new(0, 1, 1, 0)   -- left
+		side(1, 0, 0, 1); sides[#sides].Size = UDim2.new(0, 1, 1, 0)   -- right
+		-- HP bar แนวตั้งซ้าย
+		local hpBg = Instance.new("Frame")
+		hpBg.AnchorPoint = Vector2.new(1, 0)
+		hpBg.Position = UDim2.new(0, -4, 0, 0)
+		hpBg.Size = UDim2.new(0, 3, 1, 0)
+		hpBg.BackgroundColor3 = Color3.fromRGB(30,30,30)
+		hpBg.BackgroundTransparency = 0
+		hpBg.BorderSizePixel = 0
+		hpBg.Parent = bbBox
+		local hpFill = Instance.new("Frame")
+		hpFill.AnchorPoint = Vector2.new(0.5, 1)
+		hpFill.Position = UDim2.new(0.5, 0, 1, 0)
+		hpFill.Size = UDim2.new(1, 0, 1, 0)
+		hpFill.BackgroundColor3 = Color3.fromRGB(80,220,80)
+		hpFill.BackgroundTransparency = 0
+		hpFill.BorderSizePixel = 0
+		hpFill.Parent = hpBg
+		return bbBox, sides, hpBg, hpFill
 	end
 
 	local function ensureESPDrawings(p)
@@ -2322,7 +2413,7 @@ local function buildEye()
 
 		local d = {}
 
-		-- 4 เส้นสำหรับกรอบ (top, bottom, left, right)
+		-- 4 เส้นสำหรับกรอบ (top, bottom, left, right) — Drawing API
 		d.lines = {}
 		if hasDrawing then
 			for _ = 1, 4 do
@@ -2330,7 +2421,7 @@ local function buildEye()
 			end
 		end
 
-		-- 2 เส้นสำหรับ HP bar (bg + fill)
+		-- 2 เส้นสำหรับ HP bar (bg + fill) — Drawing API
 		d.hpLines = {}
 		if hasDrawing then
 			local bg = mkLine()
@@ -2340,8 +2431,17 @@ local function buildEye()
 			d.hpLines = {bg, fill}
 		end
 
-		-- เส้น tracer
+		-- เส้น tracer — Drawing API
 		d.tracerLine = hasDrawing and mkLine() or nil
+
+		-- Frame-based box (fallback เมื่อไม่มี Drawing)
+		if not hasDrawing then
+			local bbBox, sides, hpBg, hpFill = mkBillboardBox(head)
+			d.bbBox    = bbBox
+			d.bbSides  = sides
+			d.bbHpBg   = hpBg
+			d.bbHpFill = hpFill
+		end
 
 		-- BillboardGui สำหรับชื่อ + ระยะ
 		local bb = Instance.new("BillboardGui")
@@ -2450,8 +2550,10 @@ local function buildEye()
 			if aimNearestOnly then
 				target = getNearestPlayer()
 			else
-				target = lockedTarget
-				if target and not isValidTarget(target) then target = nil end
+				-- ใช้คนแรกใน lockedTargets ที่ยังมีชีวิต
+				for p, _ in pairs(lockedTargets) do
+					if isValidTarget(p) then target = p; break end
+				end
 			end
 			if not target then return end
 			local char = target.Character
@@ -2559,7 +2661,7 @@ local function buildEye()
 				-- กรอบ 4 เส้น
 				setBox4(d.lines, boxX, boxY, boxW, boxH, espColor, espBoxes)
 
-				-- HP bar (เส้น 2 เส้นแนวตั้ง ชิดซ้าย)
+				-- HP bar — Drawing lines
 				if d.hpLines and #d.hpLines >= 2 then
 					local hpBgLine   = d.hpLines[1]
 					local hpFillLine = d.hpLines[2]
@@ -2585,12 +2687,32 @@ local function buildEye()
 					end
 				end
 
-				-- tracer line
+				-- Frame-based box fallback (ไม่มี Drawing API)
+				if d.bbBox then
+					d.bbBox.Enabled = espBoxes or espHealth
+					if d.bbSides then
+						local vis = espBoxes
+						for _, s in ipairs(d.bbSides) do s.BackgroundColor3 = espColor; s.Visible = vis end
+					end
+					if d.bbHpBg and d.bbHpFill then
+						d.bbHpBg.Visible  = espHealth
+						if espHealth then
+							local hp, maxhp = getHP(char)
+							local ratio = math.clamp(hp / maxhp, 0, 1)
+							local r2 = math.floor((1 - ratio) * 255)
+							local g2 = math.floor(ratio * 220)
+							d.bbHpFill.BackgroundColor3 = Color3.fromRGB(r2, g2, 40)
+							d.bbHpFill.Size = UDim2.new(1, 0, ratio, 0)
+						end
+					end
+				end
+
+				-- tracer line (เส้นจากกลางล่างจอ → หัวผู้เล่น)
 				if d.tracerLine then
 					d.tracerLine.Visible = espLines
 					if espLines then
 						d.tracerLine.Color = espColor
-						d.tracerLine.From  = Vector2.new(ctr.X, 0)
+						d.tracerLine.From  = Vector2.new(ctr.X, vpNow.Y)
 						d.tracerLine.To    = spHead
 					end
 				end
@@ -2624,6 +2746,8 @@ local function buildEye()
 		if p == LocalPlayer then return end
 		p.CharacterAdded:Connect(function()
 			task.wait(0.5)
+			-- rebuild ESP drawings เมื่อ character respawn
+			removeESPDrawings(p)
 			if hitboxEnabled then buildHitboxFor(p) end
 		end)
 		if p.Character then
@@ -2631,10 +2755,35 @@ local function buildEye()
 		end
 	end
 	for _, p in ipairs(Players:GetPlayers()) do setupPlayer(p) end
-	Players.PlayerAdded:Connect(setupPlayer)
+	Players.PlayerAdded:Connect(function(p)
+		setupPlayer(p)
+	end)
 	Players.PlayerRemoving:Connect(function(p)
 		removeESPDrawings(p)
 		removeHitboxFor(p)
+		lockedTargets[p] = nil
+	end)
+
+	-- ===== Auto-refresh: ลงทะเบียน callback ทุก 5 วิ =====
+	registerRefreshCb(function()
+		-- rebuild ESP drawings สำหรับทุกคน (จับคนเข้ามาใหม่)
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= LocalPlayer then
+				local char = p.Character
+				local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
+				local d = espDrawings[p]
+				-- ถ้า head เปลี่ยน (respawn) ให้ rebuild
+				if d and head then
+					local bbParent = d.bb and d.bb.Parent
+					if bbParent ~= head then
+						removeESPDrawings(p)
+					end
+				end
+				if hitboxEnabled and not hitboxParts[p] then
+					buildHitboxFor(p)
+				end
+			end
+		end
 	end)
 
 	-- ===== BUILD UI =====
@@ -2833,7 +2982,11 @@ local function buildEye()
 
 	toggle("ไม่ล็อคทีมตัวเอง", "No team lock", noTeamlock, function(v)
 		noTeamlock = v
-		if v and lockedTarget and isSameTeam(lockedTarget) then lockedTarget = nil end
+		if v then
+			for p, _ in pairs(lockedTargets) do
+				if isSameTeam(p) then lockedTargets[p] = nil end
+			end
+		end
 	end)
 	toggle("ป้องกันล็อคตัวเอง", "No self lock", noSelflock, function(v)
 		noSelflock = v
@@ -2845,10 +2998,14 @@ local function buildEye()
 	local lockInfoCard = row(32)
 	local lockInfoLbl = mkLabel(lockInfoCard, 12, 0, CW - 20, 32, "", 12, tint, HUD_FONT)
 	lockInfoLbl.TextYAlignment = Enum.TextYAlignment.Center
+	lockInfoLbl.TextTruncate = Enum.TextTruncate.AtEnd
 	local lockInfoE = tr(lockInfoLbl, "ล็อกอยู่: —", "Locked: —")
 	local function getLockedLabel()
-		if lockedTarget and lockedTarget.Character then return lockedTarget.DisplayName end
-		return "—"
+		local names = {}
+		for p, _ in pairs(lockedTargets) do
+			if p.Character then names[#names+1] = p.DisplayName end
+		end
+		return #names > 0 and table.concat(names, ", ") or "—"
 	end
 	local function refreshLockInfo()
 		local name = getLockedLabel()
@@ -2891,12 +3048,12 @@ local function buildEye()
 				BorderSizePixel = 0, ZIndex = 6,
 			}, r)
 			corner(teamDot, 4)
-			local isLocked = (lockedTarget == p)
+			local curLocked = isLocked(p)
 			local lockBtn = new("TextButton", {
 				AnchorPoint = Vector2.new(1, 0.5),
 				Position = UDim2.new(1, -6, 0.5, 0),
 				Size = UDim2.fromOffset(60, 22),
-				BackgroundColor3 = isLocked and tint or Color3.fromRGB(32,32,32),
+				BackgroundColor3 = curLocked and tint or Color3.fromRGB(32,32,32),
 				BackgroundTransparency = 0.1,
 				Font = FONT, TextSize = 10, TextColor3 = WHITE,
 				AutoButtonColor = false, ZIndex = 6,
@@ -2904,15 +3061,15 @@ local function buildEye()
 			corner(lockBtn, 6)
 			stroke(lockBtn, Color3.fromRGB(110,110,110), 0.4, 1)
 			fxFlat(lockBtn, Color3.fromRGB(80,50,80))
-			tr(lockBtn, isLocked and "ปลดล็อก" or "ล็อกหัว", isLocked and "Unlock" or "Lock head")
+			tr(lockBtn, curLocked and "ปลดล็อก" or "ล็อกหัว", curLocked and "Unlock" or "Lock head")
 			lockBtn.MouseButton1Click:Connect(function()
 				sfx("click", nil, 1.5)
-				if lockedTarget == p then
-					lockedTarget = nil
+				if lockedTargets[p] then
+					lockedTargets[p] = nil
 				else
 					if isSelf(p) then toast("ป้องกันล็อคตัวเอง", "Cannot lock yourself") return end
 					if noTeamlock and isSameTeam(p) then toast("ไม่ล็อคทีมตัวเอง", "Cannot lock your own team") return end
-					lockedTarget = p
+					lockedTargets[p] = true
 				end
 				refreshLockInfo()
 				refreshTargetList()
@@ -2931,6 +3088,11 @@ local function buildEye()
 	end
 	Players.PlayerAdded:Connect(queueTRefresh)
 	Players.PlayerRemoving:Connect(queueTRefresh)
+
+	-- ลงทะเบียน auto-refresh สำหรับ target list
+	registerRefreshCb(function()
+		if gui.Parent then refreshTargetList(); refreshLockInfo() end
+	end)
 
 	-- เริ่ม loops
 	startESP()
