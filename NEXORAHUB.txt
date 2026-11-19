@@ -1,3 +1,103 @@
+-- NEXORA HUB LOADER v2
+local Players = game:GetService("Players")
+local TS      = game:GetService("TweenService")
+local LP      = Players.LocalPlayer
+
+local CFG = {
+    DISCORD = "https://discord.gg/vHRMNpDsQ4",
+}
+local SFX = {
+    click = "rbxasset://sounds/button.wav",
+    open  = "rbxasset://sounds/switch.wav",
+    boom  = "rbxasset://sounds/impact_water.mp3",
+}
+
+-- เพิ่มแมพใหม่ตรงนี้: [PlaceId] = "ลิงก์สคริปต์"
+local Scripts = {
+    [142823291] = "https://raw.githubusercontent.com/aten131012-dot/nexora/refs/heads/main/MM2.lua",
+}
+
+local LANG    = "TH"
+local BLACK   = Color3.new(0, 0, 0)
+local WHITE   = Color3.new(1, 1, 1)
+local GRAY    = Color3.fromRGB(160, 160, 160)
+local GREEN   = Color3.fromRGB(65, 205, 125)
+local BLURPLE = Color3.fromRGB(110, 120, 255)
+
+-- ===== HELPERS =====
+local function new(c, p, par)
+    local i = Instance.new(c)
+    for k, v in pairs(p) do i[k] = v end
+    i.Parent = par
+    return i
+end
+local function corner(o, r) return new("UICorner", {CornerRadius = UDim.new(0, r)}, o) end
+local function stroke(o, col, th, tr)
+    return new("UIStroke", {Color = col, Thickness = th or 1, Transparency = tr or 0}, o)
+end
+local function tw(o, t, p, s, d)
+    local x = TS:Create(o, TweenInfo.new(t, s or Enum.EasingStyle.Quad, d or Enum.EasingDirection.Out), p)
+    x:Play()
+    return x
+end
+local function snd(id, vol)
+    if not id or id == "" then return end
+    local s = Instance.new("Sound")
+    s.SoundId, s.Volume = id, vol or 0.6
+    s.Parent = game:GetService("SoundService")
+    s:Play()
+    game:GetService("Debris"):AddItem(s, 6)
+end
+local function mkGui(name, order)
+    pcall(function()
+        local old = (gethui and gethui() or game:GetService("CoreGui")):FindFirstChild(name)
+        if old then old:Destroy() end
+    end)
+    local g = Instance.new("ScreenGui")
+    g.Name, g.ResetOnSpawn, g.IgnoreGuiInset, g.DisplayOrder = name, false, true, order
+    g.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    local ok = pcall(function() g.Parent = (gethui and gethui()) or game:GetService("CoreGui") end)
+    if not ok or not g.Parent then g.Parent = LP:WaitForChild("PlayerGui") end
+    return g
+end
+
+-- ===== ORBITING ROCKS =====
+local function SpawnRocks(parent, W, H, alive)
+    local rocks = {}
+    local orbitW = W * 0.62
+    local orbitH = H * 0.52
+    for i = 1, 6 do
+        local sz = 4 + math.random(0, 3)
+        local dot = new("Frame", {
+            Size             = UDim2.fromOffset(sz, sz),
+            AnchorPoint      = Vector2.new(0.5, 0.5),
+            Position         = UDim2.fromScale(0.5, 0.5),
+            BackgroundColor3 = (i % 2 == 0) and WHITE or GRAY,
+            BackgroundTransparency = 0.25,
+            BorderSizePixel  = 0,
+            ZIndex           = 2,
+        }, parent)
+        corner(dot, 99)
+        rocks[i] = {
+            dot    = dot,
+            angle  = (i - 1) * (math.pi * 2 / 6) + math.random() * 0.5,
+            speed  = 0.35 + math.random() * 0.25,
+            orbitW = orbitW + math.random(-10, 10),
+            orbitH = orbitH + math.random(-6, 6),
+        }
+    end
+    task.spawn(function()
+        while alive.on do
+            task.wait(0.03)
+            for _, r in ipairs(rocks) do
+                r.angle += r.speed * 0.03
+                local px = 0.5 + math.cos(r.angle) * (r.orbitW / W) * 0.5
+                local py = 0.5 + math.sin(r.angle) * (r.orbitH / H) * 0.5
+                r.dot.Position = UDim2.fromScale(px, py)
+            end
+        end
+    end)
+end
 -- ===== NOTICE POPUP =====
 local noticeOpen = false
 local function ShowNotice()
@@ -279,104 +379,4 @@ if url and tostring(url):find("^http") then
     if not ok then warn("[NEXORA] โหลดสคริปต์ไม่สำเร็จ: " .. tostring(err)) end
 else
     task.spawn(ShowNotice)
-end
--- NEXORA HUB LOADER v2
-local Players = game:GetService("Players")
-local TS      = game:GetService("TweenService")
-local LP      = Players.LocalPlayer
-
-local CFG = {
-    DISCORD = "https://discord.gg/vHRMNpDsQ4",
-}
-local SFX = {
-    click = "rbxasset://sounds/button.wav",
-    open  = "rbxasset://sounds/switch.wav",
-    boom  = "rbxasset://sounds/impact_water.mp3",
-}
-
--- เพิ่มแมพใหม่ตรงนี้: [PlaceId] = "ลิงก์สคริปต์"
-local Scripts = {
-    [142823291] = "https://raw.githubusercontent.com/aten131012-dot/nexora/refs/heads/main/MM2.lua",
-}
-
-local LANG    = "TH"
-local BLACK   = Color3.new(0, 0, 0)
-local WHITE   = Color3.new(1, 1, 1)
-local GRAY    = Color3.fromRGB(160, 160, 160)
-local GREEN   = Color3.fromRGB(65, 205, 125)
-local BLURPLE = Color3.fromRGB(110, 120, 255)
-
--- ===== HELPERS =====
-local function new(c, p, par)
-    local i = Instance.new(c)
-    for k, v in pairs(p) do i[k] = v end
-    i.Parent = par
-    return i
-end
-local function corner(o, r) return new("UICorner", {CornerRadius = UDim.new(0, r)}, o) end
-local function stroke(o, col, th, tr)
-    return new("UIStroke", {Color = col, Thickness = th or 1, Transparency = tr or 0}, o)
-end
-local function tw(o, t, p, s, d)
-    local x = TS:Create(o, TweenInfo.new(t, s or Enum.EasingStyle.Quad, d or Enum.EasingDirection.Out), p)
-    x:Play()
-    return x
-end
-local function snd(id, vol)
-    if not id or id == "" then return end
-    local s = Instance.new("Sound")
-    s.SoundId, s.Volume = id, vol or 0.6
-    s.Parent = game:GetService("SoundService")
-    s:Play()
-    game:GetService("Debris"):AddItem(s, 6)
-end
-local function mkGui(name, order)
-    pcall(function()
-        local old = (gethui and gethui() or game:GetService("CoreGui")):FindFirstChild(name)
-        if old then old:Destroy() end
-    end)
-    local g = Instance.new("ScreenGui")
-    g.Name, g.ResetOnSpawn, g.IgnoreGuiInset, g.DisplayOrder = name, false, true, order
-    g.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    local ok = pcall(function() g.Parent = (gethui and gethui()) or game:GetService("CoreGui") end)
-    if not ok or not g.Parent then g.Parent = LP:WaitForChild("PlayerGui") end
-    return g
-end
-
--- ===== ORBITING ROCKS =====
-local function SpawnRocks(parent, W, H, alive)
-    local rocks = {}
-    local orbitW = W * 0.62
-    local orbitH = H * 0.52
-    for i = 1, 6 do
-        local sz = 4 + math.random(0, 3)
-        local dot = new("Frame", {
-            Size             = UDim2.fromOffset(sz, sz),
-            AnchorPoint      = Vector2.new(0.5, 0.5),
-            Position         = UDim2.fromScale(0.5, 0.5),
-            BackgroundColor3 = (i % 2 == 0) and WHITE or GRAY,
-            BackgroundTransparency = 0.25,
-            BorderSizePixel  = 0,
-            ZIndex           = 2,
-        }, parent)
-        corner(dot, 99)
-        rocks[i] = {
-            dot    = dot,
-            angle  = (i - 1) * (math.pi * 2 / 6) + math.random() * 0.5,
-            speed  = 0.35 + math.random() * 0.25,
-            orbitW = orbitW + math.random(-10, 10),
-            orbitH = orbitH + math.random(-6, 6),
-        }
-    end
-    task.spawn(function()
-        while alive.on do
-            task.wait(0.03)
-            for _, r in ipairs(rocks) do
-                r.angle += r.speed * 0.03
-                local px = 0.5 + math.cos(r.angle) * (r.orbitW / W) * 0.5
-                local py = 0.5 + math.sin(r.angle) * (r.orbitH / H) * 0.5
-                r.dot.Position = UDim2.fromScale(px, py)
-            end
-        end
-    end)
 end
