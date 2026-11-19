@@ -2260,77 +2260,133 @@ local function buildEye()
 	end
 
 	-- Drawing helper: สร้าง Drawing object แบบ pcall
-	local hasDrawing = pcall(function() return Drawing end)
-	local function mkDraw(kind, props)
+	-- Drawing availability check
+	local hasDrawing = pcall(function()
+		local t = Drawing.new("Line"); t:Remove()
+	end)
+
+	-- สร้าง Drawing.new("Line") แบบ pcall
+	local function mkLine()
 		if not hasDrawing then return nil end
 		local ok, d = pcall(function()
-			local obj = Drawing.new(kind)
-			for k, v in pairs(props) do obj[k] = v end
-			return obj
+			local l = Drawing.new("Line")
+			l.Visible = false
+			l.Thickness = 1.5
+			l.Color = espColor
+			l.Transparency = 0
+			return l
 		end)
 		return ok and d or nil
 	end
 
 	-- ===== FOV CIRCLE =====
-	local fovCircle = mkDraw("Circle", {
-		Visible = false, Thickness = 1.5,
-		Color = Color3.fromRGB(255, 255, 255), Transparency = 0,
-		Filled = false, NumSides = 64,
-		Radius = espFovRadius,
-		Position = Vector2.new(vp.X / 2, vp.Y / 2),
-	})
+	local fovCircle
+	do
+		local ok, d = pcall(function()
+			local c = Drawing.new("Circle")
+			c.Visible = false
+			c.Thickness = 1.5
+			c.Color = Color3.fromRGB(255, 255, 255)
+			c.Transparency = 0
+			c.Filled = false
+			c.NumSides = 64
+			c.Radius = espFovRadius
+			c.Position = Vector2.new(vp.X / 2, vp.Y / 2)
+			return c
+		end)
+		fovCircle = ok and d or nil
+	end
 
-	-- ===== ESP PER-PLAYER Drawing objects =====
+	-- ===== ESP PER-PLAYER: 4 Lines (box) + BillboardGui (name/dist/hp) =====
 	local function removeESPDrawings(p)
 		local d = espDrawings[p]
 		if not d then return end
-		for _, obj in pairs(d) do
-			pcall(function() obj:Remove() end)
+		-- ลบ Drawing lines
+		if d.lines then
+			for _, l in ipairs(d.lines) do pcall(function() l:Remove() end) end
 		end
+		if d.hpLines then
+			for _, l in ipairs(d.hpLines) do pcall(function() l:Remove() end) end
+		end
+		if d.tracerLine then pcall(function() d.tracerLine:Remove() end) end
+		-- ลบ BillboardGui
+		if d.bb then pcall(function() d.bb:Destroy() end) end
 		espDrawings[p] = nil
 	end
 
 	local function ensureESPDrawings(p)
 		if espDrawings[p] then return end
-		if not hasDrawing then return end
+		local char = p.Character
+		local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
+		if not head then return end
+
 		local d = {}
-		-- Box (Square)
-		d.box = mkDraw("Square", {
-			Visible = false, Thickness = 1.5,
-			Color = espColor, Transparency = 0,
-			Filled = false,
-		})
-		-- HP background bar (filled dark rect)
-		d.hpBg = mkDraw("Square", {
-			Visible = false, Thickness = 0,
-			Color = Color3.fromRGB(20, 20, 20), Transparency = 0.3,
-			Filled = true,
-		})
-		-- HP fill bar (filled colored rect)
-		d.hpFill = mkDraw("Square", {
-			Visible = false, Thickness = 0,
-			Color = Color3.fromRGB(80, 220, 80), Transparency = 0,
-			Filled = true,
-		})
-		-- Name text
-		d.name = mkDraw("Text", {
-			Visible = false, Size = 13,
-			Color = WHITE, Transparency = 0,
-			Outline = true, OutlineColor = Color3.new(0,0,0),
-			Center = true, Text = p.DisplayName,
-		})
-		-- Distance text
-		d.dist = mkDraw("Text", {
-			Visible = false, Size = 11,
-			Color = espColor, Transparency = 0,
-			Outline = true, OutlineColor = Color3.new(0,0,0),
-			Center = true, Text = "",
-		})
-		-- Line from top-center of screen to head
-		d.line = mkDraw("Line", {
-			Visible = false, Thickness = 1.5,
-			Color = espColor, Transparency = 0,
-		})
+
+		-- 4 เส้นสำหรับกรอบ (top, bottom, left, right)
+		d.lines = {}
+		if hasDrawing then
+			for _ = 1, 4 do
+				d.lines[#d.lines+1] = mkLine()
+			end
+		end
+
+		-- 2 เส้นสำหรับ HP bar (bg + fill)
+		d.hpLines = {}
+		if hasDrawing then
+			local bg = mkLine()
+			if bg then bg.Thickness = 4; bg.Color = Color3.fromRGB(30,30,30) end
+			local fill = mkLine()
+			if fill then fill.Thickness = 3; fill.Color = Color3.fromRGB(80,220,80) end
+			d.hpLines = {bg, fill}
+		end
+
+		-- เส้น tracer
+		d.tracerLine = hasDrawing and mkLine() or nil
+
+		-- BillboardGui สำหรับชื่อ + ระยะ
+		local bb = Instance.new("BillboardGui")
+		bb.Size = UDim2.fromOffset(160, 20)
+		bb.StudsOffset = Vector3.new(0, 3.2, 0)
+		bb.AlwaysOnTop = true
+		bb.ResetOnSpawn = false
+		bb.Enabled = false
+		bb.Parent = head
+
+		d.nameLbl = Instance.new("TextLabel")
+		d.nameLbl.Size = UDim2.fromScale(1, 1)
+		d.nameLbl.BackgroundTransparency = 1
+		d.nameLbl.Font = Enum.Font.GothamBold
+		d.nameLbl.TextSize = 12
+		d.nameLbl.TextColor3 = espColor
+		d.nameLbl.TextStrokeTransparency = 0
+		d.nameLbl.TextStrokeColor3 = Color3.new(0,0,0)
+		d.nameLbl.Text = p.DisplayName
+		d.nameLbl.Visible = false
+		d.nameLbl.Parent = bb
+
+		-- ระยะ: BillboardGui ใต้ตัว
+		local bbDist = Instance.new("BillboardGui")
+		bbDist.Size = UDim2.fromOffset(180, 16)
+		bbDist.StudsOffset = Vector3.new(0, -3.5, 0)
+		bbDist.AlwaysOnTop = true
+		bbDist.ResetOnSpawn = false
+		bbDist.Enabled = false
+		bbDist.Parent = head
+
+		d.distLbl = Instance.new("TextLabel")
+		d.distLbl.Size = UDim2.fromScale(1, 1)
+		d.distLbl.BackgroundTransparency = 1
+		d.distLbl.Font = HUD_FONT
+		d.distLbl.TextSize = 11
+		d.distLbl.TextColor3 = espColor
+		d.distLbl.TextStrokeTransparency = 0
+		d.distLbl.TextStrokeColor3 = Color3.new(0,0,0)
+		d.distLbl.Text = ""
+		d.distLbl.Visible = false
+		d.distLbl.Parent = bbDist
+
+		d.bb = bb
+		d.bbDist = bbDist
 		espDrawings[p] = d
 	end
 
@@ -2407,6 +2463,28 @@ local function buildEye()
 		end)
 	end
 
+	-- helper: วาดเส้น 4 เส้นเป็นกรอบ
+	local function setBox4(lines, x, y, w, h, col, vis)
+		if not lines or #lines < 4 then return end
+		-- top, bottom, left, right
+		local pts = {
+			{Vector2.new(x,   y),   Vector2.new(x+w, y)},
+			{Vector2.new(x,   y+h), Vector2.new(x+w, y+h)},
+			{Vector2.new(x,   y),   Vector2.new(x,   y+h)},
+			{Vector2.new(x+w, y),   Vector2.new(x+w, y+h)},
+		}
+		for i, l in ipairs(lines) do
+			if l then
+				l.Visible = vis
+				if vis then
+					l.Color = col
+					l.From = pts[i][1]
+					l.To   = pts[i][2]
+				end
+			end
+		end
+	end
+
 	-- ===== MASTER RENDER LOOP =====
 	local function startESP()
 		onFrame(function()
@@ -2416,26 +2494,39 @@ local function buildEye()
 			-- FOV circle
 			if fovCircle then
 				fovCircle.Visible = espFovEnabled
-				fovCircle.Radius = espFovRadius
+				fovCircle.Radius  = espFovRadius
 				fovCircle.Position = ctr
+				fovCircle.Color   = espColor
 			end
 
 			for _, p in ipairs(Players:GetPlayers()) do
 				if p == LocalPlayer then continue end
-				-- ตรวจสอบ char
+
 				local char = p.Character
-				local hrp = getHRP(char)
-				if not hrp or not char then
-					removeESPDrawings(p)
+				local hrp  = getHRP(char)
+
+				-- ไม่มี char → ลบ drawings แล้วข้าม
+				if not char or not hrp then
+					local d = espDrawings[p]
+					if d then
+						setBox4(d.lines, 0,0,0,0, espColor, false)
+						if d.hpLines then for _, l in ipairs(d.hpLines) do if l then l.Visible = false end end end
+						if d.tracerLine then d.tracerLine.Visible = false end
+						if d.bb then d.bb.Enabled = false end
+						if d.bbDist then d.bbDist.Enabled = false end
+					end
 					continue
 				end
 
-				-- ต้องการอย่างน้อยหนึ่ง feature
 				local needESP = espNames or espDist or espLines or espBoxes or espHealth
 				if not needESP then
 					local d = espDrawings[p]
 					if d then
-						for _, obj in pairs(d) do pcall(function() obj.Visible = false end) end
+						setBox4(d.lines, 0,0,0,0, espColor, false)
+						if d.hpLines then for _, l in ipairs(d.hpLines) do if l then l.Visible = false end end end
+						if d.tracerLine then d.tracerLine.Visible = false end
+						if d.bb then d.bb.Enabled = false end
+						if d.bbDist then d.bbDist.Enabled = false end
 					end
 					continue
 				end
@@ -2444,79 +2535,84 @@ local function buildEye()
 				local d = espDrawings[p]
 				if not d then continue end
 
-				-- หา bounding box 2D จาก HumanoidRootPart
-				local head = char:FindFirstChild("Head") or hrp
+				-- พิกัด 2D
+				local head   = char:FindFirstChild("Head") or hrp
 				local spHead, inView = worldToVP(head.Position)
-				local spFoot, _ = worldToVP(hrp.Position + Vector3.new(0, -3, 0))
-				local spTop, _ = worldToVP(head.Position + Vector3.new(0, 1.2, 0))
+				local spFoot = worldToVP(hrp.Position + Vector3.new(0, -3.2, 0))
+				local spTop  = worldToVP(head.Position + Vector3.new(0, 1.4, 0))
 
 				if not inView then
-					for _, obj in pairs(d) do pcall(function() obj.Visible = false end) end
+					setBox4(d.lines, 0,0,0,0, espColor, false)
+					if d.hpLines then for _, l in ipairs(d.hpLines) do if l then l.Visible = false end end end
+					if d.tracerLine then d.tracerLine.Visible = false end
+					if d.bb    then d.bb.Enabled = false end
+					if d.bbDist then d.bbDist.Enabled = false end
 					continue
 				end
 
-				-- คำนวณ box
-				local boxH = math.max(math.abs(spTop.Y - spFoot.Y), 20)
-				local boxW = boxH * 0.55
-				local boxX = spHead.X - boxW / 2
+				-- ขนาดกรอบ
+				local boxH = math.max(math.abs(spTop.Y - spFoot.Y), 24)
+				local boxW = boxH * 0.6
+				local boxX = spHead.X - boxW * 0.5
 				local boxY = spTop.Y
 
-				-- Box
-				if d.box then
-					d.box.Visible = espBoxes
-					d.box.Color = espColor
-					if espBoxes then
-						d.box.Position = Vector2.new(boxX, boxY)
-						d.box.Size = Vector2.new(boxW, boxH)
+				-- กรอบ 4 เส้น
+				setBox4(d.lines, boxX, boxY, boxW, boxH, espColor, espBoxes)
+
+				-- HP bar (เส้น 2 เส้นแนวตั้ง ชิดซ้าย)
+				if d.hpLines and #d.hpLines >= 2 then
+					local hpBgLine   = d.hpLines[1]
+					local hpFillLine = d.hpLines[2]
+					local barX = boxX - 5
+					if hpBgLine then
+						hpBgLine.Visible = espHealth
+						if espHealth then
+							hpBgLine.From = Vector2.new(barX, boxY)
+							hpBgLine.To   = Vector2.new(barX, boxY + boxH)
+						end
+					end
+					if hpFillLine then
+						hpFillLine.Visible = espHealth
+						if espHealth then
+							local hp, maxhp = getHP(char)
+							local ratio = math.clamp(hp / maxhp, 0, 1)
+							local r2 = math.floor((1 - ratio) * 255)
+							local g2 = math.floor(ratio * 220)
+							hpFillLine.Color = Color3.fromRGB(r2, g2, 40)
+							hpFillLine.From = Vector2.new(barX, boxY + boxH * (1 - ratio))
+							hpFillLine.To   = Vector2.new(barX, boxY + boxH)
+						end
 					end
 				end
 
-				-- HP bar (ซ้ายกรอบ, กว้าง 4px)
-				if d.hpBg and d.hpFill then
-					d.hpBg.Visible = espHealth
-					d.hpFill.Visible = espHealth
-					if espHealth then
-						local hp, maxhp = getHP(char)
-						local ratio = math.clamp(hp / maxhp, 0, 1)
-						local barX = boxX - 6
-						d.hpBg.Position  = Vector2.new(barX, boxY)
-						d.hpBg.Size      = Vector2.new(4, boxH)
-						d.hpFill.Position = Vector2.new(barX, boxY + boxH * (1 - ratio))
-						d.hpFill.Size    = Vector2.new(4, boxH * ratio)
-						local r2 = math.floor((1 - ratio) * 255)
-						local g2 = math.floor(ratio * 220)
-						d.hpFill.Color = Color3.fromRGB(r2, g2, 40)
+				-- tracer line
+				if d.tracerLine then
+					d.tracerLine.Visible = espLines
+					if espLines then
+						d.tracerLine.Color = espColor
+						d.tracerLine.From  = Vector2.new(ctr.X, 0)
+						d.tracerLine.To    = spHead
 					end
 				end
 
-				-- ชื่อ (เหนือกรอบ)
-				if d.name then
-					d.name.Visible = espNames
+				-- ชื่อ (BillboardGui)
+				if d.bb and d.nameLbl then
+					d.bb.Enabled     = espNames
+					d.nameLbl.Visible = espNames
 					if espNames then
-						d.name.Text = p.DisplayName
-						d.name.Color = espColor
-						d.name.Position = Vector2.new(spHead.X, boxY - 16)
+						d.nameLbl.Text       = p.DisplayName
+						d.nameLbl.TextColor3 = espColor
 					end
 				end
 
-				-- ระยะ (ใต้กรอบ)
-				if d.dist then
-					d.dist.Visible = espDist
+				-- ระยะ (BillboardGui)
+				if d.bbDist and d.distLbl then
+					d.bbDist.Enabled  = espDist
+					d.distLbl.Visible = espDist
 					if espDist then
 						local dist = distTo(p)
-						d.dist.Text = string.format("%.0f  (%s)", dist, stepsStr(dist))
-						d.dist.Color = espColor
-						d.dist.Position = Vector2.new(spHead.X, boxY + boxH + 2)
-					end
-				end
-
-				-- เส้น
-				if d.line then
-					d.line.Visible = espLines
-					if espLines then
-						d.line.Color = espColor
-						d.line.From = Vector2.new(ctr.X, 0)
-						d.line.To = spHead
+						d.distLbl.Text       = string.format("%.0f st  (%s)", dist, stepsStr(dist))
+						d.distLbl.TextColor3 = espColor
 					end
 				end
 			end
@@ -2553,34 +2649,54 @@ local function buildEye()
 	section("// ESP", "// ESP")
 
 	-- สีตัวเลือก ESP
+	local espSelectedIdx = 1
 	do
 		local espColors = {
-			{"ขาว", Color3.fromRGB(255,255,255)},
-			{"เหลือง", Color3.fromRGB(255,220,0)},
-			{"แดง", Color3.fromRGB(255,60,60)},
+			{"ขาว",   Color3.fromRGB(255,255,255)},
+			{"เหลือง",Color3.fromRGB(255,220,0)},
+			{"แดง",   Color3.fromRGB(255,60,60)},
 			{"เขียว", Color3.fromRGB(60,220,100)},
-			{"ฟ้า", Color3.fromRGB(60,180,255)},
-			{"ม่วง", Color3.fromRGB(180,100,255)},
+			{"ฟ้า",   Color3.fromRGB(60,180,255)},
+			{"ม่วง",  Color3.fromRGB(180,100,255)},
 		}
-		local r = row(52)
+		local r = row(58)
 		tr(mkLabel(r, 12, 5, 260, 14, "", 12), "สี ESP", "ESP color")
-		local espColorRings = {}
+		local espBtns = {}
+		local function refreshESPColors()
+			for i, b in ipairs(espBtns) do
+				local sel = (i == espSelectedIdx)
+				b.Text = sel and "✓" or ""
+				b.TextColor3 = onAccentText(espColors[i][2])
+				b.TextSize = 14
+				-- ขอบ: เลือก = ขาวหนา, ไม่เลือก = มืดบาง
+				local st = b:FindFirstChildOfClass("UIStroke")
+				if st then
+					st.Color = sel and Color3.fromRGB(255,255,255) or Color3.fromRGB(60,60,60)
+					st.Thickness = sel and 2.5 or 1
+					st.Transparency = 0
+				end
+			end
+		end
 		for i, ec in ipairs(espColors) do
 			local b = new("TextButton", {
-				Position = UDim2.fromOffset(10 + (i-1)*34, 24),
-				Size = UDim2.fromOffset(26, 26),
+				Position = UDim2.fromOffset(10 + (i-1)*36, 24),
+				Size = UDim2.fromOffset(28, 28),
 				BackgroundColor3 = ec[2], Text = "",
+				Font = Enum.Font.GothamBold,
 				AutoButtonColor = false, ZIndex = 5,
 			}, r)
-			corner(b, 13)
-			espColorRings[i] = stroke(b, WHITE, (i == 1) and 0 or 1, 2)
+			corner(b, 6)
+			stroke(b, Color3.fromRGB(60,60,60), 0, 1)
+			espBtns[i] = b
 			local idx = i
 			b.MouseButton1Click:Connect(function()
+				espSelectedIdx = idx
 				espColor = espColors[idx][2]
-				for j, st in ipairs(espColorRings) do st.Transparency = (j == idx) and 0 or 1 end
+				refreshESPColors()
 				sfx("click", nil, 1.6)
 			end)
 		end
+		refreshESPColors()
 	end
 
 	toggle("แสดงชื่อผู้เล่น", "Show names", false, function(v) espNames = v end)
@@ -2619,33 +2735,50 @@ local function buildEye()
 	section("// Hitbox", "// Hitbox")
 
 	-- สี Hitbox
+	local hbSelectedIdx = 1
 	do
 		local hbColors = {
-			{"แดง",  Color3.fromRGB(255,60,60)},
-			{"ส้ม",  Color3.fromRGB(255,140,0)},
-			{"เหลือง", Color3.fromRGB(255,220,0)},
+			{"แดง",   Color3.fromRGB(255,60,60)},
+			{"ส้ม",   Color3.fromRGB(255,140,0)},
+			{"เหลือง",Color3.fromRGB(255,220,0)},
 			{"เขียว", Color3.fromRGB(60,220,100)},
-			{"ฟ้า",  Color3.fromRGB(60,180,255)},
-			{"ม่วง", Color3.fromRGB(180,100,255)},
+			{"ฟ้า",   Color3.fromRGB(60,180,255)},
+			{"ม่วง",  Color3.fromRGB(180,100,255)},
 		}
-		local r = row(52)
+		local r = row(58)
 		tr(mkLabel(r, 12, 5, 260, 14, "", 12), "สี Hitbox", "Hitbox color")
-		local hbColorRings = {}
+		local hbBtns = {}
+		local function refreshHBColors()
+			for i, b in ipairs(hbBtns) do
+				local sel = (i == hbSelectedIdx)
+				b.Text = sel and "✓" or ""
+				b.TextColor3 = onAccentText(hbColors[i][2])
+				b.TextSize = 14
+				local st = b:FindFirstChildOfClass("UIStroke")
+				if st then
+					st.Color = sel and Color3.fromRGB(255,255,255) or Color3.fromRGB(60,60,60)
+					st.Thickness = sel and 2.5 or 1
+					st.Transparency = 0
+				end
+			end
+		end
 		for i, ec in ipairs(hbColors) do
 			local b = new("TextButton", {
-				Position = UDim2.fromOffset(10 + (i-1)*34, 24),
-				Size = UDim2.fromOffset(26, 26),
+				Position = UDim2.fromOffset(10 + (i-1)*36, 24),
+				Size = UDim2.fromOffset(28, 28),
 				BackgroundColor3 = ec[2], Text = "",
+				Font = Enum.Font.GothamBold,
 				AutoButtonColor = false, ZIndex = 5,
 			}, r)
-			corner(b, 13)
-			hbColorRings[i] = stroke(b, WHITE, (i == 1) and 0 or 1, 2)
+			corner(b, 6)
+			stroke(b, Color3.fromRGB(60,60,60), 0, 1)
+			hbBtns[i] = b
 			local idx = i
 			b.MouseButton1Click:Connect(function()
+				hbSelectedIdx = idx
 				hitboxColor = hbColors[idx][2]
-				for j, st in ipairs(hbColorRings) do st.Transparency = (j == idx) and 0 or 1 end
+				refreshHBColors()
 				sfx("click", nil, 1.6)
-				-- อัปเดต part ที่มีอยู่
 				for _, p2 in ipairs(Players:GetPlayers()) do
 					if hitboxParts[p2] then
 						local pt = hitboxParts[p2][1]
@@ -2654,6 +2787,7 @@ local function buildEye()
 				end
 			end)
 		end
+		refreshHBColors()
 	end
 
 	toggle("เปิด Hitbox", "Enable Hitbox", false, function(v)
