@@ -2145,6 +2145,288 @@ local function buildCategory(name, th, en)
 	tr(note, "ยังไม่มีเมนูในหมวดนี้", "No items in this category yet")
 end
 
+-- ===================== FAKE IDENTITY =====================
+local function buildFake()
+	local P      = Pages["fake"]
+	local tint   = CAT_TINT["fake"] or Color3.fromRGB(90,90,220)
+	local CW     = 384
+	local order  = 0
+	local function nextOrder() order = order + 1 return order end
+
+	local function section(th, en)
+		local h2 = new("Frame", {Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1,
+			LayoutOrder = nextOrder(), ZIndex = 5}, P)
+		local bar2 = new("Frame", {Position = UDim2.fromOffset(2, 5), Size = UDim2.fromOffset(3, 12),
+			BackgroundColor3 = tint, BorderSizePixel = 0, ZIndex = 5}, h2)
+		corner(bar2, 2)
+		tr(mkLabel(h2, 12, 4, 300, 14, "", 10, tint, TITLE_FONT), "// " .. th, "// " .. en)
+	end
+
+	local function row(h2)
+		local f = new("Frame", {Size = UDim2.new(1, 0, 0, h2), BackgroundTransparency = 1,
+			LayoutOrder = nextOrder(), ZIndex = 5}, P)
+		return f
+	end
+
+	-- ===== หัวเรื่อง =====
+	section("ปลอมตัวตน (เห็นแค่เรา)", "Fake Identity (local only)")
+
+	-- toggle master
+	local function mkToggle(parent, ox, oy, state, cb)
+		local BW, BH = 44, 22
+		local bg2 = new("Frame", {
+			Position = UDim2.fromOffset(ox, oy), Size = UDim2.fromOffset(BW, BH),
+			BackgroundColor3 = state and tint or Color3.fromRGB(50,50,50),
+			BorderSizePixel = 0, ZIndex = 7,
+		}, parent)
+		corner(bg2, BH/2)
+		local dot = new("Frame", {
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.fromOffset(state and (BW-BH+2) or 2, BH/2),
+			Size = UDim2.fromOffset(BH-4, BH-4),
+			BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 8,
+		}, bg2)
+		corner(dot, (BH-4)/2)
+		local btn = new("TextButton", {
+			Size = UDim2.fromScale(1,1), BackgroundTransparency = 1,
+			Text = "", ZIndex = 9,
+		}, bg2)
+		local curSt = state
+		btn.MouseButton1Click:Connect(function()
+			curSt = not curSt
+			bg2.BackgroundColor3 = curSt and tint or Color3.fromRGB(50,50,50)
+			dot.Position = UDim2.fromOffset(curSt and (BW-BH+2) or 2, BH/2)
+			cb(curSt)
+			sfx("click", nil, 1.5)
+		end)
+		return bg2
+	end
+
+	-- ===== ปุ่มรวม เปิด/ปิด fake identity =====
+	do
+		local r = row(36)
+		mkLabel(r, 12, 10, 200, 16, "เปิดใช้งาน Fake Identity", 12, WHITE, Enum.Font.GothamBold)
+		mkToggle(r, CW - 70, 7, false, function(v)
+			fakeEnabled = v
+			if v then
+				applyFakeBody()
+				applyFakeNameTag()
+			else
+				-- คืนค่าทุกอย่าง
+				fakeLimbsOff = false
+				fakeHeadOff  = false
+				applyFakeBody()
+				if fakeNameBB then pcall(function() fakeNameBB:Destroy() end) end
+				fakeNameBB, fakeNameLbl = nil, nil
+			end
+		end)
+	end
+
+	-- ===== ซ่อนขากุด (แขน-ขา) =====
+	section("ร่างกายปลอม", "Fake Body")
+	do
+		local r = row(36)
+		mkLabel(r, 12, 10, 240, 16, "ซ่อนแขน-ขา (ท่าลอย)", 12, WHITE, FONT)
+		mkToggle(r, CW - 70, 7, false, function(v)
+			fakeLimbsOff = v
+			if fakeEnabled then applyFakeBody() end
+		end)
+	end
+	do
+		local r = row(36)
+		mkLabel(r, 12, 10, 240, 16, "ซ่อนหัว (หัวหาย)", 12, WHITE, FONT)
+		mkToggle(r, CW - 70, 7, false, function(v)
+			fakeHeadOff = v
+			if fakeEnabled then applyFakeBody() end
+		end)
+	end
+
+	-- ===== ชื่อปลอม + ✓ ฟ้า =====
+	section("ชื่อปลอม + ✓ ฟ้า", "Fake Name + Verified")
+	do
+		-- แสดง nametag toggle
+		local r = row(36)
+		mkLabel(r, 12, 10, 200, 16, "แสดง nametag ปลอมบนหัว", 12, WHITE, FONT)
+		mkToggle(r, CW - 70, 7, false, function(v)
+			fakeShowNameTag = v
+			if fakeEnabled then applyFakeNameTag() end
+		end)
+	end
+	do
+		-- verified ✓ ฟ้า
+		local r = row(36)
+		mkLabel(r, 12, 10, 200, 16, "แสดง ✓ ฟ้า (Verified)", 12, WHITE, FONT)
+		mkToggle(r, CW - 70, 7, true, function(v)
+			fakeVerified = v
+			if fakeEnabled and fakeShowNameTag then applyFakeNameTag() end
+		end)
+	end
+	do
+		-- input ชื่อปลอม
+		local r = row(50)
+		mkLabel(r, 12, 2, 200, 14, "ชื่อปลอม (ว่าง = ชื่อจริง)", 11, GRAY, HUD_FONT)
+		local box = new("TextBox", {
+			Position = UDim2.fromOffset(10, 20),
+			Size     = UDim2.fromOffset(CW - 80, 24),
+			BackgroundColor3 = Color3.fromRGB(30,30,30),
+			BackgroundTransparency = 0,
+			BorderSizePixel = 0,
+			Font = Enum.Font.GothamBold,
+			TextSize = 13,
+			TextColor3 = WHITE,
+			PlaceholderText = LocalPlayer.DisplayName .. " (ชื่อจริง)",
+			Text  = "",
+			ClearTextOnFocus = false,
+			ZIndex = 7,
+		}, r)
+		corner(box, 6)
+		stroke(box, tint, 0.4, 1)
+		local applyBtn = new("TextButton", {
+			Position = UDim2.fromOffset(CW - 65, 20),
+			Size     = UDim2.fromOffset(50, 24),
+			BackgroundColor3 = tint,
+			BackgroundTransparency = 0.1,
+			Font = Enum.Font.GothamBold,
+			TextSize = 11,
+			TextColor3 = WHITE,
+			Text = "ใส่",
+			ZIndex = 7,
+		}, r)
+		corner(applyBtn, 6)
+		applyBtn.MouseButton1Click:Connect(function()
+			fakeName = box.Text or ""
+			if fakeEnabled and fakeShowNameTag then applyFakeNameTag() end
+			sfx("click", nil, 1.5)
+		end)
+	end
+
+	-- ===== ตกแต่งฟอนต์ชื่อ =====
+	section("ตกแต่งฟอนต์ชื่อ", "Name Font Style")
+	do
+		local fonts = {
+			{"GothamBold",  Enum.Font.GothamBold},
+			{"Gotham",      Enum.Font.Gotham},
+			{"Arcade",      Enum.Font.Arcade},
+			{"Fantasy",     Enum.Font.Fantasy},
+			{"Antique",     Enum.Font.Antique},
+			{"Code",        Enum.Font.Code},
+			{"SciFi",       Enum.Font.SciFi},
+		}
+		local r = row(50)
+		mkLabel(r, 12, 2, 200, 14, "ฟอนต์", 11, GRAY, HUD_FONT)
+		local selFont = 1
+		local fontBtns = {}
+		local function refreshFonts()
+			for i, b in ipairs(fontBtns) do
+				local sel = (i == selFont)
+				b.BackgroundColor3 = sel and tint or Color3.fromRGB(40,40,40)
+				b.Font = fonts[i][2]
+			end
+		end
+		local cols = 4
+		for i, fd in ipairs(fonts) do
+			local col = (i-1) % cols
+			local row2 = math.floor((i-1) / cols)
+			local b = new("TextButton", {
+				Position = UDim2.fromOffset(10 + col * 88, 18 + row2 * 28),
+				Size     = UDim2.fromOffset(84, 24),
+				BackgroundColor3 = Color3.fromRGB(40,40,40),
+				Font = fd[2], TextSize = 11,
+				TextColor3 = WHITE, Text = fd[1],
+				AutoButtonColor = false, ZIndex = 7,
+			}, r)
+			corner(b, 5)
+			fontBtns[i] = b
+			b.MouseButton1Click:Connect(function()
+				selFont = i
+				fakeNameFont = fd[2]
+				refreshFonts()
+				if fakeEnabled and fakeShowNameTag then applyFakeNameTag() end
+				sfx("click", nil, 1.5)
+			end)
+		end
+		r.Size = UDim2.new(1, 0, 0, 18 + math.ceil(#fonts / cols) * 28)
+		refreshFonts()
+	end
+	do
+		-- ขนาดฟอนต์
+		local r = row(42)
+		mkLabel(r, 12, 2, 200, 14, "ขนาดฟอนต์ชื่อ", 11, GRAY, HUD_FONT)
+		local sizeVals = {10, 12, 14, 16, 18, 22}
+		local selSz = 3  -- default 14
+		local szBtns = {}
+		local function refreshSizes()
+			for i, b in ipairs(szBtns) do
+				b.BackgroundColor3 = (i == selSz) and tint or Color3.fromRGB(40,40,40)
+			end
+		end
+		for i, sz in ipairs(sizeVals) do
+			local b = new("TextButton", {
+				Position = UDim2.fromOffset(10 + (i-1)*50, 18),
+				Size = UDim2.fromOffset(44, 22),
+				BackgroundColor3 = Color3.fromRGB(40,40,40),
+				Font = Enum.Font.GothamBold, TextSize = 11,
+				TextColor3 = WHITE, Text = tostring(sz),
+				AutoButtonColor = false, ZIndex = 7,
+			}, r)
+			corner(b, 5)
+			szBtns[i] = b
+			b.MouseButton1Click:Connect(function()
+				selSz = i
+				fakeNameSize = sz
+				refreshSizes()
+				if fakeEnabled and fakeShowNameTag then applyFakeNameTag() end
+				sfx("click", nil, 1.5)
+			end)
+		end
+		refreshSizes()
+	end
+
+	-- ===== สีชื่อ =====
+	do
+		local nameColors = {
+			{"ขาว",  Color3.fromRGB(255,255,255)},
+			{"ฟ้า",  Color3.fromRGB(80,180,255)},
+			{"เขียว",Color3.fromRGB(80,220,100)},
+			{"ทอง",  Color3.fromRGB(255,200,60)},
+			{"ชมพู", Color3.fromRGB(255,100,180)},
+			{"แดง",  Color3.fromRGB(255,80,80)},
+		}
+		local r = row(50)
+		mkLabel(r, 12, 2, 200, 14, "สีชื่อ", 11, GRAY, HUD_FONT)
+		local selNC = 1
+		local ncBtns = {}
+		local function refreshNC()
+			for i, b in ipairs(ncBtns) do
+				local st2 = b:FindFirstChildOfClass("UIStroke")
+				if st2 then st2.Thickness = (i == selNC) and 2.5 or 1 end
+			end
+		end
+		for i, nc in ipairs(nameColors) do
+			local b = new("TextButton", {
+				Position = UDim2.fromOffset(10 + (i-1)*46, 18),
+				Size     = UDim2.fromOffset(40, 22),
+				BackgroundColor3 = nc[2],
+				Font = Enum.Font.GothamBold, TextSize = 10,
+				TextColor3 = WHITE, Text = nc[1],
+				AutoButtonColor = false, ZIndex = 7,
+			}, r)
+			corner(b, 5)
+			stroke(b, WHITE, 0.6, 1)
+			ncBtns[i] = b
+			b.MouseButton1Click:Connect(function()
+				selNC = i
+				fakeNameColor = nc[2]
+				refreshNC()
+				if fakeEnabled and fakeShowNameTag then applyFakeNameTag() end
+				sfx("click", nil, 1.5)
+			end)
+		end
+		refreshNC()
+	end
+
+end
+
 -- ===================== GOD EYE (ดวงตาเทพ) =====================
 local function buildEye()
 	local P = Pages["eye"]
@@ -2230,7 +2512,7 @@ local function buildEye()
 	local espLines       = false
 	local espBoxes       = false
 	local espHealth      = false
-	local espColor       = Color3.fromRGB(255, 255, 255)   -- สีหลัก ESP (ปรับได้)
+	local espColor       = Color3.fromRGB(255, 255, 255)
 	local espFovEnabled  = false
 	local espFovRadius   = 120
 	local aimEnabled     = false
@@ -2241,11 +2523,82 @@ local function buildEye()
 	local hitboxColor    = Color3.fromRGB(255, 60, 60)
 	local noTeamlock     = true
 	local noSelflock     = true
-	-- multi-lock: table ของผู้เล่นที่ถูกล็อก
 	local lockedTargets  = {}
-	-- Drawing objects per player  { box, hpBg, hpFill, nameDraw, distDraw, line }
 	local espDrawings    = {}
 	local hitboxParts    = {}
+
+	-- ===== FAKE IDENTITY STATE =====
+	local fakeEnabled      = false   -- เปิด/ปิด fake identity ทั้งหมด
+	local fakeName         = ""      -- ชื่อปลอม (ถ้าว่างใช้ชื่อจริง)
+	local fakeVerified     = true    -- แสดง ✓ ฟ้า
+	local fakeLimbsOff     = false   -- ซ่อนแขน-ขา (ท่าลอย)
+	local fakeHeadOff      = false   -- ซ่อนหัว
+	local fakeNameFont     = Enum.Font.GothamBold  -- ฟอนต์ชื่อปลอม
+	local fakeNameSize     = 14
+	local fakeNameColor    = Color3.fromRGB(255,255,255)
+	local fakeShowNameTag  = false   -- แสดง nametag ปลอมบนหัว (เห็นแค่เรา)
+
+	-- อวัยวะที่ซ่อนได้
+	local LIMB_PARTS = {"LeftUpperArm","RightUpperArm","LeftLowerArm","RightLowerArm",
+	                    "LeftHand","RightHand","LeftUpperLeg","RightUpperLeg",
+	                    "LeftLowerLeg","RightLowerLeg","LeftFoot","RightFoot"}
+
+	-- BillboardGui nametag ปลอม (เห็นเฉพาะ local)
+	local fakeNameBB    -- สร้างตอน apply
+	local fakeNameLbl
+
+	local function applyFakeBody()
+		local char = LocalPlayer.Character
+		if not char then return end
+		for _, pname in ipairs(LIMB_PARTS) do
+			local p = char:FindFirstChild(pname)
+			if p and p:IsA("BasePart") then
+				p.LocalTransparencyModifier = fakeLimbsOff and 1 or 0
+			end
+		end
+		local head = char:FindFirstChild("Head")
+		if head then
+			head.LocalTransparencyModifier = fakeHeadOff and 1 or 0
+		end
+	end
+
+	local function applyFakeNameTag()
+		-- ลบอันเก่า
+		if fakeNameBB then pcall(function() fakeNameBB:Destroy() end) end
+		fakeNameBB, fakeNameLbl = nil, nil
+		if not fakeShowNameTag then return end
+		local char = LocalPlayer.Character
+		local head = char and char:FindFirstChild("Head")
+		if not head then return end
+		fakeNameBB = Instance.new("BillboardGui")
+		fakeNameBB.Size = UDim2.fromOffset(220, 30)
+		fakeNameBB.StudsOffset = Vector3.new(0, 2.5, 0)
+		fakeNameBB.AlwaysOnTop = false
+		fakeNameBB.ResetOnSpawn = false
+		fakeNameBB.Parent = head
+		fakeNameLbl = Instance.new("TextLabel")
+		fakeNameLbl.Size = UDim2.fromScale(1,1)
+		fakeNameLbl.BackgroundTransparency = 1
+		fakeNameLbl.Font = fakeNameFont
+		fakeNameLbl.TextSize = fakeNameSize
+		fakeNameLbl.TextColor3 = fakeNameColor
+		fakeNameLbl.TextStrokeTransparency = 0
+		fakeNameLbl.TextStrokeColor3 = Color3.new(0,0,0)
+		local dispName = (fakeName ~= "") and fakeName or LocalPlayer.DisplayName
+		local badge = fakeVerified and " ✓" or ""
+		fakeNameLbl.RichText = true
+		fakeNameLbl.Text = dispName .. (fakeVerified and ' <font color="#00aaff">✓</font>' or "")
+		fakeNameLbl.Parent = fakeNameBB
+	end
+
+	-- เมื่อ character respawn ให้ apply ใหม่
+	LocalPlayer.CharacterAdded:Connect(function()
+		task.wait(0.5)
+		if fakeEnabled then
+			applyFakeBody()
+			applyFakeNameTag()
+		end
+	end)
 
 	-- ===== HELPERS =====
 	local cam = workspace.CurrentCamera
@@ -2421,17 +2774,17 @@ local function buildEye()
 		end
 	end
 
-	-- helper: HP bar (2 เส้นแนวตั้ง ซ้ายกรอบ)
+	-- helper: HP bar — แถบ 3px ซ้ายกรอบ (ไม่มี bg ดำ, ไล่สีแดง→เขียว)
 	local function mkHpFrames(parent)
+		-- bg: พื้นดำโปร่งแสง 60%
 		local bg = new("Frame", {
-			BackgroundColor3 = Color3.fromRGB(20,20,20),
-			BackgroundTransparency = 0,
+			BackgroundColor3 = Color3.fromRGB(0,0,0),
+			BackgroundTransparency = 0.6,
 			BorderSizePixel = 0,
 			Visible = false,
 			ZIndex = 53,
 		}, parent)
 		local fill = new("Frame", {
-			AnchorPoint = Vector2.new(0, 1),
 			BackgroundColor3 = Color3.fromRGB(80,220,80),
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
@@ -2442,16 +2795,20 @@ local function buildEye()
 	end
 	local function setHpBar(bg, fill, x, y, h, ratio, vis)
 		local W = 3
-		bg.Visible  = vis
+		local GAP = 2  -- ระยะห่างจากกรอบ
+		bg.Visible   = vis
 		fill.Visible = vis
 		if vis then
-			bg.Position = UDim2.fromOffset(x - W - 2, y)
+			-- bg: เต็มความสูงกรอบ
+			bg.Position = UDim2.fromOffset(x - W - GAP, y)
 			bg.Size     = UDim2.fromOffset(W, h)
-			local r2 = math.floor((1-ratio)*255)
-			local g2 = math.floor(ratio*220)
+			-- fill: จากล่างขึ้น ตาม ratio
+			local r2 = math.floor((1 - ratio) * 255)
+			local g2 = math.floor(ratio * 220)
 			fill.BackgroundColor3 = Color3.fromRGB(r2, g2, 40)
-			fill.Position = UDim2.fromOffset(x - W - 2, y + h*(1-ratio))
-			fill.Size     = UDim2.fromOffset(W, h*ratio)
+			local fillH = math.max(h * ratio, 1)
+			fill.Position = UDim2.fromOffset(x - W - GAP, y + (h - fillH))
+			fill.Size     = UDim2.fromOffset(W, fillH)
 		end
 	end
 
@@ -2688,10 +3045,10 @@ local function buildEye()
 					if d.hpFillF then d.hpFillF.Visible = false end
 				end
 
-				-- tracer (Frame หมุน จากกลางล่างจอ → หัว)
+				-- tracer (Frame หมุน จากกลางบนจอ → หัว)
 				if d.tracerF then
 					if espLines then
-						setLine(d.tracerF, ctr.X, vpNow.Y, spHead.X, spHead.Y, espColor)
+						setLine(d.tracerF, ctr.X, 0, spHead.X, spHead.Y, espColor)
 					else
 						d.tracerF.Visible = false
 					end
@@ -2830,7 +3187,7 @@ local function buildEye()
 
 	toggle("แสดงชื่อผู้เล่น", "Show names", false, function(v) espNames = v end)
 	toggle("แสดงระยะห่าง (สเต็ก)", "Show distance (steps)", false, function(v) espDist = v end)
-	toggle("เส้นลากจากบนจอ → หัว", "Head lines from top", false, function(v) espLines = v end)
+	toggle("เส้นลากจากบนจอกลาง → หัว", "Head tracer from top-center", false, function(v) espLines = v end)
 	toggle("กรอบสีเหลี่ยม", "ESP boxes", false, function(v) espBoxes = v end)
 	toggle("แถบ HP", "Health bar", false, function(v) espHealth = v end)
 
