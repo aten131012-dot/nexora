@@ -2298,111 +2298,173 @@ local function buildEye()
 		return tostring(math.floor(dist / 3)) .. " steps"
 	end
 
-	-- Drawing helper: สร้าง Drawing object แบบ pcall
-	-- Drawing availability check
-	local hasDrawing = pcall(function()
-		local t = Drawing.new("Line"); t:Remove()
-	end)
-
-	-- สร้าง Drawing.new("Line") แบบ pcall
-	local function mkLine()
-		if not hasDrawing then return nil end
-		local ok, d = pcall(function()
-			local l = Drawing.new("Line")
-			l.Visible = false
-			l.Thickness = 1.5
-			l.Color = espColor
-			l.Transparency = 0
-			return l
-		end)
-		return ok and d or nil
-	end
-
-	-- ===== FOV CIRCLE =====
-	local fovCircle
+	-- ===== FOV CIRCLE — ScreenGui Frame + UICorner =====
+	-- ใช้ Frame วงกลม (UICorner radius 50%) แทน Drawing.new("Circle")
+	local fovFrame
 	do
-		local ok, d = pcall(function()
-			local c = Drawing.new("Circle")
-			c.Visible = false
-			c.Thickness = 1.5
-			c.Color = Color3.fromRGB(255, 255, 255)
-			c.Transparency = 0
-			c.Filled = false
-			c.NumSides = 64
-			c.Radius = espFovRadius
-			c.Position = Vector2.new(vp.X / 2, vp.Y / 2)
-			return c
-		end)
-		fovCircle = ok and d or nil
+		local fovGui = new("ScreenGui", {
+			Name = "NEXORA_FOV",
+			ResetOnSpawn = false,
+			IgnoreGuiInset = true,
+			DisplayOrder = 55,
+		}, nil)
+		pcall(function() fovGui.Parent = gethui() end)
+		if not fovGui.Parent then
+			fovGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+		end
+		local sz = espFovRadius * 2
+		fovFrame = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Size        = UDim2.fromOffset(sz, sz),
+			Position    = UDim2.fromOffset(vp.X / 2, vp.Y / 2),
+			BackgroundColor3 = Color3.new(1,1,1),
+			BackgroundTransparency = 0.7,
+			BorderSizePixel = 0,
+			Visible = false,
+			ZIndex  = 55,
+		}, fovGui)
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = fovFrame
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.new(1,1,1)
+		stroke.Thickness = 1.5
+		stroke.Transparency = 0
+		stroke.Parent = fovFrame
+		-- ให้ inside โปร่งใส
+		fovFrame.BackgroundTransparency = 1
 	end
 
-	-- ===== ESP PER-PLAYER: 4 Lines (box) + BillboardGui (name/dist/hp) =====
+	-- ===== ESP PER-PLAYER (BillboardGui + ScreenGui Frame ล้วน) =====
+	-- ===== ESP ทั้งหมดใช้ BillboardGui ล้วน (ไม่พึ่ง Drawing API) =====
+	-- ScreenGui overlay สำหรับ tracer line + 2D box + HP bar
+	local espOverlay = new("ScreenGui", {
+		Name = "NEXORA_ESP_OVERLAY",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 50,
+	}, nil)
+	pcall(function() espOverlay.Parent = gethui() end)
+	if not espOverlay.Parent then
+		espOverlay.Parent = LocalPlayer:WaitForChild("PlayerGui")
+	end
+
+	-- tracer container (เส้น 1px จากกลางล่างจอ → หัวผู้เล่น)
+	-- ทำโดยใช้ Frame หมุน
+	local tracerContainer = new("Frame", {
+		Size = UDim2.fromScale(1,1),
+		BackgroundTransparency = 1,
+		ZIndex = 51,
+	}, espOverlay)
+
+	-- box + hp container (overlay บน ScreenGui)
+	local boxContainer = new("Frame", {
+		Size = UDim2.fromScale(1,1),
+		BackgroundTransparency = 1,
+		ZIndex = 52,
+	}, espOverlay)
+
+	-- helper: Frame เส้นบางๆ วางตำแหน่งระหว่าง 2 จุด
+	local function mkTracerLine(parent)
+		local f = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundColor3 = Color3.new(1,1,1),
+			BackgroundTransparency = 0,
+			BorderSizePixel = 0,
+			Visible = false,
+			ZIndex = 51,
+		}, parent)
+		return f
+	end
+	local function setLine(f, x1, y1, x2, y2, col)
+		local dx, dy = x2-x1, y2-y1
+		local len = math.sqrt(dx*dx + dy*dy)
+		local angle = math.deg(math.atan2(dy, dx))
+		f.Position = UDim2.fromOffset(x1, y1)
+		f.Size = UDim2.fromOffset(len, 1)
+		f.Rotation = angle
+		f.BackgroundColor3 = col or Color3.new(1,1,1)
+		f.Visible = true
+	end
+
+	-- helper: Box (4 เส้นขอบ) ใน boxContainer
+	local function mkBoxFrames(parent)
+		local frames = {}
+		for _ = 1, 4 do
+			local f = new("Frame", {
+				BackgroundColor3 = Color3.new(1,1,1),
+				BackgroundTransparency = 0,
+				BorderSizePixel = 0,
+				Visible = false,
+				ZIndex = 52,
+			}, parent)
+			frames[#frames+1] = f
+		end
+		return frames
+	end
+	local function setBox(frames, x, y, w, h, col, vis)
+		if not frames or #frames < 4 then return end
+		local T = 1 -- thickness px
+		local pts = {
+			{x,     y,     w,  T},   -- top
+			{x,     y+h-T, w,  T},   -- bottom
+			{x,     y,     T,  h},   -- left
+			{x+w-T, y,     T,  h},   -- right
+		}
+		for i, f in ipairs(frames) do
+			f.Visible = vis
+			if vis then
+				f.Position  = UDim2.fromOffset(pts[i][1], pts[i][2])
+				f.Size      = UDim2.fromOffset(pts[i][3], pts[i][4])
+				f.BackgroundColor3 = col
+			end
+		end
+	end
+
+	-- helper: HP bar (2 เส้นแนวตั้ง ซ้ายกรอบ)
+	local function mkHpFrames(parent)
+		local bg = new("Frame", {
+			BackgroundColor3 = Color3.fromRGB(20,20,20),
+			BackgroundTransparency = 0,
+			BorderSizePixel = 0,
+			Visible = false,
+			ZIndex = 53,
+		}, parent)
+		local fill = new("Frame", {
+			AnchorPoint = Vector2.new(0, 1),
+			BackgroundColor3 = Color3.fromRGB(80,220,80),
+			BackgroundTransparency = 0,
+			BorderSizePixel = 0,
+			Visible = false,
+			ZIndex = 54,
+		}, parent)
+		return bg, fill
+	end
+	local function setHpBar(bg, fill, x, y, h, ratio, vis)
+		local W = 3
+		bg.Visible  = vis
+		fill.Visible = vis
+		if vis then
+			bg.Position = UDim2.fromOffset(x - W - 2, y)
+			bg.Size     = UDim2.fromOffset(W, h)
+			local r2 = math.floor((1-ratio)*255)
+			local g2 = math.floor(ratio*220)
+			fill.BackgroundColor3 = Color3.fromRGB(r2, g2, 40)
+			fill.Position = UDim2.fromOffset(x - W - 2, y + h*(1-ratio))
+			fill.Size     = UDim2.fromOffset(W, h*ratio)
+		end
+	end
+
 	local function removeESPDrawings(p)
 		local d = espDrawings[p]
 		if not d then return end
-		-- ลบ Drawing lines
-		if d.lines then
-			for _, l in ipairs(d.lines) do pcall(function() l:Remove() end) end
-		end
-		if d.hpLines then
-			for _, l in ipairs(d.hpLines) do pcall(function() l:Remove() end) end
-		end
-		if d.tracerLine then pcall(function() d.tracerLine:Remove() end) end
-		-- ลบ Frame-based box fallback
-		if d.bbBox then pcall(function() d.bbBox:Destroy() end) end
-		-- ลบ BillboardGui
-		if d.bb then pcall(function() d.bb:Destroy() end) end
-		if d.bbDist then pcall(function() d.bbDist:Destroy() end) end
+		if d.tracerF  then pcall(function() d.tracerF:Destroy()  end) end
+		if d.boxFs    then for _, f in ipairs(d.boxFs) do pcall(function() f:Destroy() end) end end
+		if d.hpBgF    then pcall(function() d.hpBgF:Destroy()   end) end
+		if d.hpFillF  then pcall(function() d.hpFillF:Destroy() end) end
+		if d.bb       then pcall(function() d.bb:Destroy()       end) end
+		if d.bbDist   then pcall(function() d.bbDist:Destroy()   end) end
 		espDrawings[p] = nil
-	end
-
-	-- Frame-based box fallback (ใช้เมื่อ Drawing API ไม่มี)
-	-- ใช้ SurfaceGui ติดตัวผู้เล่นแทน Drawing lines
-	local function mkBillboardBox(head)
-		-- กรอบสี่เหลี่ยมรอบตัวผู้เล่นผ่าน BillboardGui overlay
-		local bbBox = Instance.new("BillboardGui")
-		bbBox.Size = UDim2.fromOffset(60, 90)
-		bbBox.StudsOffset = Vector3.new(0, 0, 0)
-		bbBox.AlwaysOnTop = true
-		bbBox.ResetOnSpawn = false
-		bbBox.Enabled = false
-		bbBox.LightInfluence = 0
-		bbBox.Parent = head
-		-- 4 ขอบ (top, bottom, left, right)
-		local sides = {}
-		local function side(ax, ay, sw, sh)
-			local f = Instance.new("Frame")
-			f.AnchorPoint = Vector2.new(ax, ay)
-			f.Position = UDim2.new(ax, 0, ay, 0)
-			f.Size = UDim2.new(sw, 0, sh, 0)
-			f.BackgroundColor3 = Color3.new(1,1,1)
-			f.BackgroundTransparency = 0
-			f.BorderSizePixel = 0
-			f.Parent = bbBox
-			sides[#sides+1] = f
-		end
-		side(0, 0, 1, 0); sides[#sides].Size = UDim2.new(1, 0, 0, 1)   -- top
-		side(0, 1, 1, 0); sides[#sides].Size = UDim2.new(1, 0, 0, 1)   -- bottom
-		side(0, 0, 0, 1); sides[#sides].Size = UDim2.new(0, 1, 1, 0)   -- left
-		side(1, 0, 0, 1); sides[#sides].Size = UDim2.new(0, 1, 1, 0)   -- right
-		-- HP bar แนวตั้งซ้าย
-		local hpBg = Instance.new("Frame")
-		hpBg.AnchorPoint = Vector2.new(1, 0)
-		hpBg.Position = UDim2.new(0, -4, 0, 0)
-		hpBg.Size = UDim2.new(0, 3, 1, 0)
-		hpBg.BackgroundColor3 = Color3.fromRGB(30,30,30)
-		hpBg.BackgroundTransparency = 0
-		hpBg.BorderSizePixel = 0
-		hpBg.Parent = bbBox
-		local hpFill = Instance.new("Frame")
-		hpFill.AnchorPoint = Vector2.new(0.5, 1)
-		hpFill.Position = UDim2.new(0.5, 0, 1, 0)
-		hpFill.Size = UDim2.new(1, 0, 1, 0)
-		hpFill.BackgroundColor3 = Color3.fromRGB(80,220,80)
-		hpFill.BackgroundTransparency = 0
-		hpFill.BorderSizePixel = 0
-		hpFill.Parent = hpBg
-		return bbBox, sides, hpBg, hpFill
 	end
 
 	local function ensureESPDrawings(p)
@@ -2413,81 +2475,67 @@ local function buildEye()
 
 		local d = {}
 
-		-- 4 เส้นสำหรับกรอบ (top, bottom, left, right) — Drawing API
-		d.lines = {}
-		if hasDrawing then
-			for _ = 1, 4 do
-				d.lines[#d.lines+1] = mkLine()
-			end
-		end
+		-- tracer: เส้นจากกลางล่างจอ → หัว
+		d.tracerF = mkTracerLine(tracerContainer)
 
-		-- 2 เส้นสำหรับ HP bar (bg + fill) — Drawing API
-		d.hpLines = {}
-		if hasDrawing then
-			local bg = mkLine()
-			if bg then bg.Thickness = 4; bg.Color = Color3.fromRGB(30,30,30) end
-			local fill = mkLine()
-			if fill then fill.Thickness = 3; fill.Color = Color3.fromRGB(80,220,80) end
-			d.hpLines = {bg, fill}
-		end
+		-- box: 4 เส้น
+		d.boxFs = mkBoxFrames(boxContainer)
 
-		-- เส้น tracer — Drawing API
-		d.tracerLine = hasDrawing and mkLine() or nil
+		-- HP bar: bg + fill
+		d.hpBgF, d.hpFillF = mkHpFrames(boxContainer)
 
-		-- Frame-based box (fallback เมื่อไม่มี Drawing)
-		if not hasDrawing then
-			local bbBox, sides, hpBg, hpFill = mkBillboardBox(head)
-			d.bbBox    = bbBox
-			d.bbSides  = sides
-			d.bbHpBg   = hpBg
-			d.bbHpFill = hpFill
-		end
-
-		-- BillboardGui สำหรับชื่อ + ระยะ
+		-- BillboardGui ชื่อ (เหนือหัว)
 		local bb = Instance.new("BillboardGui")
-		bb.Size = UDim2.fromOffset(160, 20)
-		bb.StudsOffset = Vector3.new(0, 3.2, 0)
-		bb.AlwaysOnTop = true
+		bb.Size         = UDim2.fromOffset(160, 22)
+		bb.StudsOffset  = Vector3.new(0, 3.2, 0)
+		bb.AlwaysOnTop  = true
 		bb.ResetOnSpawn = false
-		bb.Enabled = false
-		bb.Parent = head
-
-		d.nameLbl = Instance.new("TextLabel")
-		d.nameLbl.Size = UDim2.fromScale(1, 1)
-		d.nameLbl.BackgroundTransparency = 1
-		d.nameLbl.Font = Enum.Font.GothamBold
-		d.nameLbl.TextSize = 12
-		d.nameLbl.TextColor3 = espColor
-		d.nameLbl.TextStrokeTransparency = 0
-		d.nameLbl.TextStrokeColor3 = Color3.new(0,0,0)
-		d.nameLbl.Text = p.DisplayName
-		d.nameLbl.Visible = false
-		d.nameLbl.Parent = bb
-
-		-- ระยะ: BillboardGui ใต้ตัว
-		local bbDist = Instance.new("BillboardGui")
-		bbDist.Size = UDim2.fromOffset(180, 16)
-		bbDist.StudsOffset = Vector3.new(0, -3.5, 0)
-		bbDist.AlwaysOnTop = true
-		bbDist.ResetOnSpawn = false
-		bbDist.Enabled = false
-		bbDist.Parent = head
-
-		d.distLbl = Instance.new("TextLabel")
-		d.distLbl.Size = UDim2.fromScale(1, 1)
-		d.distLbl.BackgroundTransparency = 1
-		d.distLbl.Font = HUD_FONT
-		d.distLbl.TextSize = 11
-		d.distLbl.TextColor3 = espColor
-		d.distLbl.TextStrokeTransparency = 0
-		d.distLbl.TextStrokeColor3 = Color3.new(0,0,0)
-		d.distLbl.Text = ""
-		d.distLbl.Visible = false
-		d.distLbl.Parent = bbDist
-
+		bb.Enabled      = false
+		bb.Parent       = head
+		d.nameLbl = new("TextLabel", {
+			Size = UDim2.fromScale(1,1),
+			BackgroundTransparency = 1,
+			Font = Enum.Font.GothamBold,
+			TextSize = 13,
+			TextColor3 = espColor,
+			TextStrokeTransparency = 0,
+			TextStrokeColor3 = Color3.new(0,0,0),
+			Text = p.DisplayName,
+			Visible = false,
+		}, bb)
 		d.bb = bb
+
+		-- BillboardGui ระยะ (ใต้ตัว)
+		local bbDist = Instance.new("BillboardGui")
+		bbDist.Size         = UDim2.fromOffset(200, 16)
+		bbDist.StudsOffset  = Vector3.new(0, -3.5, 0)
+		bbDist.AlwaysOnTop  = true
+		bbDist.ResetOnSpawn = false
+		bbDist.Enabled      = false
+		bbDist.Parent       = head
+		d.distLbl = new("TextLabel", {
+			Size = UDim2.fromScale(1,1),
+			BackgroundTransparency = 1,
+			Font = HUD_FONT,
+			TextSize = 11,
+			TextColor3 = espColor,
+			TextStrokeTransparency = 0,
+			TextStrokeColor3 = Color3.new(0,0,0),
+			Text = "",
+			Visible = false,
+		}, bbDist)
 		d.bbDist = bbDist
+
 		espDrawings[p] = d
+	end
+
+	local function hideAll(d)
+		if d.tracerF  then d.tracerF.Visible = false end
+		if d.boxFs    then for _, f in ipairs(d.boxFs) do f.Visible = false end end
+		if d.hpBgF    then d.hpBgF.Visible   = false end
+		if d.hpFillF  then d.hpFillF.Visible  = false end
+		if d.bb       then d.bb.Enabled       = false end
+		if d.bbDist   then d.bbDist.Enabled   = false end
 	end
 
 	-- ===== HITBOX =====
@@ -2507,18 +2555,24 @@ local function buildEye()
 		if not head then return end
 		local sz = hitboxSize / 10
 		local part = Instance.new("Part")
-		part.Name = "NEXORA_HITBOX"
-		part.Size = Vector3.new(sz, sz, sz)
-		part.Anchored = false
-		part.CanCollide = false
-		part.Massless = true
+		part.Name        = "NEXORA_HITBOX"
+		part.Size        = Vector3.new(sz, sz, sz)
+		part.Anchored    = false
+		part.CanCollide  = false
+		part.CanQuery    = false
+		part.CanTouch    = false
+		part.Massless    = true
+		part.CastShadow  = false
 		part.Transparency = hitboxTransp
-		part.Color = hitboxColor
-		part.Material = Enum.Material.Neon
-		part.Parent = char
+		part.Color       = hitboxColor
+		part.Material    = Enum.Material.Neon
+		-- ตั้ง CFrame ให้ตรงกับ head ก่อน parent (กัน teleport)
+		part.CFrame      = head.CFrame
+		part.Parent      = char
+		-- weld หลัง parent เสมอ
 		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = head
-		weld.Part1 = part
+		weld.Part0  = head
+		weld.Part1  = part
 		weld.Parent = part
 		hitboxParts[p] = {part, weld}
 	end
@@ -2565,40 +2619,21 @@ local function buildEye()
 		end)
 	end
 
-	-- helper: วาดเส้น 4 เส้นเป็นกรอบ
-	local function setBox4(lines, x, y, w, h, col, vis)
-		if not lines or #lines < 4 then return end
-		-- top, bottom, left, right
-		local pts = {
-			{Vector2.new(x,   y),   Vector2.new(x+w, y)},
-			{Vector2.new(x,   y+h), Vector2.new(x+w, y+h)},
-			{Vector2.new(x,   y),   Vector2.new(x,   y+h)},
-			{Vector2.new(x+w, y),   Vector2.new(x+w, y+h)},
-		}
-		for i, l in ipairs(lines) do
-			if l then
-				l.Visible = vis
-				if vis then
-					l.Color = col
-					l.From = pts[i][1]
-					l.To   = pts[i][2]
-				end
-			end
-		end
-	end
-
-	-- ===== MASTER RENDER LOOP =====
+	-- ===== MASTER RENDER LOOP (BillboardGui + ScreenGui Frame ล้วน) =====
 	local function startESP()
 		onFrame(function()
 			local vpNow = cam and cam.ViewportSize or vp
-			local ctr = Vector2.new(vpNow.X / 2, vpNow.Y / 2)
+			local ctr   = Vector2.new(vpNow.X / 2, vpNow.Y / 2)
 
-			-- FOV circle
-			if fovCircle then
-				fovCircle.Visible = espFovEnabled
-				fovCircle.Radius  = espFovRadius
-				fovCircle.Position = ctr
-				fovCircle.Color   = espColor
+			-- FOV circle (ScreenGui Frame + UICorner)
+			if fovFrame then
+				fovFrame.Visible = espFovEnabled
+				if espFovEnabled then
+					local sz = espFovRadius * 2
+					fovFrame.Size     = UDim2.fromOffset(sz, sz)
+					fovFrame.Position = UDim2.fromOffset(ctr.X - espFovRadius, ctr.Y - espFovRadius)
+					fovFrame.BackgroundColor3 = espColor
+				end
 			end
 
 			for _, p in ipairs(Players:GetPlayers()) do
@@ -2607,119 +2642,64 @@ local function buildEye()
 				local char = p.Character
 				local hrp  = getHRP(char)
 
-				-- ไม่มี char → ลบ drawings แล้วข้าม
+				local d = espDrawings[p]
 				if not char or not hrp then
-					local d = espDrawings[p]
-					if d then
-						setBox4(d.lines, 0,0,0,0, espColor, false)
-						if d.hpLines then for _, l in ipairs(d.hpLines) do if l then l.Visible = false end end end
-						if d.tracerLine then d.tracerLine.Visible = false end
-						if d.bb then d.bb.Enabled = false end
-						if d.bbDist then d.bbDist.Enabled = false end
-					end
+					if d then hideAll(d) end
 					continue
 				end
 
 				local needESP = espNames or espDist or espLines or espBoxes or espHealth
 				if not needESP then
-					local d = espDrawings[p]
-					if d then
-						setBox4(d.lines, 0,0,0,0, espColor, false)
-						if d.hpLines then for _, l in ipairs(d.hpLines) do if l then l.Visible = false end end end
-						if d.tracerLine then d.tracerLine.Visible = false end
-						if d.bb then d.bb.Enabled = false end
-						if d.bbDist then d.bbDist.Enabled = false end
-					end
+					if d then hideAll(d) end
 					continue
 				end
 
 				ensureESPDrawings(p)
-				local d = espDrawings[p]
+				d = espDrawings[p]
 				if not d then continue end
 
-				-- พิกัด 2D
-				local head   = char:FindFirstChild("Head") or hrp
+				-- พิกัด 2D จาก worldToViewport
+				local head = char:FindFirstChild("Head") or hrp
 				local spHead, inView = worldToVP(head.Position)
-				local spFoot = worldToVP(hrp.Position + Vector3.new(0, -3.2, 0))
-				local spTop  = worldToVP(head.Position + Vector3.new(0, 1.4, 0))
+				local spFoot         = worldToVP(hrp.Position + Vector3.new(0, -3.2, 0))
+				local spTop          = worldToVP(head.Position + Vector3.new(0, 1.4, 0))
 
 				if not inView then
-					setBox4(d.lines, 0,0,0,0, espColor, false)
-					if d.hpLines then for _, l in ipairs(d.hpLines) do if l then l.Visible = false end end end
-					if d.tracerLine then d.tracerLine.Visible = false end
-					if d.bb    then d.bb.Enabled = false end
-					if d.bbDist then d.bbDist.Enabled = false end
+					hideAll(d)
 					continue
 				end
 
-				-- ขนาดกรอบ
-				local boxH = math.max(math.abs(spTop.Y - spFoot.Y), 24)
-				local boxW = boxH * 0.6
+				-- ขนาดกรอบจาก viewport projection
+				local boxH = math.max(math.abs(spTop.Y - spFoot.Y), 20)
+				local boxW = boxH * 0.55
 				local boxX = spHead.X - boxW * 0.5
 				local boxY = spTop.Y
 
-				-- กรอบ 4 เส้น
-				setBox4(d.lines, boxX, boxY, boxW, boxH, espColor, espBoxes)
+				-- กรอบ 4 เส้น (Frame)
+				setBox(d.boxFs, boxX, boxY, boxW, boxH, espColor, espBoxes)
 
-				-- HP bar — Drawing lines
-				if d.hpLines and #d.hpLines >= 2 then
-					local hpBgLine   = d.hpLines[1]
-					local hpFillLine = d.hpLines[2]
-					local barX = boxX - 5
-					if hpBgLine then
-						hpBgLine.Visible = espHealth
-						if espHealth then
-							hpBgLine.From = Vector2.new(barX, boxY)
-							hpBgLine.To   = Vector2.new(barX, boxY + boxH)
-						end
-					end
-					if hpFillLine then
-						hpFillLine.Visible = espHealth
-						if espHealth then
-							local hp, maxhp = getHP(char)
-							local ratio = math.clamp(hp / maxhp, 0, 1)
-							local r2 = math.floor((1 - ratio) * 255)
-							local g2 = math.floor(ratio * 220)
-							hpFillLine.Color = Color3.fromRGB(r2, g2, 40)
-							hpFillLine.From = Vector2.new(barX, boxY + boxH * (1 - ratio))
-							hpFillLine.To   = Vector2.new(barX, boxY + boxH)
-						end
-					end
+				-- HP bar (Frame)
+				if espHealth then
+					local hp, maxhp = getHP(char)
+					local ratio = math.clamp(hp / maxhp, 0, 1)
+					setHpBar(d.hpBgF, d.hpFillF, boxX, boxY, boxH, ratio, true)
+				else
+					if d.hpBgF   then d.hpBgF.Visible   = false end
+					if d.hpFillF then d.hpFillF.Visible = false end
 				end
 
-				-- Frame-based box fallback (ไม่มี Drawing API)
-				if d.bbBox then
-					d.bbBox.Enabled = espBoxes or espHealth
-					if d.bbSides then
-						local vis = espBoxes
-						for _, s in ipairs(d.bbSides) do s.BackgroundColor3 = espColor; s.Visible = vis end
-					end
-					if d.bbHpBg and d.bbHpFill then
-						d.bbHpBg.Visible  = espHealth
-						if espHealth then
-							local hp, maxhp = getHP(char)
-							local ratio = math.clamp(hp / maxhp, 0, 1)
-							local r2 = math.floor((1 - ratio) * 255)
-							local g2 = math.floor(ratio * 220)
-							d.bbHpFill.BackgroundColor3 = Color3.fromRGB(r2, g2, 40)
-							d.bbHpFill.Size = UDim2.new(1, 0, ratio, 0)
-						end
-					end
-				end
-
-				-- tracer line (เส้นจากกลางล่างจอ → หัวผู้เล่น)
-				if d.tracerLine then
-					d.tracerLine.Visible = espLines
+				-- tracer (Frame หมุน จากกลางล่างจอ → หัว)
+				if d.tracerF then
 					if espLines then
-						d.tracerLine.Color = espColor
-						d.tracerLine.From  = Vector2.new(ctr.X, vpNow.Y)
-						d.tracerLine.To    = spHead
+						setLine(d.tracerF, ctr.X, vpNow.Y, spHead.X, spHead.Y, espColor)
+					else
+						d.tracerF.Visible = false
 					end
 				end
 
 				-- ชื่อ (BillboardGui)
 				if d.bb and d.nameLbl then
-					d.bb.Enabled     = espNames
+					d.bb.Enabled      = espNames
 					d.nameLbl.Visible = espNames
 					if espNames then
 						d.nameLbl.Text       = p.DisplayName
@@ -2859,13 +2839,16 @@ local function buildEye()
 
 	toggle("แสดงวง FOV", "Show FOV circle", false, function(v)
 		espFovEnabled = v
-		if fovCircle then fovCircle.Visible = v end
+		if fovFrame then fovFrame.Visible = v end
 	end)
 	slider("รัศมี FOV", "FOV radius", 20, 600, espFovRadius,
 		function(v) return math.floor(v) .. " px" end,
 		function(v)
 			espFovRadius = v
-			if fovCircle then fovCircle.Radius = v end
+			if fovFrame then
+				local sz = v * 2
+				fovFrame.Size = UDim2.fromOffset(sz, sz)
+			end
 		end
 	)
 
