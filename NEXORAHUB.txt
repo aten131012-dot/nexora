@@ -1,4 +1,286 @@
--- NEXORA HUB LOADER
+-- ===== NOTICE POPUP =====
+local noticeOpen = false
+local function ShowNotice()
+    if noticeOpen then return end
+    noticeOpen = true
+    snd(SFX.open, 0.8)
+
+    -- ไม่ใช้สัญลักษณ์พิเศษ เพราะฟอนต์ไม่รองรับ จะขึ้นเป็นกล่อง
+    local T = {
+        EN = {
+            title   = "No script for this map yet",
+            sub     = "We're working on it.\nFollow updates on our Discord.",
+            copy    = "Copy Discord Link",
+            copied  = "Copied!",
+            langBtn = "TH",
+        },
+        TH = {
+            title   = "แมพนี้ยังไม่มีสคริปต์",
+            sub     = "อยู่ระหว่างพัฒนา รอติดตามได้เลย\nติดตามข่าวสารได้ทางดิสคอส",
+            copy    = "คัดลอกลิงก์ดิสคอส",
+            copied  = "คัดลอกแล้ว!",
+            langBtn = "EN",
+        },
+    }
+
+    local gui  = mkGui("NEXORA_NOTICE", 999)
+    local vs   = workspace.CurrentCamera.ViewportSize
+    local W, H = 300, 168
+    local R    = 16
+    local alive = {on = true}
+
+    -- dim
+    local dim = new("Frame", {
+        Size = UDim2.fromScale(1, 1), BackgroundColor3 = BLACK,
+        BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2,
+    }, gui)
+
+    -- หินโคจร
+    local orbitFrame = new("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(W + 90, H + 70),
+        BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2,
+    }, gui)
+    SpawnRocks(orbitFrame, W + 90, H + 70, alive)
+
+    -- panel
+    local panel = new("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(W, 4), BackgroundColor3 = Color3.fromRGB(8, 8, 8),
+        BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 4,
+    }, gui)
+    new("UIScale", {Scale = math.min(1, vs.X * 0.92 / W, vs.Y * 0.8 / H)}, panel)
+    corner(panel, R)
+
+    -- ขอบเรืองแสงวิ่งรอบ panel
+    local pStroke = stroke(panel, WHITE, 1.5, 0)
+    local grad = new("UIGradient", {
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,    0.88),
+            NumberSequenceKeypoint.new(0.40, 0.88),
+            NumberSequenceKeypoint.new(0.50, 0),
+            NumberSequenceKeypoint.new(0.60, 0.88),
+            NumberSequenceKeypoint.new(1,    0.88),
+        }),
+    }, pStroke)
+    task.spawn(function()
+        local r = 0
+        while alive.on do r = (r + 2.2) % 360; grad.Rotation = r; task.wait(0.016) end
+    end)
+
+    -- โลโก้จางเป็นลายน้ำมุมขวาล่าง
+    local mark = new("ImageLabel", {
+        AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -8, 1, -6),
+        Size = UDim2.fromOffset(100, 100), BackgroundTransparency = 1,
+        Image = "rbxassetid://86383017875768", ImageTransparency = 0.92,
+        ScaleType = Enum.ScaleType.Fit, ZIndex = 4,
+    }, panel)
+    task.spawn(function()
+        while alive.on do
+            tw(mark, 2.4, {ImageTransparency = 0.84}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut); task.wait(2.4)
+            tw(mark, 2.4, {ImageTransparency = 0.94}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut); task.wait(2.4)
+        end
+    end)
+
+    -- top bar (มุมบนมน / ล่างเรียบ)
+    local BAR_COL = Color3.fromRGB(14, 14, 14)
+    local topBar = new("Frame", {
+        Size = UDim2.fromOffset(W, 38), BackgroundColor3 = BAR_COL, BorderSizePixel = 0, ZIndex = 5,
+    }, panel)
+    corner(topBar, R)
+    new("Frame", {
+        Position = UDim2.fromOffset(0, 19), Size = UDim2.fromOffset(W, 19),
+        BackgroundColor3 = BAR_COL, BorderSizePixel = 0, ZIndex = 5,
+    }, topBar)
+    new("Frame", {
+        Position = UDim2.fromOffset(0, 37), Size = UDim2.fromOffset(W, 1),
+        BackgroundColor3 = WHITE, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 6,
+    }, topBar)
+
+    local logo = new("ImageLabel", {
+        Position = UDim2.fromOffset(12, 8), Size = UDim2.fromOffset(22, 22),
+        BackgroundTransparency = 1, Image = "rbxassetid://86383017875768",
+        ScaleType = Enum.ScaleType.Fit, ZIndex = 6,
+    }, topBar)
+    task.spawn(function()
+        while alive.on do
+            tw(logo, 1.6, {ImageTransparency = 0.3}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut); task.wait(1.6)
+            tw(logo, 1.6, {ImageTransparency = 0},   Enum.EasingStyle.Sine, Enum.EasingDirection.InOut); task.wait(1.6)
+        end
+    end)
+    new("TextLabel", {
+        Position = UDim2.fromOffset(40, 10), Size = UDim2.fromOffset(130, 18),
+        BackgroundTransparency = 1, Text = "NEXORA HUB", TextColor3 = WHITE,
+        Font = Enum.Font.GothamBold, TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6,
+    }, topBar)
+
+    -- ปุ่มภาษา
+    local langBtn = new("TextButton", {
+        Position = UDim2.fromOffset(W - 72, 9), Size = UDim2.fromOffset(32, 20),
+        BackgroundColor3 = Color3.fromRGB(18, 18, 18), BorderSizePixel = 0, AutoButtonColor = false,
+        TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.GothamBold, TextSize = 9, ZIndex = 7,
+    }, topBar)
+    corner(langBtn, 6)
+    local langStroke = stroke(langBtn, Color3.fromRGB(50, 50, 50))
+
+    -- ปุ่มปิด (วาด X ด้วย Frame)
+    local closeBtn = new("TextButton", {
+        Position = UDim2.fromOffset(W - 34, 9), Size = UDim2.fromOffset(24, 20),
+        BackgroundColor3 = Color3.fromRGB(18, 18, 18), BorderSizePixel = 0,
+        AutoButtonColor = false, Text = "", ZIndex = 7,
+    }, topBar)
+    corner(closeBtn, 6)
+    local closeStroke = stroke(closeBtn, Color3.fromRGB(50, 50, 50))
+    local xBars = {}
+    for _, rot in ipairs({45, -45}) do
+        table.insert(xBars, new("Frame", {
+            Size = UDim2.fromOffset(10, 1.5), AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5), Rotation = rot,
+            BackgroundColor3 = Color3.fromRGB(150, 150, 150), BorderSizePixel = 0, ZIndex = 8,
+        }, closeBtn))
+    end
+
+    -- body (CanvasGroup ไว้ fade เข้า)
+    local body = new("CanvasGroup", {
+        Position = UDim2.fromOffset(0, 46), Size = UDim2.new(1, 0, 1, -38),
+        BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 5,
+    }, panel)
+
+    local titleLbl = new("TextLabel", {
+        Position = UDim2.fromOffset(16, 8), Size = UDim2.fromOffset(W - 32, 18),
+        BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(240, 240, 240),
+        Font = Enum.Font.GothamBold, TextSize = 14, ZIndex = 6,
+    }, body)
+    local subLbl = new("TextLabel", {
+        Position = UDim2.fromOffset(16, 28), Size = UDim2.fromOffset(W - 32, 34),
+        BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(125, 125, 125),
+        Font = Enum.Font.Gotham, TextSize = 10, TextWrapped = true, LineHeight = 1.3,
+        TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 6,
+    }, body)
+
+    -- ปุ่มคัดลอกดิสคอร์ด (สไตล์เดียวกับหน้าใส่คีย์)
+    local copyBtn = new("TextButton", {
+        Position = UDim2.fromOffset(16, 70), Size = UDim2.fromOffset(W - 32, 34),
+        BackgroundColor3 = Color3.fromRGB(15, 15, 15), BorderSizePixel = 0,
+        AutoButtonColor = false, Text = "", ZIndex = 6,
+    }, body)
+    corner(copyBtn, 8)
+    local copyStroke = stroke(copyBtn, Color3.fromRGB(45, 45, 45))
+    local copyBar = new("Frame", {
+        Size = UDim2.fromOffset(3, 12), AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 10, 0.5, 0), BackgroundColor3 = BLURPLE,
+        BorderSizePixel = 0, ZIndex = 7,
+    }, copyBtn)
+    corner(copyBar, 2)
+    local copyLbl = new("TextLabel", {
+        Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+        TextColor3 = Color3.fromRGB(200, 200, 200), Font = Enum.Font.GothamMedium,
+        TextSize = 11, ZIndex = 7,
+    }, copyBtn)
+
+    -- ภาษา
+    local function applyLang()
+        local L = T[LANG]
+        langBtn.Text   = L.langBtn
+        titleLbl.Text  = L.title
+        subLbl.Text    = L.sub
+        copyLbl.Text   = L.copy
+    end
+    applyLang()
+
+    langBtn.MouseEnter:Connect(function()
+        tw(langStroke, 0.15, {Color = Color3.fromRGB(180, 180, 180)})
+        tw(langBtn, 0.15, {TextColor3 = WHITE})
+    end)
+    langBtn.MouseLeave:Connect(function()
+        tw(langStroke, 0.15, {Color = Color3.fromRGB(50, 50, 50)})
+        tw(langBtn, 0.15, {TextColor3 = Color3.fromRGB(150, 150, 150)})
+    end)
+    langBtn.MouseButton1Click:Connect(function()
+        snd(SFX.click, 0.5)
+        LANG = (LANG == "EN") and "TH" or "EN"
+        applyLang()
+    end)
+
+    -- คัดลอก
+    local busy = false
+    copyBtn.MouseButton1Click:Connect(function()
+        if busy then return end
+        busy = true
+        snd(SFX.click, 0.8)
+        local ok = pcall(function() (setclipboard or toclipboard)(CFG.DISCORD) end)
+        copyLbl.Text = ok and T[LANG].copied or "discord.gg/vHRMNpDsQ4"
+        if ok then
+            tw(copyBar, 0.15, {BackgroundColor3 = GREEN})
+            tw(copyStroke, 0.15, {Color = GREEN})
+            tw(copyBtn, 0.15, {BackgroundColor3 = Color3.fromRGB(14, 28, 20)})
+        end
+        task.wait(1.8)
+        copyLbl.Text = T[LANG].copy
+        tw(copyBar, 0.25, {BackgroundColor3 = BLURPLE})
+        tw(copyStroke, 0.25, {Color = Color3.fromRGB(45, 45, 45)})
+        tw(copyBtn, 0.25, {BackgroundColor3 = Color3.fromRGB(15, 15, 15)})
+        busy = false
+    end)
+
+    copyBtn.MouseEnter:Connect(function()
+        if busy then return end
+        tw(copyBtn, 0.12, {BackgroundColor3 = Color3.fromRGB(24, 24, 24)})
+        tw(copyStroke, 0.12, {Color = BLURPLE})
+        tw(copyLbl, 0.12, {TextColor3 = WHITE})
+        tw(copyBar, 0.15, {Size = UDim2.fromOffset(3, 18)})
+    end)
+    copyBtn.MouseLeave:Connect(function()
+        if busy then return end
+        tw(copyBtn, 0.12, {BackgroundColor3 = Color3.fromRGB(15, 15, 15)})
+        tw(copyStroke, 0.12, {Color = Color3.fromRGB(45, 45, 45)})
+        tw(copyLbl, 0.12, {TextColor3 = Color3.fromRGB(200, 200, 200)})
+        tw(copyBar, 0.15, {Size = UDim2.fromOffset(3, 12)})
+    end)
+
+    -- ปิด
+    closeBtn.MouseEnter:Connect(function()
+        tw(closeStroke, 0.15, {Color = Color3.fromRGB(255, 90, 90)})
+        for _, b in ipairs(xBars) do tw(b, 0.15, {BackgroundColor3 = Color3.fromRGB(255, 90, 90)}) end
+    end)
+    closeBtn.MouseLeave:Connect(function()
+        tw(closeStroke, 0.15, {Color = Color3.fromRGB(50, 50, 50)})
+        for _, b in ipairs(xBars) do tw(b, 0.15, {BackgroundColor3 = Color3.fromRGB(150, 150, 150)}) end
+    end)
+    closeBtn.MouseButton1Click:Connect(function()
+        snd(SFX.boom, 0.6)
+        alive.on = false
+        panel.ClipsDescendants = true
+        tw(body, 0.15, {GroupTransparency = 1})
+        tw(dim, 0.3, {BackgroundTransparency = 1})
+        tw(panel, 0.28, {Size = UDim2.fromOffset(W, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        task.wait(0.32)
+        gui:Destroy()
+        noticeOpen = false
+    end)
+
+    -- เปิด: dim เข้า, panel ขยาย, เนื้อหา fade + เลื่อนขึ้น
+    tw(dim, 0.3, {BackgroundTransparency = 0.42})
+    tw(panel, 0.45, {Size = UDim2.fromOffset(W, H)}, Enum.EasingStyle.Back)
+    task.delay(0.2, function()
+        tw(body, 0.35, {GroupTransparency = 0, Position = UDim2.fromOffset(0, 38)})
+    end)
+    task.delay(0.55, function()
+        if alive.on then panel.ClipsDescendants = false end
+    end)
+end
+
+-- ===== ENTRY POINT =====
+local url = Scripts[game.PlaceId] or Scripts[game.GameId]
+
+if url and tostring(url):find("^http") then
+    local ok, err = pcall(function() loadstring(game:HttpGet(url))() end)
+    if not ok then warn("[NEXORA] โหลดสคริปต์ไม่สำเร็จ: " .. tostring(err)) end
+else
+    task.spawn(ShowNotice)
+end
+-- NEXORA HUB LOADER v2
 local Players = game:GetService("Players")
 local TS      = game:GetService("TweenService")
 local LP      = Players.LocalPlayer
@@ -11,14 +293,18 @@ local SFX = {
     open  = "rbxasset://sounds/switch.wav",
     boom  = "rbxasset://sounds/impact_water.mp3",
 }
+
+-- เพิ่มแมพใหม่ตรงนี้: [PlaceId] = "ลิงก์สคริปต์"
 local Scripts = {
     [142823291] = "https://raw.githubusercontent.com/aten131012-dot/nexora/refs/heads/main/MM2.lua",
 }
 
-local LANG  = "TH"
-local BLACK = Color3.new(0, 0, 0)
-local WHITE = Color3.new(1, 1, 1)
-local GRAY  = Color3.fromRGB(160, 160, 160)
+local LANG    = "TH"
+local BLACK   = Color3.new(0, 0, 0)
+local WHITE   = Color3.new(1, 1, 1)
+local GRAY    = Color3.fromRGB(160, 160, 160)
+local GREEN   = Color3.fromRGB(65, 205, 125)
+local BLURPLE = Color3.fromRGB(110, 120, 255)
 
 -- ===== HELPERS =====
 local function new(c, p, par)
@@ -26,6 +312,10 @@ local function new(c, p, par)
     for k, v in pairs(p) do i[k] = v end
     i.Parent = par
     return i
+end
+local function corner(o, r) return new("UICorner", {CornerRadius = UDim.new(0, r)}, o) end
+local function stroke(o, col, th, tr)
+    return new("UIStroke", {Color = col, Thickness = th or 1, Transparency = tr or 0}, o)
 end
 local function tw(o, t, p, s, d)
     local x = TS:Create(o, TweenInfo.new(t, s or Enum.EasingStyle.Quad, d or Enum.EasingDirection.Out), p)
@@ -55,21 +345,21 @@ end
 
 -- ===== ORBITING ROCKS =====
 local function SpawnRocks(parent, W, H, alive)
-    -- 6 rock dots orbiting the panel
     local rocks = {}
     local orbitW = W * 0.62
     local orbitH = H * 0.52
     for i = 1, 6 do
-        local sz = 5 + math.random(0, 4)
+        local sz = 4 + math.random(0, 3)
         local dot = new("Frame", {
             Size             = UDim2.fromOffset(sz, sz),
             AnchorPoint      = Vector2.new(0.5, 0.5),
             Position         = UDim2.fromScale(0.5, 0.5),
             BackgroundColor3 = (i % 2 == 0) and WHITE or GRAY,
+            BackgroundTransparency = 0.25,
             BorderSizePixel  = 0,
             ZIndex           = 2,
         }, parent)
-        new("UICorner", {CornerRadius = UDim.new(1, 0)}, dot)
+        corner(dot, 99)
         rocks[i] = {
             dot    = dot,
             angle  = (i - 1) * (math.pi * 2 / 6) + math.random() * 0.5,
@@ -89,241 +379,4 @@ local function SpawnRocks(parent, W, H, alive)
             end
         end
     end)
-end
-
--- ===== NOTICE POPUP =====
-local noticeOpen = false
-local function ShowNotice()
-    if noticeOpen then return end
-    noticeOpen = true
-    snd(SFX.open, 0.8)
-
-    local T = {
-        EN = {
-            msg     = "No script available for this map yet.\nStay tuned — we're working on it.\nFollow updates on our Discord.",
-            copy    = "⧉  Copy Discord Link",
-            copied  = "✓  Copied!",
-            close   = "Close",
-            langBtn = "TH",
-        },
-        TH = {
-            msg     = "แมพนี้ยังไม่มีสคริปต์\nอยู่ระหว่างพัฒนา รอติดตามได้เลย\nติดตามข่าวสารได้ทางดิสคอส",
-            copy    = "⧉  คัดลอกลิ้งค์ดิสคอส",
-            copied  = "✓  คัดลอกแล้ว!",
-            close   = "ปิด",
-            langBtn = "EN",
-        },
-    }
-
-    local gui  = mkGui("NEXORA_NOTICE", 999)
-    local vs   = workspace.CurrentCamera.ViewportSize
-    local W, H = 320, 210
-    local alive = {on = true}
-
-    -- dim
-    new("Frame", {
-        Size                   = UDim2.fromScale(1, 1),
-        BackgroundColor3       = BLACK,
-        BackgroundTransparency = 0.42,
-        BorderSizePixel        = 0,
-        ZIndex                 = 2,
-    }, gui)
-
-    -- rock orbit container (behind panel, same center)
-    local orbitFrame = new("Frame", {
-        AnchorPoint      = Vector2.new(0.5, 0.5),
-        Position         = UDim2.fromScale(0.5, 0.5),
-        Size             = UDim2.fromOffset(W + 90, H + 70),
-        BackgroundTransparency = 1,
-        BorderSizePixel  = 0,
-        ZIndex           = 2,
-    }, gui)
-    SpawnRocks(orbitFrame, W + 90, H + 70, alive)
-
-    -- main panel — pure black/white
-    local panel = new("Frame", {
-        AnchorPoint      = Vector2.new(0.5, 0.5),
-        Position         = UDim2.fromScale(0.5, 0.5),
-        Size             = UDim2.fromOffset(W, 4),
-        BackgroundColor3 = Color3.fromRGB(8, 8, 8),
-        BorderSizePixel  = 0,
-        ClipsDescendants = true,
-        ZIndex           = 4,
-    }, gui)
-    new("UIScale",  {Scale = math.min(1, vs.X * 0.92 / W, vs.Y * 0.92 / H)}, panel)
-    new("UICorner", {CornerRadius = UDim.new(0, 12)}, panel)
-    new("UIStroke", {Color = Color3.fromRGB(220, 220, 220), Thickness = 1.2}, panel)
-
-    -- top bar
-    local topBar = new("Frame", {
-        Size             = UDim2.fromOffset(W, 40),
-        BackgroundColor3 = Color3.fromRGB(18, 18, 18),
-        BorderSizePixel  = 0,
-        ZIndex           = 5,
-    }, panel)
-    new("UICorner", {CornerRadius = UDim.new(0, 12)}, topBar)
-
-    -- bottom cover for top bar rounded corners bleeding into body
-    new("Frame", {
-        Position         = UDim2.fromOffset(0, 24),
-        Size             = UDim2.fromOffset(W, 16),
-        BackgroundColor3 = Color3.fromRGB(18, 18, 18),
-        BorderSizePixel  = 0,
-        ZIndex           = 5,
-    }, topBar)
-
-    -- logo + title in topbar
-    new("ImageLabel", {
-        Position               = UDim2.fromOffset(12, 9),
-        Size                   = UDim2.fromOffset(22, 22),
-        BackgroundTransparency = 1,
-        Image                  = "rbxassetid://86383017875768",
-        ImageColor3            = WHITE,
-        ZIndex                 = 6,
-    }, topBar)
-    new("TextLabel", {
-        Position               = UDim2.fromOffset(40, 11),
-        Size                   = UDim2.fromOffset(170, 18),
-        BackgroundTransparency = 1,
-        Text                   = "NEXORA HUB",
-        TextColor3             = WHITE,
-        Font                   = Enum.Font.GothamBlack,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        ZIndex                 = 6,
-    }, topBar)
-
-    -- lang toggle
-    local langBtn = new("TextButton", {
-        Position         = UDim2.fromOffset(W - 50, 11),
-        Size             = UDim2.fromOffset(38, 18),
-        BackgroundColor3 = Color3.fromRGB(38, 38, 38),
-        TextColor3       = GRAY,
-        Font             = Enum.Font.GothamBold,
-        TextSize         = 11,
-        BorderSizePixel  = 0,
-        ZIndex           = 6,
-    }, topBar)
-    new("UICorner", {CornerRadius = UDim.new(0, 4)}, langBtn)
-    new("UIStroke", {Color = Color3.fromRGB(90, 90, 90), Thickness = 1}, langBtn)
-
-    -- divider line
-    new("Frame", {
-        Position         = UDim2.fromOffset(0, 40),
-        Size             = UDim2.fromOffset(W, 1),
-        BackgroundColor3 = Color3.fromRGB(45, 45, 45),
-        BorderSizePixel  = 0,
-        ZIndex           = 5,
-    }, panel)
-
-    -- message
-    local msgLabel = new("TextLabel", {
-        Position               = UDim2.fromOffset(16, 50),
-        Size                   = UDim2.fromOffset(W - 32, 80),
-        BackgroundTransparency = 1,
-        TextColor3             = Color3.fromRGB(200, 200, 200),
-        Font                   = Enum.Font.Gotham,
-        TextSize               = 13,
-        TextWrapped            = true,
-        LineHeight             = 1.45,
-        TextXAlignment         = Enum.TextXAlignment.Center,
-        TextYAlignment         = Enum.TextYAlignment.Top,
-        ZIndex                 = 5,
-    }, panel)
-
-    -- copy button
-    local copyBtn = new("TextButton", {
-        Position         = UDim2.fromOffset(16, 136),
-        Size             = UDim2.fromOffset(W - 32, 34),
-        BackgroundColor3 = Color3.fromRGB(22, 22, 22),
-        TextColor3       = WHITE,
-        Font             = Enum.Font.GothamBold,
-        TextSize         = 12,
-        BorderSizePixel  = 0,
-        ZIndex           = 5,
-    }, panel)
-    new("UICorner", {CornerRadius = UDim.new(0, 8)}, copyBtn)
-    new("UIStroke", {Color = Color3.fromRGB(180, 180, 180), Thickness = 1}, copyBtn)
-
-    -- close button
-    local closeBtn = new("TextButton", {
-        Position         = UDim2.fromOffset(W / 2 - 48, 178),
-        Size             = UDim2.fromOffset(96, 24),
-        BackgroundColor3 = Color3.fromRGB(14, 14, 14),
-        TextColor3       = Color3.fromRGB(130, 130, 130),
-        Font             = Enum.Font.GothamBold,
-        TextSize         = 11,
-        BorderSizePixel  = 0,
-        ZIndex           = 5,
-    }, panel)
-    new("UICorner", {CornerRadius = UDim.new(0, 6)}, closeBtn)
-    new("UIStroke", {Color = Color3.fromRGB(70, 70, 70), Thickness = 1}, closeBtn)
-
-    -- apply language
-    local function applyLang()
-        local L = T[LANG]
-        langBtn.Text  = L.langBtn
-        msgLabel.Text = L.msg
-        copyBtn.Text  = L.copy
-        closeBtn.Text = L.close
-    end
-    applyLang()
-
-    langBtn.MouseButton1Click:Connect(function()
-        snd(SFX.click, 0.5)
-        LANG = (LANG == "EN") and "TH" or "EN"
-        applyLang()
-    end)
-
-    local busy = false
-    copyBtn.MouseButton1Click:Connect(function()
-        if busy then return end
-        busy = true
-        snd(SFX.click, 0.8)
-        pcall(function() (setclipboard or toclipboard)(CFG.DISCORD) end)
-        copyBtn.Text             = T[LANG].copied
-        copyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        copyBtn.TextColor3       = Color3.fromRGB(180, 255, 180)
-        task.wait(1.5)
-        copyBtn.Text             = T[LANG].copy
-        copyBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-        copyBtn.TextColor3       = WHITE
-        busy = false
-    end)
-
-    closeBtn.MouseButton1Click:Connect(function()
-        snd(SFX.boom, 0.6)
-        alive.on = false
-        tw(panel, 0.28, {Size = UDim2.fromOffset(W, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-        task.wait(0.32)
-        gui:Destroy()
-        noticeOpen = false
-    end)
-
-    -- hover effects
-    copyBtn.MouseEnter:Connect(function()
-        tw(copyBtn, 0.15, {BackgroundColor3 = Color3.fromRGB(38, 38, 38)})
-    end)
-    copyBtn.MouseLeave:Connect(function()
-        if not busy then tw(copyBtn, 0.15, {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}) end
-    end)
-    closeBtn.MouseEnter:Connect(function()
-        tw(closeBtn, 0.15, {TextColor3 = WHITE})
-    end)
-    closeBtn.MouseLeave:Connect(function()
-        tw(closeBtn, 0.15, {TextColor3 = Color3.fromRGB(130, 130, 130)})
-    end)
-
-    -- open animation
-    tw(panel, 0.45, {Size = UDim2.fromOffset(W, H)}, Enum.EasingStyle.Back)
-end
-
--- ===== ENTRY POINT =====
-local url = Scripts[game.PlaceId] or Scripts[game.GameId]
-
-if url and tostring(url):find("^http") then
-    local ok, err = pcall(function() loadstring(game:HttpGet(url))() end)
-    if not ok then warn("[NEXORA] โหลดสคริปต์ไม่สำเร็จ: " .. tostring(err)) end
-else
-    task.spawn(ShowNotice)
 end
