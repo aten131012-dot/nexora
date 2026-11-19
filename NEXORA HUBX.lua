@@ -1,48 +1,56 @@
--- NEXORA HUB Key System v5
--- StarterGui > LocalScript
+-- NEXORA HUB Key System v10
+-- StarterGui > LocalScript  (วางส่วนที่ 1 แล้วต่อด้วยส่วนที่ 2)
 
-local Players = game:GetService("Players")
+local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
+local HttpService  = game:GetService("HttpService")
 
-local player = Players.LocalPlayer
+local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local camera    = workspace.CurrentCamera
 
-local LOGO_ID = "rbxassetid://86383017875768"
-local API     = "https://nexora-key.aten131012.workers.dev"
-local KEYPAGE = "https://nexorascript.netlify.app/#key"
+local LOGO_ID   = "rbxassetid://86383017875768"
+local API       = "https://nexora-key.aten131012.workers.dev"
+local KEYPAGE   = "https://nexorascript.netlify.app/#key"
+local DISC_LINK = "https://discord.gg/vHRMNpDsQ4"
 
 local LANG = {
 	EN = {
-		placeholder  = "Enter key...",
-		confirm      = "CONFIRM",
-		getkey       = "★  GET KEY",
-		footer       = "© NEXORA HUB",
-		checking     = "…  Checking key.",
-		granted      = "✓  Access granted.",
-		wrong        = "✗  Wrong key.",
-		server_err   = "✗  Server error. Try again.",
-		device_err   = "✗  Key used on another device.",
-		empty        = "⚠  Enter your key first.",
-		copied       = "✓  Link copied!",
-		copy_url     = "nexorascript.netlify.app/#key",
+		key_title   = "Enter Your Key",
+		key_sub     = "Please enter the key you received to use the script.",
+		placeholder = "Enter key...",
+		confirm     = "CONFIRM",
+		getkey      = "Copy Key Link",
+		discord     = "Copy Discord",
+		checking    = "Checking key...",
+		granted     = "Access granted",
+		wrong       = "Wrong key",
+		server_err  = "Server error. Try again.",
+		device_err  = "Key used on another device",
+		empty       = "Enter your key first",
+		copied      = "Copied!",
+		copy_url    = "nexorascript.netlify.app/#key",
+		disc_url    = "discord.gg/vHRMNpDsQ4",
 	},
 	TH = {
-		placeholder  = "ใส่คีย์...",
-		confirm      = "ยืนยัน",
-		getkey       = "★  รับคีย์",
-		footer       = "© NEXORA HUB",
-		checking     = "…  กำลังตรวจสอบ.",
-		granted      = "✓  เข้าใช้งานได้แล้ว",
-		wrong        = "✗  คีย์ไม่ถูกต้อง",
-		server_err   = "✗  เซิร์ฟเวอร์ผิดพลาด ลองใหม่",
-		device_err   = "✗  คีย์ถูกใช้บนอุปกรณ์อื่น",
-		empty        = "⚠  กรุณาใส่คีย์ก่อน",
-		copied       = "✓  คัดลอกลิงก์แล้ว!",
-		copy_url     = "nexorascript.netlify.app/#key",
+		key_title   = "ใส่คีย์ของคุณ",
+		key_sub     = "กรุณากรอกคีย์ที่ได้รับเพื่อใช้งานสคริปต์",
+		placeholder = "ใส่คีย์...",
+		confirm     = "ยืนยัน",
+		getkey      = "คัดลอกลิงก์คีย์",
+		discord     = "คัดลอกดิสคอร์ด",
+		checking    = "กำลังตรวจสอบ...",
+		granted     = "เข้าใช้งานได้แล้ว",
+		wrong       = "คีย์ไม่ถูกต้อง",
+		server_err  = "เซิร์ฟเวอร์ผิดพลาด ลองใหม่",
+		device_err  = "คีย์ถูกใช้บนอุปกรณ์อื่น",
+		empty       = "กรุณาใส่คีย์ก่อน",
+		copied      = "คัดลอกแล้ว!",
+		copy_url    = "nexorascript.netlify.app/#key",
+		disc_url    = "discord.gg/vHRMNpDsQ4",
 	},
 }
-local currentLang = "EN"
+local currentLang = "TH"
 local function T(k) return LANG[currentLang][k] end
 
 local HWID
@@ -51,488 +59,456 @@ do
 	HWID = (ok and id and id ~= "") and id or tostring(player.UserId)
 end
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NexoraKey"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.DisplayOrder = 999
-ScreenGui.Parent = playerGui
+-- ════════ HELPERS ════════
+local WHITE = Color3.new(1, 1, 1)
+local function new(class, props, parent)
+	local o = Instance.new(class)
+	for k, v in pairs(props) do o[k] = v end
+	o.Parent = parent
+	return o
+end
+local function corner(o, r) return new("UICorner", {CornerRadius = UDim.new(0, r)}, o) end
+local function stroke(o, col, th, tr)
+	return new("UIStroke", {Color = col, Thickness = th or 1, Transparency = tr or 0}, o)
+end
+local function tw(o, t, p, style, dir)
+	TweenService:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), p):Play()
+end
 
-local Backdrop = Instance.new("Frame")
-Backdrop.Size = UDim2.fromScale(1, 1)
-Backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Backdrop.BackgroundTransparency = 1
-Backdrop.BorderSizePixel = 0
-Backdrop.ZIndex = 1
-Backdrop.Parent = ScreenGui
+-- ════════ ROOT ════════
+local ScreenGui = new("ScreenGui", {
+	Name = "NexoraKey", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 999,
+}, playerGui)
 
-local BgLogo = Instance.new("ImageLabel")
-BgLogo.Size = UDim2.new(0, 280, 0, 280)
-BgLogo.AnchorPoint = Vector2.new(0.5, 0.5)
-BgLogo.Position = UDim2.fromScale(0.5, 0.5)
-BgLogo.BackgroundTransparency = 1
-BgLogo.Image = LOGO_ID
-BgLogo.ImageTransparency = 0.82
-BgLogo.ScaleType = Enum.ScaleType.Fit
-BgLogo.ZIndex = 2
-BgLogo.Parent = ScreenGui
+local Backdrop = new("Frame", {
+	Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
+	BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1,
+}, ScreenGui)
 
+local BgLogo = new("ImageLabel", {
+	Size = UDim2.fromOffset(220, 220), AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1,
+	Image = LOGO_ID, ImageTransparency = 0.88, ScaleType = Enum.ScaleType.Fit, ZIndex = 2,
+}, ScreenGui)
 task.spawn(function()
-	while true do
-		TweenService:Create(BgLogo, TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { ImageTransparency = 0.74 }):Play()
-		task.wait(2.5)
-		TweenService:Create(BgLogo, TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { ImageTransparency = 0.88 }):Play()
-		task.wait(2.5)
+	while BgLogo.Parent do
+		tw(BgLogo, 2.8, {ImageTransparency = 0.80}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut); task.wait(2.8)
+		tw(BgLogo, 2.8, {ImageTransparency = 0.93}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut); task.wait(2.8)
 	end
 end)
 
-local LCanvas = Instance.new("Frame")
-LCanvas.Size = UDim2.fromScale(1, 1)
-LCanvas.BackgroundTransparency = 1
-LCanvas.BorderSizePixel = 0
-LCanvas.ZIndex = 3
-LCanvas.Parent = ScreenGui
+local LCanvas = new("Frame", {
+	Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 3,
+}, ScreenGui)
 
-local Card = Instance.new("Frame")
-Card.Name = "Card"
-Card.Size = UDim2.new(0, 310, 0, 380)
-Card.AnchorPoint = Vector2.new(0.5, 0.5)
-Card.Position = UDim2.fromScale(0.5, 0.5)
-Card.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
-Card.BackgroundTransparency = 0.08
-Card.BorderSizePixel = 0
-Card.ZIndex = 10
-Card.Parent = ScreenGui
+-- ════════ CARD 400x204 (ย่อตามหน้าจออัตโนมัติ) ════════
+local CARD_W, CARD_H, LEFT_W, RADIUS = 400, 204, 138, 18
 
-local CardCorner = Instance.new("UICorner")
-CardCorner.CornerRadius = UDim.new(0, 24)
-CardCorner.Parent = Card
+local Card = new("Frame", {
+	Name = "Card", Size = UDim2.fromOffset(CARD_W, CARD_H),
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.68, 0),
+	BackgroundColor3 = Color3.fromRGB(8, 8, 8), BackgroundTransparency = 1,
+	BorderSizePixel = 0, ZIndex = 10,
+}, ScreenGui)
+corner(Card, RADIUS)
 
-local CardStroke = Instance.new("UIStroke")
-CardStroke.Color = Color3.fromRGB(255, 255, 255)
-CardStroke.Thickness = 1
-CardStroke.Transparency = 0.65
-CardStroke.Parent = Card
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 28, 0, 28)
-CloseBtn.AnchorPoint = Vector2.new(1, 0)
-CloseBtn.Position = UDim2.new(1, 24, 0, 10)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-CloseBtn.BackgroundTransparency = 1
-CloseBtn.BorderSizePixel = 0
-CloseBtn.Text = "×"
-CloseBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 18
-CloseBtn.ZIndex = 15
-CloseBtn.Parent = Card
-
-local CloseBtnCorner = Instance.new("UICorner")
-CloseBtnCorner.CornerRadius = UDim.new(0, 8)
-CloseBtnCorner.Parent = CloseBtn
-
-task.delay(0.65, function()
-	TweenService:Create(CloseBtn, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Position = UDim2.new(1, -10, 0, 10),
-		BackgroundTransparency = 0,
-	}):Play()
+-- ขอบเรืองแสงวิ่งรอบการ์ด
+local CardStroke = stroke(Card, WHITE, 1.5, 0)
+local CGrad = new("UIGradient", {
+	Rotation = 0,
+	Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0,   0.88),
+		NumberSequenceKeypoint.new(0.40, 0.88),
+		NumberSequenceKeypoint.new(0.50, 0),
+		NumberSequenceKeypoint.new(0.60, 0.88),
+		NumberSequenceKeypoint.new(1,   0.88),
+	}),
+}, CardStroke)
+task.spawn(function()
+	local r = 0
+	while Card.Parent do r = (r + 2.2) % 360; CGrad.Rotation = r; task.wait(0.016) end
 end)
 
-CloseBtn.MouseEnter:Connect(function()
-	TweenService:Create(CloseBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(55,55,55), TextColor3 = Color3.fromRGB(255,255,255) }):Play()
-	TweenService:Create(CloseBtn, TweenInfo.new(0.2, Enum.EasingStyle.Back), { Rotation = 90 }):Play()
+-- scale ตามหน้าจอ + intro
+local Scale = new("UIScale", {}, Card)
+local baseScale, introDone = 1, false
+local function fit()
+	local vp = camera.ViewportSize
+	baseScale = math.clamp(math.min(vp.X * 0.9 / CARD_W, vp.Y * 0.66 / CARD_H), 0.55, 1)
+	if introDone then Scale.Scale = baseScale end
+end
+fit()
+Scale.Scale = baseScale * 0.88
+camera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+
+-- ════════ LEFT PANEL (มุมซ้ายมน / ขวาเรียบ) ════════
+local LeftPanel = new("Frame", {
+	Size = UDim2.new(0, LEFT_W, 1, 0), BackgroundColor3 = Color3.fromRGB(5, 5, 5),
+	BorderSizePixel = 0, ZIndex = 11,
+}, Card)
+corner(LeftPanel, RADIUS)
+new("Frame", { -- ตัวอุดฝั่งขวาให้เรียบ
+	Size = UDim2.new(0, RADIUS + 2, 1, 0), Position = UDim2.new(1, -(RADIUS + 2), 0, 0),
+	BackgroundColor3 = Color3.fromRGB(5, 5, 5), BorderSizePixel = 0, ZIndex = 11,
+}, LeftPanel)
+new("Frame", {
+	Size = UDim2.new(0, 1, 1, 0), Position = UDim2.new(1, -1, 0, 0),
+	BackgroundColor3 = WHITE, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 12,
+}, LeftPanel)
+
+-- วงคลื่นแผ่ออกจากโลโก้
+local Pulse = new("Frame", {
+	Size = UDim2.fromOffset(110, 110), AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 12,
+}, LeftPanel)
+corner(Pulse, 99)
+local PStroke = stroke(Pulse, WHITE, 1.2, 0.5)
+task.spawn(function()
+	while Pulse.Parent do
+		Pulse.Size = UDim2.fromOffset(110, 110); PStroke.Transparency = 0.5
+		tw(Pulse, 1.9, {Size = UDim2.fromOffset(134, 134)})
+		tw(PStroke, 1.9, {Transparency = 1})
+		task.wait(2.2)
+	end
 end)
-CloseBtn.MouseLeave:Connect(function()
-	TweenService:Create(CloseBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(30,30,30), TextColor3 = Color3.fromRGB(160,160,160) }):Play()
-	TweenService:Create(CloseBtn, TweenInfo.new(0.2, Enum.EasingStyle.Back), { Rotation = 0 }):Play()
+
+local Ring = new("ImageLabel", {
+	Size = UDim2.fromOffset(130, 130), AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1,
+	Image = "rbxassetid://6401145959", ImageTransparency = 0.8, ZIndex = 12,
+}, LeftPanel)
+local Logo = new("ImageLabel", {
+	Size = UDim2.fromOffset(112, 112), AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1,
+	Image = LOGO_ID, ScaleType = Enum.ScaleType.Fit, ZIndex = 13,
+}, LeftPanel)
+task.spawn(function()
+	local r = 0
+	while Ring.Parent do r = (r + 1.2) % 360; Ring.Rotation = r; task.wait(0.016) end
 end)
-CloseBtn.MouseButton1Click:Connect(function()
-	TweenService:Create(Card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-		Position = UDim2.new(0.5,0,0.35,0), BackgroundTransparency = 1,
-	}):Play()
-	TweenService:Create(Backdrop, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
-	task.wait(0.5)
-	ScreenGui:Destroy()
+task.spawn(function()
+	while Logo.Parent do
+		tw(Logo, 2, {ImageTransparency = 0.15}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut); task.wait(2)
+		tw(Logo, 2, {ImageTransparency = 0},    Enum.EasingStyle.Sine, Enum.EasingDirection.InOut); task.wait(2)
+	end
 end)
 
-local LangBtn = Instance.new("TextButton")
-LangBtn.Size = UDim2.new(0, 44, 0, 24)
-LangBtn.AnchorPoint = Vector2.new(1, 0)
-LangBtn.Position = UDim2.new(1, -44, 0, 14)
-LangBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-LangBtn.BorderSizePixel = 0
-LangBtn.Text = "TH"
-LangBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
-LangBtn.Font = Enum.Font.GothamBold
-LangBtn.TextSize = 11
-LangBtn.ZIndex = 15
-LangBtn.Parent = Card
+-- อนุภาคลอยขึ้น
+task.spawn(function()
+	while LeftPanel.Parent do
+		local s = math.random(2, 3)
+		local x = math.random(18, LEFT_W - 18)
+		local p = new("Frame", {
+			Size = UDim2.fromOffset(s, s), Position = UDim2.fromOffset(x, CARD_H - 24),
+			BackgroundColor3 = WHITE, BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 12,
+		}, LeftPanel)
+		corner(p, 99)
+		local life = math.random(30, 50) / 10
+		TweenService:Create(p, TweenInfo.new(life, Enum.EasingStyle.Linear), {
+			Position = UDim2.fromOffset(x + math.random(-12, 12), 24), BackgroundTransparency = 1,
+		}):Play()
+		task.delay(life + 0.1, function() p:Destroy() end)
+		task.wait(0.4)
+	end
+end)
 
-local LangCorner = Instance.new("UICorner")
-LangCorner.CornerRadius = UDim.new(0, 8)
-LangCorner.Parent = LangBtn
+-- ════════ RIGHT PANEL ════════
+local RP = new("Frame", {
+	Size = UDim2.new(1, -LEFT_W, 1, 0), Position = UDim2.new(0, LEFT_W, 0, 0),
+	BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 11,
+}, Card)
 
-local LangStroke = Instance.new("UIStroke")
-LangStroke.Color = Color3.fromRGB(55, 55, 55)
-LangStroke.Thickness = 1
-LangStroke.Parent = LangBtn
+-- header (มุมขวาบนมน)
+local HDR_H = 38
+local HDR_COL = Color3.fromRGB(11, 11, 11)
+local Header = new("Frame", {
+	Size = UDim2.new(1, 0, 0, HDR_H), BackgroundColor3 = HDR_COL, BorderSizePixel = 0, ZIndex = 12,
+}, RP)
+corner(Header, RADIUS)
+new("Frame", { -- อุดซ้าย
+	Size = UDim2.new(0, RADIUS + 2, 1, 0), BackgroundColor3 = HDR_COL, BorderSizePixel = 0, ZIndex = 12,
+}, Header)
+new("Frame", { -- อุดล่าง
+	Size = UDim2.new(1, 0, 0, HDR_H / 2), Position = UDim2.new(0, 0, 1, -HDR_H / 2),
+	BackgroundColor3 = HDR_COL, BorderSizePixel = 0, ZIndex = 12,
+}, Header)
+new("Frame", {
+	Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1),
+	BackgroundColor3 = WHITE, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 13,
+}, Header)
+new("TextLabel", {
+	Size = UDim2.new(0, 18, 1, 0), Position = UDim2.new(0, 10, 0, 0),
+	BackgroundTransparency = 1, Text = "//", TextColor3 = WHITE, TextTransparency = 0.6,
+	Font = Enum.Font.GothamBold, TextSize = 12, ZIndex = 13,
+}, Header)
+new("TextLabel", {
+	Size = UDim2.new(0, 120, 0, 16), Position = UDim2.new(0, 30, 0, 5),
+	BackgroundTransparency = 1, Text = "NEXORA HUB", TextColor3 = WHITE,
+	Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 13,
+}, Header)
+new("TextLabel", {
+	Size = UDim2.new(0, 120, 0, 10), Position = UDim2.new(0, 30, 0, 23),
+	BackgroundTransparency = 1, Text = "POWERED BY NEXORA", TextColor3 = Color3.fromRGB(100, 100, 100),
+	Font = Enum.Font.Gotham, TextSize = 7, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 13,
+}, Header)
 
-local KeyInput, Status, ConfirmBtn, GetKeyBtn, Footer
+local LangBtn = new("TextButton", {
+	Size = UDim2.fromOffset(32, 20), AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(1, -40, 0.5, 0), BackgroundColor3 = Color3.fromRGB(18, 18, 18),
+	BorderSizePixel = 0, AutoButtonColor = false, Text = "EN",
+	TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.GothamBold, TextSize = 9, ZIndex = 15,
+}, Header)
+corner(LangBtn, 6)
+local LangStroke = stroke(LangBtn, Color3.fromRGB(50, 50, 50))
 
-local function applyLang()
-	if KeyInput   then KeyInput.PlaceholderText = T("placeholder") end
-	if ConfirmBtn then ConfirmBtn.Text = T("confirm") end
-	if GetKeyBtn  then GetKeyBtn.Text  = T("getkey")  end
-	if Footer     then Footer.Text     = T("footer")  end
-	LangBtn.Text = (currentLang == "EN") and "TH" or "EN"
+local CloseBtn = new("TextButton", {
+	Size = UDim2.fromOffset(24, 20), AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(1, -10, 0.5, 0), BackgroundColor3 = Color3.fromRGB(18, 18, 18),
+	BorderSizePixel = 0, AutoButtonColor = false, Text = "", ZIndex = 15,
+}, Header)
+corner(CloseBtn, 6)
+local CloseStroke = stroke(CloseBtn, Color3.fromRGB(50, 50, 50))
+local xBars = {}
+for _, rot in ipairs({45, -45}) do
+	table.insert(xBars, new("Frame", {
+		Size = UDim2.fromOffset(10, 1.5), AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Rotation = rot,
+		BackgroundColor3 = Color3.fromRGB(150, 150, 150), BorderSizePixel = 0, ZIndex = 16,
+	}, CloseBtn))
 end
 
+-- หัวข้อ
+local KTitle = new("TextLabel", {
+	Size = UDim2.new(1, -28, 0, 16), Position = UDim2.new(0, 14, 0, 46),
+	BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(240, 240, 240),
+	Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 12,
+}, RP)
+local KSub = new("TextLabel", {
+	Size = UDim2.new(1, -28, 0, 12), Position = UDim2.new(0, 14, 0, 62),
+	BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(125, 125, 125),
+	Font = Enum.Font.Gotham, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 12,
+}, RP)
+
+-- ช่องใส่คีย์
+local IWrap = new("Frame", {
+	Size = UDim2.new(1, -28, 0, 32), Position = UDim2.new(0, 14, 0, 80),
+	BackgroundColor3 = Color3.fromRGB(13, 13, 13), BorderSizePixel = 0, ZIndex = 12,
+}, RP)
+corner(IWrap, 8)
+local IStroke = stroke(IWrap, Color3.fromRGB(48, 48, 48))
+
+local LockLbl = new("TextLabel", {
+	Size = UDim2.new(0, 24, 1, 0), Position = UDim2.new(1, -26, 0, 0),
+	BackgroundTransparency = 1, Text = "🔒", TextSize = 11,
+	TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.GothamBold, ZIndex = 14,
+}, IWrap)
+local KeyInput = new("TextBox", {
+	Size = UDim2.new(1, -36, 1, 0), Position = UDim2.new(0, 10, 0, 0),
+	BackgroundTransparency = 1, Text = "", PlaceholderColor3 = Color3.fromRGB(80, 80, 80),
+	TextColor3 = Color3.fromRGB(220, 220, 220), Font = Enum.Font.Code, TextSize = 11,
+	TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, ZIndex = 13,
+}, IWrap)
+KeyInput.Focused:Connect(function()
+	tw(IStroke, 0.2, {Color = Color3.fromRGB(210, 210, 210), Thickness = 1.5})
+	tw(IWrap, 0.2, {BackgroundColor3 = Color3.fromRGB(18, 18, 18)})
+end)
+KeyInput.FocusLost:Connect(function()
+	tw(IStroke, 0.2, {Color = Color3.fromRGB(48, 48, 48), Thickness = 1})
+	tw(IWrap, 0.2, {BackgroundColor3 = Color3.fromRGB(13, 13, 13)})
+end)
+
+local Status = new("TextLabel", {
+	Size = UDim2.new(1, -28, 0, 12), Position = UDim2.new(0, 14, 0, 114),
+	BackgroundTransparency = 1, Text = "", TextColor3 = Color3.fromRGB(255, 80, 80),
+	Font = Enum.Font.Gotham, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 12,
+}, RP)
+
+-- ปุ่มยืนยัน + แสงวิ่งผ่าน
+local ConfirmBtn = new("TextButton", {
+	Size = UDim2.new(1, -28, 0, 32), Position = UDim2.new(0, 14, 0, 128),
+	BackgroundColor3 = Color3.fromRGB(228, 228, 228), BorderSizePixel = 0, AutoButtonColor = false,
+	TextColor3 = Color3.new(0, 0, 0), Font = Enum.Font.GothamBold, TextSize = 12,
+	ZIndex = 12, ClipsDescendants = true,
+}, RP)
+corner(ConfirmBtn, 8)
+local CSh = new("Frame", {
+	Size = UDim2.new(0, 44, 2, 0), Position = UDim2.new(0, -70, -0.5, 0), Rotation = 14,
+	BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 13,
+}, ConfirmBtn)
+new("UIGradient", {
+	Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.35), NumberSequenceKeypoint.new(1, 1),
+	}),
+}, CSh)
+task.spawn(function()
+	while ConfirmBtn.Parent do
+		CSh.Position = UDim2.new(0, -70, -0.5, 0)
+		tw(CSh, 0.9, {Position = UDim2.new(1, 30, -0.5, 0)})
+		task.wait(3.4)
+	end
+end)
+ConfirmBtn.MouseEnter:Connect(function() tw(ConfirmBtn, 0.15, {BackgroundColor3 = WHITE}) end)
+ConfirmBtn.MouseLeave:Connect(function() tw(ConfirmBtn, 0.15, {BackgroundColor3 = Color3.fromRGB(228, 228, 228)}) end)
+ConfirmBtn.MouseButton1Down:Connect(function() tw(ConfirmBtn, 0.08, {BackgroundColor3 = Color3.fromRGB(185, 185, 185)}) end)
+
+-- success overlay
+local SOv = new("Frame", {
+	Size = UDim2.new(1, -28, 0, 32), Position = UDim2.new(0, 14, 0, 128),
+	BackgroundColor3 = Color3.fromRGB(65, 205, 125), BackgroundTransparency = 1,
+	BorderSizePixel = 0, ZIndex = 14, Visible = false,
+}, RP)
+corner(SOv, 8)
+local SLbl = new("TextLabel", {
+	Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, TextColor3 = Color3.new(0, 0, 0),
+	Font = Enum.Font.GothamBold, TextSize = 12, ZIndex = 15,
+}, SOv)
+local function playSuccessAnim()
+	SLbl.Text = T("granted"); SLbl.TextTransparency = 1
+	SOv.BackgroundTransparency = 1; SOv.Visible = true
+	tw(SOv, 0.25, {BackgroundTransparency = 0})
+	tw(SLbl, 0.3, {TextTransparency = 0})
+end
+-- ════════ ปุ่มคัดลอก ════════
+local BTN_Y = 166
+local GREEN = Color3.fromRGB(65, 205, 125)
+local AMBER = Color3.fromRGB(235, 180, 40)
+local BLURPLE = Color3.fromRGB(110, 120, 255)
+
+local function makeCopyBtn(anchorX, posX, accent)
+	local b = new("TextButton", {
+		Size = UDim2.new(0.5, -18, 0, 30), AnchorPoint = Vector2.new(anchorX, 0),
+		Position = UDim2.new(posX, anchorX == 1 and -14 or 14, 0, BTN_Y),
+		BackgroundColor3 = Color3.fromRGB(15, 15, 15), BorderSizePixel = 0,
+		AutoButtonColor = false, Text = "", ZIndex = 12,
+	}, RP)
+	corner(b, 8)
+	local s = stroke(b, Color3.fromRGB(45, 45, 45))
+	local bar = new("Frame", {
+		Size = UDim2.fromOffset(3, 12), AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 8, 0.5, 0), BackgroundColor3 = accent,
+		BorderSizePixel = 0, ZIndex = 13,
+	}, b)
+	corner(bar, 2)
+	local lbl = new("TextLabel", {
+		Size = UDim2.new(1, -22, 1, 0), Position = UDim2.new(0, 18, 0, 0),
+		BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(190, 190, 190),
+		Font = Enum.Font.GothamMedium, TextSize = 10,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 13,
+	}, b)
+	b.MouseEnter:Connect(function()
+		tw(b, 0.12, {BackgroundColor3 = Color3.fromRGB(24, 24, 24)})
+		tw(s, 0.12, {Color = accent})
+		tw(lbl, 0.12, {TextColor3 = WHITE})
+		tw(bar, 0.15, {Size = UDim2.fromOffset(3, 18)})
+	end)
+	b.MouseLeave:Connect(function()
+		tw(b, 0.12, {BackgroundColor3 = Color3.fromRGB(15, 15, 15)})
+		tw(s, 0.12, {Color = Color3.fromRGB(45, 45, 45)})
+		tw(lbl, 0.12, {TextColor3 = Color3.fromRGB(190, 190, 190)})
+		tw(bar, 0.15, {Size = UDim2.fromOffset(3, 12)})
+	end)
+	b.MouseButton1Down:Connect(function() tw(b, 0.06, {BackgroundColor3 = Color3.fromRGB(34, 34, 34)}) end)
+	return b, lbl, s, bar
+end
+
+local GKBtn,   GKLbl,   GKStroke,   GKBar   = makeCopyBtn(0, 0, AMBER)
+local DiscBtn, DLbl,    DiscStroke, DiscBar = makeCopyBtn(1, 1, BLURPLE)
+
+local function wireCopy(btn, lbl, strokeObj, bar, accent, link, idleKey, urlKey)
+	local locked = false
+	btn.MouseButton1Click:Connect(function()
+		if locked then return end
+		locked = true
+		local ok = pcall(function() setclipboard(link) end)
+		lbl.Text = ok and T("copied") or T(urlKey)
+		if ok then
+			tw(bar, 0.15, {BackgroundColor3 = GREEN})
+			tw(strokeObj, 0.15, {Color = GREEN})
+			tw(btn, 0.15, {BackgroundColor3 = Color3.fromRGB(14, 28, 20)})
+		end
+		task.wait(2)
+		lbl.Text = T(idleKey)
+		tw(bar, 0.25, {BackgroundColor3 = accent})
+		tw(strokeObj, 0.25, {Color = Color3.fromRGB(45, 45, 45)})
+		tw(btn, 0.25, {BackgroundColor3 = Color3.fromRGB(15, 15, 15)})
+		locked = false
+	end)
+end
+wireCopy(GKBtn,   GKLbl, GKStroke,   GKBar,   AMBER,   KEYPAGE,   "getkey",  "copy_url")
+wireCopy(DiscBtn, DLbl,  DiscStroke, DiscBar, BLURPLE, DISC_LINK, "discord", "disc_url")
+
+-- ════════ ปุ่มปิด ════════
+CloseBtn.MouseEnter:Connect(function()
+	tw(CloseStroke, 0.15, {Color = Color3.fromRGB(255, 90, 90)})
+	for _, b in ipairs(xBars) do tw(b, 0.15, {BackgroundColor3 = Color3.fromRGB(255, 90, 90)}) end
+end)
+CloseBtn.MouseLeave:Connect(function()
+	tw(CloseStroke, 0.15, {Color = Color3.fromRGB(50, 50, 50)})
+	for _, b in ipairs(xBars) do tw(b, 0.15, {BackgroundColor3 = Color3.fromRGB(150, 150, 150)}) end
+end)
+CloseBtn.MouseButton1Click:Connect(function()
+	introDone = false
+	tw(Scale, 0.35, {Scale = baseScale * 0.88}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+	TweenService:Create(Card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+		Position = UDim2.new(0.5, 0, 0.38, 0), BackgroundTransparency = 1}):Play()
+	tw(Backdrop, 0.35, {BackgroundTransparency = 1})
+	task.wait(0.5); ScreenGui:Destroy()
+end)
+
+-- ════════ LANG ════════
+local function applyLang()
+	KTitle.Text = T("key_title"); KSub.Text = T("key_sub")
+	KeyInput.PlaceholderText = T("placeholder")
+	ConfirmBtn.Text = T("confirm")
+	GKLbl.Text = T("getkey"); DLbl.Text = T("discord")
+	LangBtn.Text = (currentLang == "EN") and "TH" or "EN"
+end
+applyLang()
+
 LangBtn.MouseEnter:Connect(function()
-	TweenService:Create(LangStroke, TweenInfo.new(0.15), { Color = Color3.fromRGB(180,180,180) }):Play()
-	TweenService:Create(LangBtn, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(255,255,255) }):Play()
+	tw(LangStroke, 0.15, {Color = Color3.fromRGB(180, 180, 180)})
+	tw(LangBtn, 0.15, {TextColor3 = WHITE})
 end)
 LangBtn.MouseLeave:Connect(function()
-	TweenService:Create(LangStroke, TweenInfo.new(0.15), { Color = Color3.fromRGB(55,55,55) }):Play()
-	TweenService:Create(LangBtn, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(160,160,160) }):Play()
+	tw(LangStroke, 0.15, {Color = Color3.fromRGB(50, 50, 50)})
+	tw(LangBtn, 0.15, {TextColor3 = Color3.fromRGB(150, 150, 150)})
 end)
 LangBtn.MouseButton1Click:Connect(function()
 	currentLang = (currentLang == "EN") and "TH" or "EN"
-	TweenService:Create(LangBtn, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(60,60,60) }):Play()
-	task.wait(0.12)
-	TweenService:Create(LangBtn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(28,28,28) }):Play()
 	applyLang()
 end)
 
--- PART 2
-
-local Ring = Instance.new("ImageLabel")
-Ring.Size = UDim2.new(0, 86, 0, 86)
-Ring.AnchorPoint = Vector2.new(0.5, 0)
-Ring.Position = UDim2.new(0.5, 0, 0, 20)
-Ring.BackgroundTransparency = 1
-Ring.Image = "rbxassetid://6401145959"
-Ring.ImageColor3 = Color3.fromRGB(255, 255, 255)
-Ring.ImageTransparency = 0.75
-Ring.ZIndex = 10
-Ring.Parent = Card
-
-local Logo = Instance.new("ImageLabel")
-Logo.Size = UDim2.new(0, 72, 0, 72)
-Logo.AnchorPoint = Vector2.new(0.5, 0)
-Logo.Position = UDim2.new(0.5, 0, 0, 27)
-Logo.BackgroundTransparency = 1
-Logo.Image = LOGO_ID
-Logo.ScaleType = Enum.ScaleType.Fit
-Logo.ZIndex = 11
-Logo.Parent = Card
-
-task.spawn(function()
-	local r = 0
-	while true do
-		r = (r + 1) % 360
-		Ring.Rotation = r
-		task.wait(0.016)
-	end
-end)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -20, 0, 26)
-Title.AnchorPoint = Vector2.new(0.5, 0)
-Title.Position = UDim2.new(0.5, 0, 0, 108)
-Title.BackgroundTransparency = 1
-Title.Text = "NEXORA HUB"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 20
-Title.TextXAlignment = Enum.TextXAlignment.Center
-Title.ZIndex = 11
-Title.Parent = Card
-
-local Rule = Instance.new("Frame")
-Rule.Size = UDim2.new(0, 180, 0, 1)
-Rule.AnchorPoint = Vector2.new(0.5, 0)
-Rule.Position = UDim2.new(0.5, 0, 0, 142)
-Rule.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-Rule.BackgroundTransparency = 0.75
-Rule.BorderSizePixel = 0
-Rule.ZIndex = 11
-Rule.Parent = Card
-
-local InputWrap = Instance.new("Frame")
-InputWrap.Size = UDim2.new(0, 266, 0, 44)
-InputWrap.AnchorPoint = Vector2.new(0.5, 0)
-InputWrap.Position = UDim2.new(0.5, 0, 0, 158)
-InputWrap.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-InputWrap.BorderSizePixel = 0
-InputWrap.ZIndex = 11
-InputWrap.Parent = Card
-
-local IWCorner = Instance.new("UICorner")
-IWCorner.CornerRadius = UDim.new(0, 12)
-IWCorner.Parent = InputWrap
-
-local IWStroke = Instance.new("UIStroke")
-IWStroke.Color = Color3.fromRGB(55, 55, 55)
-IWStroke.Thickness = 1
-IWStroke.Parent = InputWrap
-
-KeyInput = Instance.new("TextBox")
-KeyInput.Size = UDim2.new(1, -16, 1, 0)
-KeyInput.Position = UDim2.new(0, 12, 0, 0)
-KeyInput.BackgroundTransparency = 1
-KeyInput.Text = ""
-KeyInput.PlaceholderText = T("placeholder")
-KeyInput.PlaceholderColor3 = Color3.fromRGB(65, 65, 65)
-KeyInput.TextColor3 = Color3.fromRGB(210, 210, 210)
-KeyInput.Font = Enum.Font.Code
-KeyInput.TextSize = 13
-KeyInput.TextXAlignment = Enum.TextXAlignment.Left
-KeyInput.ClearTextOnFocus = false
-KeyInput.ZIndex = 12
-KeyInput.Parent = InputWrap
-
-KeyInput.Focused:Connect(function()
-	TweenService:Create(IWStroke, TweenInfo.new(0.2), { Color = Color3.fromRGB(200,200,200), Thickness = 1.5 }):Play()
-end)
-KeyInput.FocusLost:Connect(function()
-	TweenService:Create(IWStroke, TweenInfo.new(0.2), { Color = Color3.fromRGB(55,55,55), Thickness = 1 }):Play()
-end)
-
-Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1, -20, 0, 16)
-Status.AnchorPoint = Vector2.new(0.5, 0)
-Status.Position = UDim2.new(0.5, 0, 0, 208)
-Status.BackgroundTransparency = 1
-Status.Text = ""
-Status.TextColor3 = Color3.fromRGB(255, 80, 80)
-Status.Font = Enum.Font.Gotham
-Status.TextSize = 11
-Status.TextXAlignment = Enum.TextXAlignment.Center
-Status.ZIndex = 11
-Status.Parent = Card
-
-ConfirmBtn = Instance.new("TextButton")
-ConfirmBtn.Size = UDim2.new(0, 266, 0, 44)
-ConfirmBtn.AnchorPoint = Vector2.new(0.5, 0)
-ConfirmBtn.Position = UDim2.new(0.5, 0, 0, 232)
-ConfirmBtn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
-ConfirmBtn.BorderSizePixel = 0
-ConfirmBtn.Text = T("confirm")
-ConfirmBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-ConfirmBtn.Font = Enum.Font.GothamBold
-ConfirmBtn.TextSize = 14
-ConfirmBtn.ZIndex = 11
-ConfirmBtn.Parent = Card
-
-local CBCorner = Instance.new("UICorner")
-CBCorner.CornerRadius = UDim.new(0, 12)
-CBCorner.Parent = ConfirmBtn
-
-ConfirmBtn.MouseEnter:Connect(function()
-	TweenService:Create(ConfirmBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(255,255,255) }):Play()
-end)
-ConfirmBtn.MouseLeave:Connect(function()
-	TweenService:Create(ConfirmBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(240,240,240) }):Play()
-end)
-
-local SuccessOverlay = Instance.new("Frame")
-SuccessOverlay.Size = UDim2.new(0, 266, 0, 44)
-SuccessOverlay.AnchorPoint = Vector2.new(0.5, 0)
-SuccessOverlay.Position = UDim2.new(0.5, 0, 0, 232)
-SuccessOverlay.BackgroundColor3 = Color3.fromRGB(100, 255, 160)
-SuccessOverlay.BackgroundTransparency = 1
-SuccessOverlay.BorderSizePixel = 0
-SuccessOverlay.ZIndex = 13
-SuccessOverlay.Visible = false
-SuccessOverlay.Parent = Card
-
-local SOCorner = Instance.new("UICorner")
-SOCorner.CornerRadius = UDim.new(0, 12)
-SOCorner.Parent = SuccessOverlay
-
-local CheckCircle = Instance.new("Frame")
-CheckCircle.Size = UDim2.new(0, 28, 0, 28)
-CheckCircle.AnchorPoint = Vector2.new(0, 0.5)
-CheckCircle.Position = UDim2.new(0, 10, 0.5, 0)
-CheckCircle.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-CheckCircle.BackgroundTransparency = 0.65
-CheckCircle.BorderSizePixel = 0
-CheckCircle.ZIndex = 14
-CheckCircle.Parent = SuccessOverlay
-
-local CCCorner = Instance.new("UICorner")
-CCCorner.CornerRadius = UDim.new(1, 0)
-CCCorner.Parent = CheckCircle
-
-local CheckMark = Instance.new("TextLabel")
-CheckMark.Size = UDim2.fromScale(1, 1)
-CheckMark.BackgroundTransparency = 1
-CheckMark.Text = "✓"
-CheckMark.TextColor3 = Color3.fromRGB(100, 255, 160)
-CheckMark.Font = Enum.Font.GothamBold
-CheckMark.TextSize = 16
-CheckMark.TextXAlignment = Enum.TextXAlignment.Center
-CheckMark.ZIndex = 15
-CheckMark.Parent = CheckCircle
-
-local SuccessLabel = Instance.new("TextLabel")
-SuccessLabel.Size = UDim2.new(1, -58, 1, 0)
-SuccessLabel.Position = UDim2.new(0, 48, 0, 0)
-SuccessLabel.BackgroundTransparency = 1
-SuccessLabel.Text = ""
-SuccessLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-SuccessLabel.Font = Enum.Font.GothamBold
-SuccessLabel.TextSize = 13
-SuccessLabel.TextXAlignment = Enum.TextXAlignment.Left
-SuccessLabel.ZIndex = 14
-SuccessLabel.Parent = SuccessOverlay
-
-local function playSuccessAnim()
-	SuccessLabel.Text = T("granted")
-	SuccessOverlay.Visible = true
-	SuccessOverlay.BackgroundTransparency = 1
-	CheckCircle.BackgroundTransparency = 1
-	CheckMark.TextTransparency = 1
-	SuccessLabel.TextTransparency = 1
-
-	TweenService:Create(SuccessOverlay, TweenInfo.new(0.25), { BackgroundTransparency = 0 }):Play()
-	task.wait(0.1)
-	CheckCircle.Size = UDim2.new(0, 10, 0, 10)
-	TweenService:Create(CheckCircle, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Size = UDim2.new(0, 28, 0, 28),
-		BackgroundTransparency = 0.65,
-	}):Play()
-	TweenService:Create(CheckMark, TweenInfo.new(0.25), { TextTransparency = 0 }):Play()
-	TweenService:Create(SuccessLabel, TweenInfo.new(0.3), { TextTransparency = 0 }):Play()
-end
-
-GetKeyBtn = Instance.new("TextButton")
-GetKeyBtn.Size = UDim2.new(0, 266, 0, 36)
-GetKeyBtn.AnchorPoint = Vector2.new(0.5, 0)
-GetKeyBtn.Position = UDim2.new(0.5, 0, 0, 286)
-GetKeyBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-GetKeyBtn.BorderSizePixel = 0
-GetKeyBtn.Text = T("getkey")
-GetKeyBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
-GetKeyBtn.Font = Enum.Font.Gotham
-GetKeyBtn.TextSize = 12
-GetKeyBtn.ZIndex = 11
-GetKeyBtn.Parent = Card
-
-local GKCorner = Instance.new("UICorner")
-GKCorner.CornerRadius = UDim.new(0, 12)
-GKCorner.Parent = GetKeyBtn
-
-local GKStroke = Instance.new("UIStroke")
-GKStroke.Color = Color3.fromRGB(55, 55, 55)
-GKStroke.Thickness = 1
-GKStroke.Parent = GetKeyBtn
-
-local function burstStars()
-	for i = 1, 8 do
-		local star = Instance.new("TextLabel")
-		star.Size = UDim2.new(0, 14, 0, 14)
-		star.BackgroundTransparency = 1
-		star.Text = "★"
-		star.TextColor3 = Color3.fromRGB(255, 215, 0)
-		star.Font = Enum.Font.GothamBold
-		star.TextSize = 12
-		star.ZIndex = 20
-		star.AnchorPoint = Vector2.new(0.5, 0.5)
-		star.Position = UDim2.new(0.5, 0, 0, 304)
-		star.Parent = Card
-		local angle = (i / 8) * math.pi * 2
-		local dist = 38 + math.random(0, 20)
-		local tx = math.cos(angle) * dist
-		local ty = math.sin(angle) * dist
-		TweenService:Create(star, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.new(0.5, tx, 0, 304 + ty),
-			TextTransparency = 1,
-		}):Play()
-		task.delay(0.55, function() star:Destroy() end)
-	end
-end
-
-task.spawn(function()
-	while GetKeyBtn and GetKeyBtn.Parent do
-		TweenService:Create(GetKeyBtn, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { TextColor3 = Color3.fromRGB(255,210,60) }):Play()
-		task.wait(1.2)
-		TweenService:Create(GetKeyBtn, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { TextColor3 = Color3.fromRGB(140,100,0) }):Play()
-		task.wait(1.2)
-	end
-end)
-
-GetKeyBtn.MouseEnter:Connect(function()
-	TweenService:Create(GKStroke, TweenInfo.new(0.15), { Color = Color3.fromRGB(255,215,0) }):Play()
-	TweenService:Create(GetKeyBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(18,14,0), TextColor3 = Color3.fromRGB(255,230,80) }):Play()
-end)
-GetKeyBtn.MouseLeave:Connect(function()
-	TweenService:Create(GKStroke, TweenInfo.new(0.15), { Color = Color3.fromRGB(55,55,55) }):Play()
-	TweenService:Create(GetKeyBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(0,0,0) }):Play()
-end)
-GetKeyBtn.MouseButton1Click:Connect(function()
-	burstStars()
-	local ok = pcall(function() setclipboard(KEYPAGE) end)
-	if ok then
-		GetKeyBtn.Text = "✓  " .. T("copied")
-		TweenService:Create(GKStroke, TweenInfo.new(0.2), { Color = Color3.fromRGB(100,255,160) }):Play()
-	else
-		GetKeyBtn.Text = T("copy_url")
-		TweenService:Create(GetKeyBtn, TweenInfo.new(0.2), { TextColor3 = Color3.fromRGB(255,220,80) }):Play()
-	end
-	task.wait(2.5)
-	TweenService:Create(GKStroke, TweenInfo.new(0.3), { Color = Color3.fromRGB(55,55,55) }):Play()
-	GetKeyBtn.Text = T("getkey")
-end)
-
-Footer = Instance.new("TextLabel")
-Footer.Size = UDim2.new(1, -20, 0, 14)
-Footer.AnchorPoint = Vector2.new(0.5, 0)
-Footer.Position = UDim2.new(0.5, 0, 0, 356)
-Footer.BackgroundTransparency = 1
-Footer.Text = T("footer")
-Footer.TextColor3 = Color3.fromRGB(38, 38, 38)
-Footer.Font = Enum.Font.Gotham
-Footer.TextSize = 10
-Footer.TextXAlignment = Enum.TextXAlignment.Center
-Footer.ZIndex = 11
-Footer.Parent = Card
-
--- PART 3
-
+-- ════════ LIGHTNING ════════
 local lightOn = true
 local function bolt()
-	local b = Instance.new("Frame")
-	b.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	b.BorderSizePixel = 0
-	b.ZIndex = 4
-	b.AnchorPoint = Vector2.new(0.5, 0.5)
-	b.Size = UDim2.new(math.random(30,110)/1000, 0, math.random(1,2)/1000, 0)
-	b.Position = UDim2.fromScale(0.5+(math.random()-0.5)*0.32, 0.5+(math.random()-0.5)*0.32)
-	b.Rotation = math.random(0, 360)
-	b.Parent = LCanvas
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(1,0)
-	c.Parent = b
-	TweenService:Create(b, TweenInfo.new(0.3, Enum.EasingStyle.Quad), { BackgroundTransparency = 1 }):Play()
-	task.delay(0.35, function() b:Destroy() end)
+	local b = new("Frame", {
+		BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 4,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = UDim2.new(math.random(22, 100) / 1000, 0, math.random(1, 2) / 1000, 0),
+		Position = UDim2.fromScale(0.5 + (math.random() - 0.5) * 0.34, 0.5 + (math.random() - 0.5) * 0.34),
+		Rotation = math.random(0, 360),
+	}, LCanvas)
+	corner(b, 99)
+	TweenService:Create(b, TweenInfo.new(0.26, Enum.EasingStyle.Quad), {BackgroundTransparency = 1}):Play()
+	task.delay(0.31, function() b:Destroy() end)
 end
-
 task.spawn(function()
 	while lightOn do
-		for _ = 1, math.random(1,3) do bolt() task.wait(0.03) end
-		task.wait(math.random(10,22)/10)
+		for _ = 1, math.random(1, 3) do bolt(); task.wait(0.03) end
+		task.wait(math.random(10, 24) / 10)
 	end
 end)
 
+-- ════════ SHAKE ════════
 local function shake()
-	for _, x in ipairs({-9,9,-6,6,-3,3,0}) do
-		TweenService:Create(Card, TweenInfo.new(0.04), { Position = UDim2.new(0.5,x,0.5,0) }):Play()
+	for _, x in ipairs({-8, 8, -5, 5, -2, 2, 0}) do
+		TweenService:Create(Card, TweenInfo.new(0.04), {Position = UDim2.new(0.5, x, 0.5, 0)}):Play()
 		task.wait(0.04)
 	end
+	Card.Position = UDim2.fromScale(0.5, 0.5)
 end
 
+-- ════════ API ════════
 local function check(k)
 	local ok, res = pcall(function()
 		return game:HttpGet(API .. "/api/key/check?key=" .. HttpService:UrlEncode(k) .. "&hwid=" .. HttpService:UrlEncode(HWID))
@@ -544,64 +520,55 @@ local function check(k)
 	return false, d.error or "key"
 end
 
+-- ════════ CONFIRM ════════
 local busy = false
 local function confirm()
 	if busy then return end
 	local k = (KeyInput.Text:gsub("%s+", ""))
 	if k == "" then
-		Status.TextColor3 = Color3.fromRGB(255,180,0)
-		Status.Text = T("empty")
-		shake() return
+		Status.TextColor3 = Color3.fromRGB(255, 180, 0)
+		Status.Text = T("empty"); shake(); return
 	end
-
 	busy = true
-	Status.TextColor3 = Color3.fromRGB(200,200,200)
-	Status.Text = T("checking")
+	Status.TextColor3 = Color3.fromRGB(170, 170, 170); Status.Text = T("checking")
 	local valid, why = check(k)
-
 	if valid then
-		ConfirmBtn.Visible = false
-		Status.Text = ""
-		playSuccessAnim()
-		TweenService:Create(CardStroke, TweenInfo.new(0.3), { Color = Color3.fromRGB(100,255,160), Transparency = 0 }):Play()
-		for i = 1,10 do task.delay(i*0.05, bolt) end
-		lightOn = false
-		task.wait(1.6)
+		ConfirmBtn.Visible = false; Status.Text = ""; playSuccessAnim()
+		tw(CardStroke, 0.3, {Color = GREEN})
+		for i = 1, 10 do task.delay(i * 0.05, bolt) end
+		lightOn = false; task.wait(1.6)
+		introDone = false
+		tw(Scale, 0.45, {Scale = baseScale * 0.88}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
 		TweenService:Create(Card, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-			Position = UDim2.new(0.5,0,0.35,0), BackgroundTransparency = 1,
-		}):Play()
-		TweenService:Create(Backdrop, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
-		task.wait(0.6)
-		ScreenGui:Destroy()
-		local okRun, errRun = pcall(function()
+			Position = UDim2.new(0.5, 0, 0.38, 0), BackgroundTransparency = 1}):Play()
+		tw(Backdrop, 0.4, {BackgroundTransparency = 1})
+		task.wait(0.6); ScreenGui:Destroy()
+		local okR, errR = pcall(function()
 			loadstring(game:HttpGet("https://raw.githubusercontent.com/aten131012-dot/nexora/refs/heads/main/NEXORAHUB.txt"))()
 		end)
-		if not okRun then warn("NEXORA:", errRun) end
+		if not okR then warn("NEXORA:", errR) end
 	else
 		local msg = T("wrong")
-		if why == "server" then msg = T("server_err")
-		elseif why == "device" then msg = T("device_err") end
-		Status.TextColor3 = Color3.fromRGB(255,70,70)
-		Status.Text = msg
-		TweenService:Create(CardStroke, TweenInfo.new(0.15), { Color = Color3.fromRGB(255,70,70), Transparency = 0 }):Play()
+		if why == "server" then msg = T("server_err") elseif why == "device" then msg = T("device_err") end
+		Status.TextColor3 = Color3.fromRGB(255, 70, 70); Status.Text = msg
+		tw(CardStroke, 0.15, {Color = Color3.fromRGB(255, 70, 70)})
 		shake()
-		for i = 1,5 do task.delay(i*0.05, bolt) end
+		for i = 1, 5 do task.delay(i * 0.05, bolt) end
 		task.wait(0.8)
-		TweenService:Create(CardStroke, TweenInfo.new(0.4), { Color = Color3.fromRGB(255,255,255), Transparency = 0.65 }):Play()
+		tw(CardStroke, 0.4, {Color = WHITE})
 		busy = false
 	end
 end
 
 ConfirmBtn.MouseButton1Click:Connect(confirm)
-KeyInput.FocusLost:Connect(function(e) if e then confirm() end end)
+KeyInput.FocusLost:Connect(function(enter) if enter then confirm() end end)
 
-Backdrop.BackgroundTransparency = 1
-Card.Position = UDim2.new(0.5, 0, 0.65, 0)
-Card.BackgroundTransparency = 1
-
-TweenService:Create(Backdrop, TweenInfo.new(0.4), { BackgroundTransparency = 0.25 }):Play()
-task.wait(0.1)
-TweenService:Create(Card, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+-- ════════ ENTRANCE ════════
+tw(Backdrop, 0.28, {BackgroundTransparency = 0.22})
+task.wait(0.04)
+tw(Scale, 0.5, {Scale = baseScale}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+TweenService:Create(Card, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 	Position = UDim2.fromScale(0.5, 0.5),
-	BackgroundTransparency = 0.08,
+	BackgroundTransparency = 0.06,
 }):Play()
+task.delay(0.55, function() introDone = true; fit() end)
