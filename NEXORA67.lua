@@ -638,7 +638,7 @@ local function makePage(name)
 end
 makePage("home")
 makePage("settings")
-for _, pn in ipairs({"eye", "tools", "prank", "music", "fake"}) do makePage(pn) end
+for _, pn in ipairs({"eye", "tools", "prank", "music", "fake", "world", "misc"}) do makePage(pn) end
 
 -- ไอคอนวาดจากกรอบ (เห็นชัวร์ ไม่พึ่งฟอนต์/อิโมจิ): บ้าน + เฟือง
 local function makeIcon(kind, parent, x, y, sc)
@@ -774,12 +774,16 @@ local CAT_TINT = {
 	prank = Color3.fromRGB(255, 105, 175),
 	music = Color3.fromRGB(60, 210, 255),
 	fake = Color3.fromRGB(215, 155, 95),
+	world = Color3.fromRGB(80, 200, 120),
+	misc = Color3.fromRGB(255, 210, 60),
 }
 navBtn("eye", "ดวงตาเทพ", "GOD EYE", "eye", false, CAT_TINT.eye)
 navBtn("tools", "เครื่องมือ", "TOOLS", "tools", false, CAT_TINT.tools)
 navBtn("candy", "แกล้ง", "PRANK", "prank", false, CAT_TINT.prank)
 navBtn("music", "เพลง", "MUSIC", "music", false, CAT_TINT.music)
 navBtn("fake", "ปลอม", "FAKE", "fake", false, CAT_TINT.fake)
+navBtn("eye", "โลก", "WORLD", "world", false, CAT_TINT.world)
+navBtn("star", "เบ็ดเตล็ด", "MISC", "misc", false, CAT_TINT.misc)
 navBtn("gear", "ตั้งค่า", "SETTINGS", "settings", true)
 selectTab("home", true)
 
@@ -2209,7 +2213,7 @@ local function buildTools()
 	local UIS = game:GetService("UserInputService")
 	local RunS= game:GetService("RunService")
 
-	-- ===== บิน =====
+	-- ===== บิน (ใช้ทิศทางเดินในเกม + Space/Ctrl ขึ้น/ลง) =====
 	section("บิน", "Fly")
 	do
 		local r=row(36)
@@ -2222,34 +2226,40 @@ local function buildTools()
 			local hum=char and char:FindFirstChildOfClass("Humanoid")
 			if not v then
 				if hum then hum.PlatformStand=false end
+				if hrp then
+					local bv=hrp:FindFirstChild("FlyBV"); if bv then bv:Destroy() end
+					local bg=hrp:FindFirstChild("FlyBG"); if bg then bg:Destroy() end
+				end
 				return
 			end
 			if not hrp or not hum then return end
 			hum.PlatformStand=true
-			local bodyV=hrp:FindFirstChild("FlyBV") or Instance.new("BodyVelocity")
-			bodyV.Name="FlyBV"; bodyV.MaxForce=Vector3.new(1e5,1e5,1e5); bodyV.Velocity=Vector3.zero
-			local bodyG=hrp:FindFirstChild("FlyBG") or Instance.new("BodyGyro")
-			bodyG.Name="FlyBG"; bodyG.MaxTorque=Vector3.new(1e5,1e5,1e5); bodyG.P=1e4
-			bodyV.Parent=hrp; bodyG.Parent=hrp
+			local bodyV=hrp:FindFirstChild("FlyBV")
+			if not bodyV then bodyV=Instance.new("BodyVelocity"); bodyV.Name="FlyBV" end
+			bodyV.MaxForce=Vector3.new(1e5,1e5,1e5); bodyV.Velocity=Vector3.zero; bodyV.Parent=hrp
+			local bodyG=hrp:FindFirstChild("FlyBG")
+			if not bodyG then bodyG=Instance.new("BodyGyro"); bodyG.Name="FlyBG" end
+			bodyG.MaxTorque=Vector3.new(1e5,1e5,1e5); bodyG.P=1e4; bodyG.Parent=hrp
 			flyConn=RunS.Heartbeat:Connect(function()
 				if not flyEnabled then return end
-				local c=workspace.CurrentCamera
-				local cf=c.CFrame
-				local dir=Vector3.zero
-				local kb={
-					[Enum.KeyCode.W]=cf.LookVector,
-					[Enum.KeyCode.S]=-cf.LookVector,
-					[Enum.KeyCode.A]=-cf.RightVector,
-					[Enum.KeyCode.D]=cf.RightVector,
-					[Enum.KeyCode.Space]=Vector3.new(0,1,0),
-					[Enum.KeyCode.LeftControl]=Vector3.new(0,-1,0),
-				}
-				for k,vec in pairs(kb) do
-					if UIS:IsKeyDown(k) then dir=dir+vec end
+				local ch=LocalPlayer.Character
+				local hp=ch and ch:FindFirstChild("HumanoidRootPart")
+				local hm=ch and ch:FindFirstChildOfClass("Humanoid")
+				local bv=hp and hp:FindFirstChild("FlyBV")
+				local bg2=hp and hp:FindFirstChild("FlyBG")
+				if not bv then return end
+				local cam=workspace.CurrentCamera
+				-- ทิศจากการเดินในเกม (MoveDirection) ผ่าน camera
+				local md=hm and hm.MoveDirection or Vector3.zero
+				local vert=Vector3.zero
+				if UIS:IsKeyDown(Enum.KeyCode.Space) then vert=Vector3.new(0,1,0)
+				elseif UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+					vert=Vector3.new(0,-1,0)
 				end
+				local dir=md+vert
 				if dir.Magnitude>0 then dir=dir.Unit end
-				bodyV.Velocity=dir*flySpeed
-				bodyG.CFrame=cf
+				bv.Velocity=dir*flySpeed
+				if bg2 then bg2.CFrame=cam.CFrame end
 			end)
 		end)
 	end
@@ -2257,36 +2267,33 @@ local function buildTools()
 		local r=row(52)
 		mkLabel(r,12,2,CW-20,13,"ความเร็วบิน  |  max 5000",11,GRAY,HUD_FONT)
 		local TRK_W=CW-24
-		local trk=new("Frame",{Position=UDim2.fromOffset(12,20),Size=UDim2.fromOffset(TRK_W,4),
-			BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},r)
+		local trkBg=new("Frame",{Position=UDim2.fromOffset(12,16),Size=UDim2.fromOffset(TRK_W,14),
+			BackgroundTransparency=1,BorderSizePixel=0,ZIndex=7},r)
+		local trk=new("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.fromScale(0,0.5),
+			Size=UDim2.new(1,0,0,4),BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},trkBg)
 		corner(trk,2)
-		local curV=50
-		local rat=(curV-1)/(5000-1)
+		local curV=50; local rat=(curV-1)/4999
 		local fill2=new("Frame",{Size=UDim2.fromScale(rat,1),BackgroundColor3=tint,BorderSizePixel=0,ZIndex=8},trk)
 		corner(fill2,2)
 		local thumb=new("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(rat,0.5),
-			Size=UDim2.fromOffset(14,14),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk)
-		corner(thumb,7)
-		local valLbl=mkLabel(r,12,30,CW-20,16,"50 sp",12,WHITE,Enum.Font.GothamBold)
+			Size=UDim2.fromOffset(16,16),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk)
+		corner(thumb,8)
+		local valLbl=mkLabel(r,12,33,CW-20,16,"50 sp",12,WHITE,Enum.Font.GothamBold)
+		local hitBtn=new("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",ZIndex=10},trkBg)
 		local function setFly(raw)
-			curV=math.clamp(raw,1,5000)
-			local r2=(curV-1)/4999
+			curV=math.clamp(raw,1,5000); local r2=(curV-1)/4999
 			fill2.Size=UDim2.fromScale(r2,1); thumb.Position=UDim2.fromScale(r2,0.5)
 			valLbl.Text=math.floor(curV).." sp"; flySpeed=curV
 		end
 		local drag=false
 		local function fromPos(pos)
 			local abs=trk.AbsolutePosition; local sz=trk.AbsoluteSize
-			setFly(1+(5000-1)*math.clamp((pos.X-abs.X)/sz.X,0,1))
+			setFly(1+4999*math.clamp((pos.X-abs.X)/sz.X,0,1))
 		end
-		trk.InputBegan:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true; fromPos(i.Position) end
-		end)
-		UIS.InputEnded:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
-		end)
+		hitBtn.MouseButton1Down:Connect(function() drag=true; fromPos(UIS:GetMouseLocation()) end)
+		UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end end)
 		UIS.InputChanged:Connect(function(i)
-			if drag and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos(i.Position) end
+			if drag and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos(UIS:GetMouseLocation()) end
 		end)
 	end
 
@@ -2315,16 +2322,19 @@ local function buildTools()
 		local r=row(52)
 		mkLabel(r,12,2,CW-20,13,"ความเร็ววิ่ง  |  max 10000",11,GRAY,HUD_FONT)
 		local TRK_W=CW-24
-		local trk=new("Frame",{Position=UDim2.fromOffset(12,20),Size=UDim2.fromOffset(TRK_W,4),
-			BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},r)
+		local trkBg=new("Frame",{Position=UDim2.fromOffset(12,16),Size=UDim2.fromOffset(TRK_W,14),
+			BackgroundTransparency=1,BorderSizePixel=0,ZIndex=7},r)
+		local trk=new("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.fromScale(0,0.5),
+			Size=UDim2.new(1,0,0,4),BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},trkBg)
 		corner(trk,2)
 		local curV=50; local rat=(curV-1)/9999
 		local fill2=new("Frame",{Size=UDim2.fromScale(rat,1),BackgroundColor3=tint,BorderSizePixel=0,ZIndex=8},trk)
 		corner(fill2,2)
 		local thumb=new("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(rat,0.5),
-			Size=UDim2.fromOffset(14,14),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk)
-		corner(thumb,7)
-		local valLbl=mkLabel(r,12,30,CW-20,16,"50 sp",12,WHITE,Enum.Font.GothamBold)
+			Size=UDim2.fromOffset(16,16),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk)
+		corner(thumb,8)
+		local valLbl=mkLabel(r,12,33,CW-20,16,"50 sp",12,WHITE,Enum.Font.GothamBold)
+		local hitBtn=new("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",ZIndex=10},trkBg)
 		local function setSpd(raw)
 			curV=math.clamp(raw,1,10000); local r2=(curV-1)/9999
 			fill2.Size=UDim2.fromScale(r2,1); thumb.Position=UDim2.fromScale(r2,0.5)
@@ -2338,16 +2348,12 @@ local function buildTools()
 		local drag=false
 		local function fromPos(pos)
 			local abs=trk.AbsolutePosition; local sz=trk.AbsoluteSize
-			setSpd(1+(10000-1)*math.clamp((pos.X-abs.X)/sz.X,0,1))
+			setSpd(1+9999*math.clamp((pos.X-abs.X)/sz.X,0,1))
 		end
-		trk.InputBegan:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true; fromPos(i.Position) end
-		end)
-		UIS.InputEnded:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
-		end)
+		hitBtn.MouseButton1Down:Connect(function() drag=true; fromPos(UIS:GetMouseLocation()) end)
+		UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end end)
 		UIS.InputChanged:Connect(function(i)
-			if drag and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos(i.Position) end
+			if drag and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos(UIS:GetMouseLocation()) end
 		end)
 	end
 
@@ -2367,16 +2373,19 @@ local function buildTools()
 		local r=row(52)
 		mkLabel(r,12,2,CW-20,13,"พลังกระโดด  |  max 1000",11,GRAY,HUD_FONT)
 		local TRK_W=CW-24
-		local trk=new("Frame",{Position=UDim2.fromOffset(12,20),Size=UDim2.fromOffset(TRK_W,4),
-			BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},r)
+		local trkBg=new("Frame",{Position=UDim2.fromOffset(12,16),Size=UDim2.fromOffset(TRK_W,14),
+			BackgroundTransparency=1,BorderSizePixel=0,ZIndex=7},r)
+		local trk=new("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.fromScale(0,0.5),
+			Size=UDim2.new(1,0,0,4),BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},trkBg)
 		corner(trk,2)
 		local curV=50; local rat=(curV-1)/999
 		local fill2=new("Frame",{Size=UDim2.fromScale(rat,1),BackgroundColor3=tint,BorderSizePixel=0,ZIndex=8},trk)
 		corner(fill2,2)
 		local thumb=new("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(rat,0.5),
-			Size=UDim2.fromOffset(14,14),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk)
-		corner(thumb,7)
-		local valLbl=mkLabel(r,12,30,CW-20,16,"50 jp",12,WHITE,Enum.Font.GothamBold)
+			Size=UDim2.fromOffset(16,16),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk)
+		corner(thumb,8)
+		local valLbl=mkLabel(r,12,33,CW-20,16,"50 jp",12,WHITE,Enum.Font.GothamBold)
+		local hitBtn=new("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",ZIndex=10},trkBg)
 		local function setJmp(raw)
 			curV=math.clamp(raw,1,1000); local r2=(curV-1)/999
 			fill2.Size=UDim2.fromScale(r2,1); thumb.Position=UDim2.fromScale(r2,0.5)
@@ -2390,16 +2399,12 @@ local function buildTools()
 		local drag=false
 		local function fromPos(pos)
 			local abs=trk.AbsolutePosition; local sz=trk.AbsoluteSize
-			setJmp(1+(1000-1)*math.clamp((pos.X-abs.X)/sz.X,0,1))
+			setJmp(1+999*math.clamp((pos.X-abs.X)/sz.X,0,1))
 		end
-		trk.InputBegan:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true; fromPos(i.Position) end
-		end)
-		UIS.InputEnded:Connect(function(i)
-			if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
-		end)
+		hitBtn.MouseButton1Down:Connect(function() drag=true; fromPos(UIS:GetMouseLocation()) end)
+		UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end end)
 		UIS.InputChanged:Connect(function(i)
-			if drag and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos(i.Position) end
+			if drag and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos(UIS:GetMouseLocation()) end
 		end)
 	end
 
@@ -2501,19 +2506,193 @@ local function buildTools()
 			sc.Name="TPScript"
 			sc.Source=[[
 local Players=game:GetService("Players")
+local RunService=game:GetService("RunService")
+local UIS=game:GetService("UserInputService")
 local LP=Players.LocalPlayer
 local mouse=LP:GetMouse()
+local equipped=false
+script.Parent.Equipped:Connect(function() equipped=true end)
+script.Parent.Unequipped:Connect(function() equipped=false end)
+-- ถือแล้วคลิกซ้ายวาร์ปไปตรงนั้น
 script.Parent.Activated:Connect(function()
+	if not equipped then return end
 	local char=LP.Character
 	local hrp=char and char:FindFirstChild("HumanoidRootPart")
-	if hrp and mouse.Target then
-		hrp.CFrame=CFrame.new(mouse.Hit.Position+Vector3.new(0,3,0))
+	local hit=mouse.Hit
+	if hrp and hit then
+		hrp.CFrame=CFrame.new(hit.Position+Vector3.new(0,3,0))
 	end
 end)
 ]]
 			sc.Parent=tool
 			tool.Parent=LocalPlayer.Backpack
 			toast("TP NEXORA อยู่ใน Backpack แล้ว!", "TP NEXORA added to Backpack!")
+		end)
+	end
+
+	-- ===== Click TP (TP ไปที่คลิกโดยไม่ต้องถือ tool) =====
+	section("คลิก TP", "Click Teleport")
+	local clickTpEnabled = false
+	local clickTpConn
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"คลิก TP (คลิกซ้ายบนพื้น)",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,7,false,function(v)
+			clickTpEnabled=v
+			if clickTpConn then clickTpConn:Disconnect(); clickTpConn=nil end
+			if v then
+				local mouse=LocalPlayer:GetMouse()
+				clickTpConn=mouse.Button1Down:Connect(function()
+					if not clickTpEnabled then return end
+					local char=LocalPlayer.Character
+					local hrp=char and char:FindFirstChild("HumanoidRootPart")
+					if hrp and mouse.Hit then
+						hrp.CFrame=CFrame.new(mouse.Hit.Position+Vector3.new(0,3,0))
+					end
+				end)
+				toast("คลิก TP เปิดแล้ว — คลิกซ้ายบนพื้นได้เลย","Click TP on — left click any surface")
+			end
+		end)
+	end
+
+	-- ===== Freeze Players (แช่แข็งผู้เล่นอื่น) =====
+	section("แช่แข็งผู้เล่น", "Freeze Players")
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"แช่แข็งผู้เล่นทุกคน (บางแมพ)",12,WHITE,FONT)
+		mkTog(r,CW-70,7,false,function(v)
+			for _,plr in ipairs(Players:GetPlayers()) do
+				if plr~=LocalPlayer then
+					local char=plr.Character
+					local hrp=char and char:FindFirstChild("HumanoidRootPart")
+					if hrp then
+						local anchor=hrp.Anchored
+						pcall(function() hrp.Anchored=v end)
+					end
+					local hm=char and char:FindFirstChildOfClass("Humanoid")
+					if hm then pcall(function() hm.WalkSpeed=v and 0 or 16 end) end
+				end
+			end
+			toast(v and "แช่แข็งผู้เล่นแล้ว" or "ปล่อยแช่แข็งแล้ว", v and "Players frozen" or "Players unfrozen")
+		end)
+	end
+
+	-- ===== Spin Bot =====
+	section("หมุนตัว (Spin Bot)", "Spin Bot")
+	local spinEnabled=false; local spinConn; local spinSpeed=20
+	do
+		local r=row(36)
+		mkLabel(r,12,10,200,16,"Spin Bot",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,7,false,function(v)
+			spinEnabled=v
+			if spinConn then spinConn:Disconnect(); spinConn=nil end
+			if v then
+				local ang=0
+				spinConn=RunS.Heartbeat:Connect(function(dt)
+					if not spinEnabled then return end
+					local char=LocalPlayer.Character
+					local hrp=char and char:FindFirstChild("HumanoidRootPart")
+					if hrp then
+						ang=(ang+spinSpeed*dt*10)%360
+						hrp.CFrame=CFrame.new(hrp.Position)*CFrame.Angles(0,math.rad(ang),0)
+					end
+				end)
+			end
+		end)
+	end
+	do
+		local r=row(44)
+		mkLabel(r,12,2,200,13,"ความเร็วหมุน",11,GRAY,HUD_FONT)
+		local TRK_W=CW-24
+		local trkBg2=new("Frame",{Position=UDim2.fromOffset(12,16),Size=UDim2.fromOffset(TRK_W,14),
+			BackgroundTransparency=1,BorderSizePixel=0,ZIndex=7},r)
+		local trk2=new("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.fromScale(0,0.5),
+			Size=UDim2.new(1,0,0,4),BackgroundColor3=Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},trkBg2)
+		corner(trk2,2)
+		local rat2=(spinSpeed-5)/95
+		local fill3=new("Frame",{Size=UDim2.fromScale(rat2,1),BackgroundColor3=tint,BorderSizePixel=0,ZIndex=8},trk2)
+		corner(fill3,2)
+		local thumb3=new("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(rat2,0.5),
+			Size=UDim2.fromOffset(16,16),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=9},trk2)
+		corner(thumb3,8)
+		local valLbl3=mkLabel(r,12,33,CW-20,16,tostring(spinSpeed).." spd",12,WHITE,Enum.Font.GothamBold)
+		local hitBtn3=new("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",ZIndex=10},trkBg2)
+		local drag3=false
+		local function setSpinSpeed(raw)
+			spinSpeed=math.clamp(math.floor(raw),5,100); local r2=(spinSpeed-5)/95
+			fill3.Size=UDim2.fromScale(r2,1); thumb3.Position=UDim2.fromScale(r2,0.5)
+			valLbl3.Text=tostring(spinSpeed).." spd"
+		end
+		local function fromPos3(pos)
+			local abs=trk2.AbsolutePosition; local sz=trk2.AbsoluteSize
+			setSpinSpeed(5+95*math.clamp((pos.X-abs.X)/sz.X,0,1))
+		end
+		hitBtn3.MouseButton1Down:Connect(function() drag3=true; fromPos3(UIS:GetMouseLocation()) end)
+		UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then drag3=false end end)
+		UIS.InputChanged:Connect(function(i)
+			if drag3 and i.UserInputType==Enum.UserInputType.MouseMovement then fromPos3(UIS:GetMouseLocation()) end
+		end)
+	end
+
+	-- ===== Anti-AFK =====
+	section("ป้องกัน AFK", "Anti-AFK")
+	local afkConn
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"Anti-AFK (กัน Kick อัตโนมัติ)",12,WHITE,FONT)
+		mkTog(r,CW-70,7,false,function(v)
+			if afkConn then afkConn:Disconnect(); afkConn=nil end
+			if v then
+				-- simulate VirtualUser input ทุก 60 วิ
+				local vu=game:GetService("VirtualUser")
+				afkConn=RunS.Heartbeat:Connect(function()
+					if tick()%60 < 0.1 then
+						pcall(function() vu:CaptureController() vu:ClickButton2(Vector2.new()) end)
+					end
+				end)
+				-- hook idle event
+				pcall(function()
+					LocalPlayer.Idled:Connect(function()
+						local vu2=game:GetService("VirtualUser")
+						pcall(function() vu2:CaptureController() vu2:ClickButton2(Vector2.new()) end)
+					end)
+				end)
+				toast("Anti-AFK เปิดแล้ว","Anti-AFK enabled")
+			else
+				toast("Anti-AFK ปิด","Anti-AFK disabled")
+			end
+		end)
+	end
+
+	-- ===== Lag Switch =====
+	section("Lag Switch (ทดสอบในแมพที่รองรับ)", "Lag Switch")
+	local lagActive=false; local lagConn2
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"Lag Switch (Hold E)",12,WHITE,FONT)
+		mkTog(r,CW-70,7,false,function(v)
+			if lagConn2 then lagConn2:Disconnect(); lagConn2=nil end
+			if v then
+				lagConn2=UIS.InputBegan:Connect(function(inp,gpe)
+					if gpe then return end
+					if inp.KeyCode==Enum.KeyCode.E then
+						lagActive=true
+						-- anchor HRP ทำให้ position ไม่ sync
+						local char=LocalPlayer.Character
+						local hrp=char and char:FindFirstChild("HumanoidRootPart")
+						if hrp then pcall(function() hrp.Anchored=true end) end
+					end
+				end)
+				UIS.InputEnded:Connect(function(inp)
+					if inp.KeyCode==Enum.KeyCode.E and lagActive then
+						lagActive=false
+						local char=LocalPlayer.Character
+						local hrp=char and char:FindFirstChild("HumanoidRootPart")
+						if hrp then pcall(function() hrp.Anchored=false end) end
+					end
+				end)
+				toast("Lag Switch: กด E ค้างเพื่อใช้","Lag Switch: hold E to use")
+			end
 		end)
 	end
 end
@@ -2524,44 +2703,223 @@ local fakeName         = ""
 local fakeVerified     = true
 local fakeLimbsOff     = false
 local fakeHeadOff      = false
+local fakeInvisible    = false
+local fakeBodyColor    = nil  -- Color3 หรือ nil = ไม่เปลี่ยนสี
+local fakeHideTool     = false
 local fakeNameFont     = Enum.Font.GothamBold
 local fakeNameSize     = 14
 local fakeNameColor    = Color3.fromRGB(255,255,255)
 local fakeShowNameTag  = false
 local fakeNameBB, fakeNameLbl
 
+local ALL_BODY_PARTS = {"Head","UpperTorso","LowerTorso","HumanoidRootPart",
+	"LeftUpperArm","RightUpperArm","LeftLowerArm","RightLowerArm",
+	"LeftHand","RightHand","LeftUpperLeg","RightUpperLeg",
+	"LeftLowerLeg","RightLowerLeg","LeftFoot","RightFoot"}
 local LIMB_PARTS = {"LeftUpperArm","RightUpperArm","LeftLowerArm","RightLowerArm",
                     "LeftHand","RightHand","LeftUpperLeg","RightUpperLeg",
                     "LeftLowerLeg","RightLowerLeg","LeftFoot","RightFoot"}
 
+-- เก็บค่า transparency + color เดิมก่อนซ่อน
+local savedTransp = {}
+local savedColors = {}
+
+-- ซ่อน/แสดง Tool ที่ถืออยู่
+local function applyFakeHideTool()
+	local char = LocalPlayer.Character
+	if not char then return end
+	for _, obj in ipairs(char:GetChildren()) do
+		if obj:IsA("Tool") then
+			for _, part in ipairs(obj:GetDescendants()) do
+				if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("SpecialMesh") then
+					pcall(function()
+						if fakeHideTool and fakeEnabled then
+							part.Transparency = 1
+							if part:IsA("BasePart") then part.LocalTransparencyModifier = 1 end
+						else
+							part.Transparency = 0
+							if part:IsA("BasePart") then part.LocalTransparencyModifier = 0 end
+						end
+					end)
+				end
+			end
+		end
+	end
+end
 local function applyFakeBody()
 	local char = LocalPlayer.Character
 	if not char then return end
+
+	-- ===== ซ่อนทั้งตัว (invisible) =====
+	if fakeEnabled and fakeInvisible then
+		for _, pname in ipairs(ALL_BODY_PARTS) do
+			local p = char:FindFirstChild(pname)
+			if p and p:IsA("BasePart") then
+				if savedTransp[pname] == nil then savedTransp[pname] = p.Transparency end
+				p.LocalTransparencyModifier = 1
+				p.Transparency = 1
+				for _, c in ipairs(p:GetDescendants()) do
+					if c:IsA("BasePart") or c:IsA("SpecialMesh") or c:IsA("Decal") then
+						pcall(function() c.Transparency = 1 end)
+					end
+				end
+			end
+		end
+		-- ซ่อน accessories ทั้งหมด
+		for _, acc in ipairs(char:GetChildren()) do
+			if acc:IsA("Accessory") then
+				for _, p in ipairs(acc:GetDescendants()) do
+					if p:IsA("BasePart") or p:IsA("MeshPart") then
+						pcall(function() p.Transparency = 1; p.LocalTransparencyModifier = 1 end)
+					end
+				end
+			end
+		end
+		return
+	end
+
+	-- ===== คืนค่าจาก invisible =====
+	if not fakeInvisible then
+		for _, pname in ipairs(ALL_BODY_PARTS) do
+			local p = char:FindFirstChild(pname)
+			if p and p:IsA("BasePart") and savedTransp[pname] ~= nil then
+				p.LocalTransparencyModifier = 0
+				p.Transparency = savedTransp[pname]
+				savedTransp[pname] = nil
+			end
+		end
+		for _, acc in ipairs(char:GetChildren()) do
+			if acc:IsA("Accessory") then
+				for _, p in ipairs(acc:GetDescendants()) do
+					if p:IsA("BasePart") or p:IsA("MeshPart") then
+						pcall(function() p.Transparency = 0; p.LocalTransparencyModifier = 0 end)
+					end
+				end
+			end
+		end
+	end
+
+	-- ===== สีตัวละคร =====
+	if fakeEnabled and fakeBodyColor then
+		for _, pname in ipairs(ALL_BODY_PARTS) do
+			local p = char:FindFirstChild(pname)
+			if p and p:IsA("BasePart") then
+				if savedColors[pname] == nil then savedColors[pname] = p.Color end
+				p.Color = fakeBodyColor
+			end
+		end
+	elseif not fakeBodyColor then
+		for _, pname in ipairs(ALL_BODY_PARTS) do
+			local p = char:FindFirstChild(pname)
+			if p and p:IsA("BasePart") and savedColors[pname] then
+				p.Color = savedColors[pname]
+				savedColors[pname] = nil
+			end
+		end
+	end
+
+	-- ===== ซ่อนแขน-ขา =====
 	for _, pname in ipairs(LIMB_PARTS) do
 		local p = char:FindFirstChild(pname)
 		if p and p:IsA("BasePart") then
-			p.LocalTransparencyModifier = fakeLimbsOff and 1 or 0
+			if fakeEnabled and fakeLimbsOff then
+				if savedTransp[pname] == nil then savedTransp[pname] = p.Transparency end
+				p.LocalTransparencyModifier = 1
+				p.Transparency = 1
+				for _, c in ipairs(p:GetChildren()) do
+					if c:IsA("SpecialMesh") or c:IsA("Decal") then c.Transparency = 1 end
+				end
+			else
+				p.LocalTransparencyModifier = 0
+				p.Transparency = savedTransp[pname] or 0
+				savedTransp[pname] = nil
+				for _, c in ipairs(p:GetChildren()) do
+					if c:IsA("SpecialMesh") or c:IsA("Decal") then c.Transparency = 0 end
+				end
+			end
 		end
 	end
+
+	-- ===== ซ่อนหัว =====
 	local head = char:FindFirstChild("Head")
 	if head then
-		head.LocalTransparencyModifier = fakeHeadOff and 1 or 0
+		if fakeEnabled and fakeHeadOff then
+			if savedTransp["Head"] == nil then savedTransp["Head"] = head.Transparency end
+			head.LocalTransparencyModifier = 1
+			head.Transparency = 1
+			for _, c in ipairs(head:GetChildren()) do
+				if c:IsA("SpecialMesh") or c:IsA("Decal") then c.Transparency = 1 end
+			end
+			local face = head:FindFirstChild("face")
+			if face then face.Transparency = 1 end
+		else
+			head.LocalTransparencyModifier = 0
+			head.Transparency = savedTransp["Head"] or 0
+			savedTransp["Head"] = nil
+			for _, c in ipairs(head:GetChildren()) do
+				if c:IsA("SpecialMesh") or c:IsA("Decal") then c.Transparency = 0 end
+			end
+			local face = head:FindFirstChild("face")
+			if face then face.Transparency = 0 end
+		end
 	end
+
+	-- ===== ซ่อน Tool =====
+	applyFakeHideTool()
 end
+
+local realDisplayName = LocalPlayer.DisplayName  -- เก็บชื่อจริงไว้
 
 local function applyFakeNameTag()
 	if fakeNameBB then pcall(function() fakeNameBB:Destroy() end) end
 	fakeNameBB, fakeNameLbl = nil, nil
+
+	local dispName = (fakeName ~= "" ) and fakeName or realDisplayName
+
+	-- พยายาม rename DisplayName หลายวิธี (ใช้ได้บางเอ็กซิคิวเตอร์)
+	pcall(function() LocalPlayer.DisplayName = dispName end)
+	-- วิธีที่ 2: ผ่าน Instance properties ตรง
+	pcall(function()
+		local mt = getrawmetatable and getrawmetatable(LocalPlayer)
+		if mt then
+			local idx = rawget(mt, "__newindex")
+			setreadonly(mt, false)
+			rawset(LocalPlayer, "DisplayName", dispName)
+			setreadonly(mt, true)
+		end
+	end)
+	-- วิธีที่ 3: PlayerList GUI rename (บน Synapse X / KRNL)
+	pcall(function()
+		local playerlist = game:GetService("CoreGui"):FindFirstChild("RobloxGui")
+		if playerlist then
+			for _, v in ipairs(playerlist:GetDescendants()) do
+				if v:IsA("TextLabel") and v.Text == realDisplayName then
+					v.Text = dispName .. (fakeVerified and " ✓" or "")
+				end
+			end
+		end
+	end)
+
 	if not fakeShowNameTag then return end
 	local char = LocalPlayer.Character
 	local head = char and char:FindFirstChild("Head")
 	if not head then return end
+
+	-- ซ่อน nametag ของ Roblox ก่อน
+	for _, bb in ipairs(head:GetChildren()) do
+		if bb:IsA("BillboardGui") and bb.Name ~= "NEXORA_FakeTag" then
+			bb.Enabled = false
+		end
+	end
+
 	fakeNameBB = Instance.new("BillboardGui")
-	fakeNameBB.Size = UDim2.fromOffset(220, 30)
+	fakeNameBB.Name = "NEXORA_FakeTag"
+	fakeNameBB.Size = UDim2.fromOffset(240, 32)
 	fakeNameBB.StudsOffset = Vector3.new(0, 2.5, 0)
 	fakeNameBB.AlwaysOnTop = false
 	fakeNameBB.ResetOnSpawn = false
 	fakeNameBB.Parent = head
+
 	fakeNameLbl = Instance.new("TextLabel")
 	fakeNameLbl.Size = UDim2.fromScale(1,1)
 	fakeNameLbl.BackgroundTransparency = 1
@@ -2571,9 +2929,24 @@ local function applyFakeNameTag()
 	fakeNameLbl.TextStrokeTransparency = 0
 	fakeNameLbl.TextStrokeColor3 = Color3.new(0,0,0)
 	fakeNameLbl.RichText = true
-	local dispName = (fakeName ~= "") and fakeName or LocalPlayer.DisplayName
 	fakeNameLbl.Text = dispName .. (fakeVerified and ' <font color="#00aaff">✓</font>' or "")
 	fakeNameLbl.Parent = fakeNameBB
+end
+
+local function resetFakeName()
+	pcall(function() LocalPlayer.DisplayName = realDisplayName end)
+	if fakeNameBB then pcall(function() fakeNameBB:Destroy() end) end
+	fakeNameBB, fakeNameLbl = nil, nil
+	-- คืน nametag เดิม
+	local char = LocalPlayer.Character
+	local head = char and char:FindFirstChild("Head")
+	if head then
+		for _, bb in ipairs(head:GetChildren()) do
+			if bb:IsA("BillboardGui") and bb.Name ~= "NEXORA_FakeTag" then
+				bb.Enabled = true
+			end
+		end
+	end
 end
 
 LocalPlayer.CharacterAdded:Connect(function()
@@ -2651,17 +3024,16 @@ local function buildFake()
 				applyFakeBody()
 				applyFakeNameTag()
 			else
-				-- คืนค่าทุกอย่าง
 				fakeLimbsOff = false
 				fakeHeadOff  = false
+				savedTransp  = {}
 				applyFakeBody()
-				if fakeNameBB then pcall(function() fakeNameBB:Destroy() end) end
-				fakeNameBB, fakeNameLbl = nil, nil
+				resetFakeName()
 			end
 		end)
 	end
 
-	-- ===== ซ่อนขากุด (แขน-ขา) =====
+	-- ===== ร่างกายปลอม =====
 	section("ร่างกายปลอม", "Fake Body")
 	do
 		local r = row(36)
@@ -2678,6 +3050,74 @@ local function buildFake()
 			fakeHeadOff = v
 			if fakeEnabled then applyFakeBody() end
 		end)
+	end
+	do
+		local r = row(36)
+		mkLabel(r, 12, 10, 240, 16, "ซ่อนทั้งตัว (Invisible)", 12, WHITE, FONT)
+		mkToggle(r, CW - 70, 7, false, function(v)
+			fakeInvisible = v
+			if fakeEnabled then applyFakeBody() end
+		end)
+	end
+	do
+		local r = row(36)
+		mkLabel(r, 12, 10, 240, 16, "ซ่อน Tool ที่ถืออยู่", 12, WHITE, FONT)
+		mkToggle(r, CW - 70, 7, false, function(v)
+			fakeHideTool = v
+			if fakeEnabled then applyFakeBody() end
+		end)
+	end
+
+	-- ===== สีตัวละคร =====
+	section("สีตัวละคร (เห็นแค่เรา)", "Body Color Override")
+	do
+		local bodyColorList = {
+			{"ปกติ",   nil},
+			{"แดง",   Color3.fromRGB(220,60,60)},
+			{"ฟ้า",   Color3.fromRGB(60,120,255)},
+			{"เขียว", Color3.fromRGB(50,200,80)},
+			{"เหลือง",Color3.fromRGB(255,220,0)},
+			{"ชมพู",  Color3.fromRGB(255,100,180)},
+			{"ส้ม",   Color3.fromRGB(255,140,30)},
+			{"ขาว",   Color3.fromRGB(240,240,240)},
+			{"ดำ",    Color3.fromRGB(15,15,15)},
+		}
+		local r = row(56)
+		mkLabel(r, 12, 2, 200, 14, "เลือกสีตัวละคร", 11, GRAY, HUD_FONT)
+		local selBC = 1
+		local bcBtns = {}
+		local function refreshBC()
+			for i, b in ipairs(bcBtns) do
+				local st2 = b:FindFirstChildOfClass("UIStroke")
+				if st2 then st2.Thickness = (i==selBC) and 2.5 or 0.5 end
+			end
+		end
+		local cols = 5
+		for i, bc in ipairs(bodyColorList) do
+			local col = (i-1) % cols
+			local row2 = math.floor((i-1)/cols)
+			local bg = bc[2] or Color3.fromRGB(50,50,50)
+			local b = new("TextButton", {
+				Position = UDim2.fromOffset(10 + col*68, 18 + row2*32),
+				Size = UDim2.fromOffset(62, 24),
+				BackgroundColor3 = bg,
+				Font = Enum.Font.GothamBold, TextSize = 10,
+				TextColor3 = WHITE, Text = bc[1],
+				AutoButtonColor = false, ZIndex = 7,
+			}, r)
+			corner(b, 5)
+			stroke(b, WHITE, 0.6, 1)
+			bcBtns[i] = b
+			b.MouseButton1Click:Connect(function()
+				selBC = i
+				fakeBodyColor = bc[2]
+				refreshBC()
+				if fakeEnabled then applyFakeBody() end
+				sfx("click", nil, 1.5)
+			end)
+		end
+		r.Size = UDim2.new(1, 0, 0, 18 + math.ceil(#bodyColorList/cols)*32)
+		refreshBC()
 	end
 
 	-- ===== ชื่อปลอม + ✓ ฟ้า =====
@@ -2866,6 +3306,10 @@ local function buildFake()
 
 end
 
+-- ===== shared upvalues — ถูก assign ใน buildEye ใช้ได้จาก buildMisc =====
+local startAim = function() end  -- placeholder จนกว่า buildEye จะรัน
+local _aimEnabled_ref = {v=false}  -- reference box สำหรับ buildMisc
+
 -- ===================== GOD EYE (ดวงตาเทพ) =====================
 local function buildEye()
 	local P = Pages["eye"]
@@ -2951,11 +3395,20 @@ local function buildEye()
 	local espLines       = false
 	local espBoxes       = false
 	local espHealth      = false
+	local espSnapLines   = false   -- Snap line จากตัวเราไปหาเป้า
+	local espVisCheck    = false   -- เปลี่ยนสีถ้ามองเห็น/ไม่เห็น
+	local espTeamCheck   = false   -- ไม่ ESP คนทีมเดียว
+	local espMaxDist     = 1000    -- ระยะ ESP สูงสุด (studs)
 	local espColor       = Color3.fromRGB(255, 255, 255)
+	local espColorVisible= Color3.fromRGB(0, 255, 100) -- สีเมื่อมองเห็น
 	local espFovEnabled  = false
 	local espFovRadius   = 120
 	local aimEnabled     = false
 	local aimNearestOnly = false
+	local aimSmooth      = 1       -- 1=snap, 10=smooth มาก
+	local aimAutoFire    = false
+	local aimTrigger     = false   -- trigger bot
+	local aimTeamCheck   = false   -- ไม่ lock คนทีมเดียว
 	local hitboxEnabled  = false
 	local hitboxSize     = 20
 	local hitboxTransp   = 0.5
@@ -2965,6 +3418,7 @@ local function buildEye()
 	local lockedTargets  = {}
 	local espDrawings    = {}
 	local hitboxParts    = {}
+	local snapLineFrames = {} -- snap lines (จากตัวเราไปหาเป้า)
 
 	-- (fake identity state อยู่ที่ upvalue ก่อน buildFake)
 
@@ -3321,7 +3775,7 @@ local function buildEye()
 		end
 		return best
 	end
-	local function startAim()
+	startAim = function()
 		if aimConn then aimConn:Disconnect() end
 		aimConn = RunService.Heartbeat:Connect(function()
 			if not aimEnabled then return end
@@ -3329,18 +3783,56 @@ local function buildEye()
 			if aimNearestOnly then
 				target = getNearestPlayer()
 			else
-				-- ใช้คนแรกใน lockedTargets ที่ยังมีชีวิต
 				for p, _ in pairs(lockedTargets) do
 					if isValidTarget(p) then target = p; break end
 				end
 			end
+
+			-- ===== Trigger Bot (ยิงเมื่อเป้าอยู่กลาง crosshair) =====
+			if aimTrigger then
+				local trigTarget = getNearestPlayer()
+				if trigTarget then
+					local tc = trigTarget.Character
+					local th = getHead(tc)
+					if th then
+						local sp, inv = worldToVP(th.Position)
+						if inv then
+							local vpN = cam.ViewportSize
+							local dx = sp.X - vpN.X/2
+							local dy = sp.Y - vpN.Y/2
+							if math.sqrt(dx*dx+dy*dy) < 15 then
+								-- simulate click (ใช้ mouse1click ถ้ามี)
+								pcall(function() mouse1click() end)
+							end
+						end
+					end
+				end
+			end
+
 			if not target then return end
 			local char = target.Character
 			local head = getHead(char)
 			if not head then return end
+
+			-- ===== Aim Team Check =====
+			if aimTeamCheck and isSameTeam(target) then return end
+
+			-- ===== Smooth Aim =====
 			pcall(function()
-				cam.CFrame = CFrame.lookAt(cam.CFrame.Position, head.Position)
+				local goalCF = CFrame.lookAt(cam.CFrame.Position, head.Position)
+				if aimSmooth <= 1 then
+					cam.CFrame = goalCF
+				else
+					-- lerp กล้องจาก current → goal
+					local alpha = math.clamp(1 / aimSmooth, 0.05, 1)
+					cam.CFrame = cam.CFrame:Lerp(goalCF, alpha)
+				end
 			end)
+
+			-- ===== Auto Fire =====
+			if aimAutoFire then
+				pcall(function() mouse1click() end)
+			end
 		end)
 	end
 
@@ -3370,12 +3862,30 @@ local function buildEye()
 				local d = espDrawings[p]
 				if not char or not hrp then
 					if d then hideAll(d) end
+					-- ซ่อน snap line ด้วย
+					if snapLineFrames[p] then snapLineFrames[p].Visible = false end
 					continue
 				end
 
-				local needESP = espNames or espDist or espLines or espBoxes or espHealth
+				-- ===== Team Check =====
+				if espTeamCheck and isSameTeam(p) then
+					if d then hideAll(d) end
+					if snapLineFrames[p] then snapLineFrames[p].Visible = false end
+					continue
+				end
+
+				-- ===== Max Distance Check =====
+				local dist = distTo(p)
+				if dist > espMaxDist then
+					if d then hideAll(d) end
+					if snapLineFrames[p] then snapLineFrames[p].Visible = false end
+					continue
+				end
+
+				local needESP = espNames or espDist or espLines or espBoxes or espHealth or espSnapLines
 				if not needESP then
 					if d then hideAll(d) end
+					if snapLineFrames[p] then snapLineFrames[p].Visible = false end
 					continue
 				end
 
@@ -3391,7 +3901,24 @@ local function buildEye()
 
 				if not inView then
 					hideAll(d)
+					if snapLineFrames[p] then snapLineFrames[p].Visible = false end
 					continue
+				end
+
+				-- ===== Visibility Check =====
+				local visColor = espColor
+				if espVisCheck then
+					-- raycast จากกล้องไปหัวผู้เล่น
+					local origin = cam.CFrame.Position
+					local dir = (head.Position - origin)
+					local rp = RaycastParams.new()
+					rp.FilterDescendantsInstances = {LocalPlayer.Character or Instance.new("Folder"), char}
+					rp.FilterType = Enum.RaycastFilterType.Exclude
+					local result = workspace:Raycast(origin, dir, rp)
+					if not result then
+						-- มองเห็นตรงๆ
+						visColor = espColorVisible
+					end
 				end
 
 				-- ขนาดกรอบจาก viewport projection
@@ -3401,7 +3928,7 @@ local function buildEye()
 				local boxY = spTop.Y
 
 				-- กรอบ 4 เส้น (Frame)
-				setBox(d.boxFs, boxX, boxY, boxW, boxH, espColor, espBoxes)
+				setBox(d.boxFs, boxX, boxY, boxW, boxH, visColor, espBoxes)
 
 				-- HP bar (Frame)
 				if espHealth then
@@ -3413,13 +3940,34 @@ local function buildEye()
 					if d.hpFillF then d.hpFillF.Visible = false end
 				end
 
-				-- tracer (Frame หมุน จากกลางบนจอ → หัว)
+				-- tracer จากบนจอ → หัว
 				if d.tracerF then
 					if espLines then
-						setLine(d.tracerF, ctr.X, 0, spHead.X, spHead.Y, espColor)
+						setLine(d.tracerF, ctr.X, 0, spHead.X, spHead.Y, visColor)
 					else
 						d.tracerF.Visible = false
 					end
+				end
+
+				-- ===== Snap Line (จากตัวเราไปหาเป้า) =====
+				if espSnapLines then
+					local lc = LocalPlayer.Character
+					local lhrp = lc and lc:FindFirstChild("HumanoidRootPart")
+					if lhrp then
+						local spSelf, selfInView = worldToVP(lhrp.Position)
+						if selfInView then
+							if not snapLineFrames[p] then
+								local sf = new("Frame", {BackgroundColor3=Color3.fromRGB(255,180,0),
+									BorderSizePixel=0, ZIndex=51, Visible=false}, tracerContainer)
+								snapLineFrames[p] = sf
+							end
+							setLine(snapLineFrames[p], spSelf.X, spSelf.Y, spHead.X, spHead.Y, Color3.fromRGB(255,200,50))
+						else
+							if snapLineFrames[p] then snapLineFrames[p].Visible=false end
+						end
+					end
+				else
+					if snapLineFrames[p] then snapLineFrames[p].Visible=false end
 				end
 
 				-- ชื่อ (BillboardGui)
@@ -3428,7 +3976,7 @@ local function buildEye()
 					d.nameLbl.Visible = espNames
 					if espNames then
 						d.nameLbl.Text       = p.DisplayName
-						d.nameLbl.TextColor3 = espColor
+						d.nameLbl.TextColor3 = visColor
 					end
 				end
 
@@ -3437,9 +3985,8 @@ local function buildEye()
 					d.bbDist.Enabled  = espDist
 					d.distLbl.Visible = espDist
 					if espDist then
-						local dist = distTo(p)
 						d.distLbl.Text       = string.format("%.0f st  (%s)", dist, stepsStr(dist))
-						d.distLbl.TextColor3 = espColor
+						d.distLbl.TextColor3 = visColor
 					end
 				end
 			end
@@ -3558,6 +4105,13 @@ local function buildEye()
 	toggle("เส้นลากจากบนจอกลาง → หัว", "Head tracer from top-center", false, function(v) espLines = v end)
 	toggle("กรอบสีเหลี่ยม", "ESP boxes", false, function(v) espBoxes = v end)
 	toggle("แถบ HP", "Health bar", false, function(v) espHealth = v end)
+	toggle("Snap Line (จากตัวเราไปหาเป้า)", "Snap line (self → target)", false, function(v) espSnapLines = v end)
+	toggle("Visibility Check (เขียว=เห็นตัว ขาว=ทะลุกำแพง)", "Visibility check (green=visible)", false, function(v) espVisCheck = v end)
+	toggle("Team Check (ไม่ ESP ทีมเดียว)", "Team check (skip teammates)", false, function(v) espTeamCheck = v end)
+	slider("ระยะ ESP สูงสุด (studs)", "Max ESP distance", 50, 2000, espMaxDist,
+		function(v) return math.floor(v) .. " st" end,
+		function(v) espMaxDist = v end
+	)
 
 	-- ===== หมวด FOV =====
 	section("// FOV Circle", "// FOV Circle")
@@ -3586,6 +4140,19 @@ local function buildEye()
 	toggle("ล็อกคนใกล้ที่สุดใน FOV", "Lock nearest in FOV", false, function(v)
 		aimNearestOnly = v
 	end)
+	toggle("Auto Fire (ยิงอัตโนมัติเมื่อล็อกได้)", "Auto Fire", false, function(v)
+		aimAutoFire = v
+	end)
+	toggle("Trigger Bot (ยิงเมื่อเป้าอยู่กลาง crosshair)", "Trigger Bot", false, function(v)
+		aimTrigger = v
+	end)
+	toggle("Team Check Aim (ไม่ lock ทีมเดียว)", "Aim team check", false, function(v)
+		aimTeamCheck = v
+	end)
+	slider("Aim Smooth (1=snap, 10=นุ่ม)", "Aim smoothness", 1, 10, aimSmooth,
+		function(v) return math.floor(v) end,
+		function(v) aimSmooth = v end
+	)
 
 	-- ===== หมวด Hitbox =====
 	section("// Hitbox", "// Hitbox")
@@ -3806,12 +4373,350 @@ local function buildEye()
 	startAim()
 end
 
+-- ===================== WORLD =====================
+local function buildWorld()
+	local P    = Pages["world"]
+	local tint = CAT_TINT["world"]
+	local CW   = 384
+	local order = 0
+	local function nextOrder() order=order+1 return order end
+	local function section(th,en)
+		local h2=new("Frame",{Size=UDim2.new(1,0,0,22),BackgroundTransparency=1,LayoutOrder=nextOrder(),ZIndex=5},P)
+		local bar2=new("Frame",{Position=UDim2.fromOffset(2,5),Size=UDim2.fromOffset(3,12),BackgroundColor3=tint,BorderSizePixel=0,ZIndex=5},h2)
+		corner(bar2,2)
+		tr(mkLabel(h2,12,4,300,14,"",10,tint,TITLE_FONT),"// "..th,"// "..en)
+	end
+	local function row(h2)
+		local f=new("Frame",{Size=UDim2.new(1,0,0,h2),BackgroundTransparency=1,LayoutOrder=nextOrder(),ZIndex=5},P)
+		return f
+	end
+	local function mkTog(parent,ox,oy,state,cb)
+		local BW,BH=44,22
+		local bg2=new("Frame",{Position=UDim2.fromOffset(ox,oy),Size=UDim2.fromOffset(BW,BH),
+			BackgroundColor3=state and tint or Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},parent)
+		corner(bg2,BH/2)
+		local dot=new("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.fromOffset(state and(BW-BH+2) or 2,BH/2),
+			Size=UDim2.fromOffset(BH-4,BH-4),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=8},bg2)
+		corner(dot,(BH-4)/2)
+		local btn=new("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",ZIndex=9},bg2)
+		local cur=state
+		btn.MouseButton1Click:Connect(function()
+			cur=not cur
+			bg2.BackgroundColor3=cur and tint or Color3.fromRGB(50,50,50)
+			dot.Position=UDim2.fromOffset(cur and(BW-BH+2) or 2,BH/2)
+			cb(cur) sfx("click",nil,1.5)
+		end)
+		return bg2
+	end
+
+	-- ===== FullBright =====
+	section("สภาพแวดล้อม","Environment")
+	local fbConn
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"FullBright (สว่างทุกที่)",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,7,false,function(v)
+			if fbConn then fbConn:Disconnect(); fbConn=nil end
+			local lighting=game:GetService("Lighting")
+			if v then
+				local savedBright=lighting.Brightness
+				local savedAmb=lighting.Ambient
+				local savedOutAmb=lighting.OutdoorAmbient
+				lighting.Brightness=2
+				lighting.Ambient=Color3.fromRGB(178,178,178)
+				lighting.OutdoorAmbient=Color3.fromRGB(178,178,178)
+				-- ซ่อน FogEnd
+				pcall(function() lighting.FogEnd=1e6 end)
+				fbConn=RunService.Heartbeat:Connect(function()
+					if lighting.Brightness<1.9 then lighting.Brightness=2 end
+					lighting.Ambient=Color3.fromRGB(178,178,178)
+					lighting.OutdoorAmbient=Color3.fromRGB(178,178,178)
+				end)
+			else
+				lighting.Brightness=1
+				lighting.Ambient=Color3.fromRGB(127,127,127)
+				lighting.OutdoorAmbient=Color3.fromRGB(127,127,127)
+			end
+		end)
+	end
+
+	-- ===== Remove Fog =====
+	local fogConn
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"Remove Fog (เอาหมอกออก)",12,WHITE,FONT)
+		mkTog(r,CW-70,7,false,function(v)
+			if fogConn then fogConn:Disconnect(); fogConn=nil end
+			local lighting=game:GetService("Lighting")
+			if v then
+				fogConn=RunService.Heartbeat:Connect(function()
+					lighting.FogEnd=1e6
+					lighting.FogStart=1e6
+				end)
+			else
+				lighting.FogEnd=100000
+				lighting.FogStart=0
+			end
+		end)
+	end
+
+	-- ===== Remove Walls (Transparency) =====
+	local wallsOn=false
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"Remove Walls (เห็นทะลุกำแพง)",12,WHITE,FONT)
+		mkTog(r,CW-70,7,false,function(v)
+			wallsOn=v
+			local function setWalls(workspace2)
+				for _,obj in ipairs(workspace2:GetDescendants()) do
+					if obj:IsA("BasePart") and not obj:IsA("Terrain") then
+						local inChar=false
+						for _,plr in ipairs(Players:GetPlayers()) do
+							if plr.Character and obj:IsDescendantOf(plr.Character) then inChar=true; break end
+						end
+						if not inChar then
+							pcall(function() obj.LocalTransparencyModifier=v and 0.85 or 0 end)
+						end
+					end
+				end
+			end
+			setWalls(workspace)
+			toast(v and "Remove Walls เปิดแล้ว" or "Remove Walls ปิดแล้ว", v and "Walls removed" or "Walls restored")
+		end)
+	end
+
+	-- ===== Time Control =====
+	section("เวลาในเกม","Time of Day")
+	do
+		local times={{"เช้า","06:00"},{"บ่าย","12:00"},{"เย็น","18:00"},{"กลางคืน","00:00"}}
+		local r=row(44)
+		mkLabel(r,12,2,200,14,"เปลี่ยนเวลา (บางแมพ)",11,GRAY,HUD_FONT)
+		for i,td in ipairs(times) do
+			local b=new("TextButton",{
+				Position=UDim2.fromOffset(10+(i-1)*88,18),Size=UDim2.fromOffset(80,22),
+				BackgroundColor3=Color3.fromRGB(40,40,40),Font=Enum.Font.GothamBold,
+				TextSize=11,TextColor3=WHITE,Text=td[1].." "..td[2],AutoButtonColor=false,ZIndex=7,
+			},r)
+			corner(b,5)
+			b.MouseButton1Click:Connect(function()
+				pcall(function() game:GetService("Lighting").TimeOfDay=td[2] end)
+				sfx("click",nil,1.5)
+				toast("เวลาเปลี่ยนเป็น "..td[2],"Time set to "..td[2])
+			end)
+		end
+	end
+end
+
+-- ===================== MISC =====================
+local function buildMisc()
+	local P    = Pages["misc"]
+	local tint = CAT_TINT["misc"]
+	local CW   = 384
+	local order = 0
+	local function nextOrder() order=order+1 return order end
+	local function section(th,en)
+		local h2=new("Frame",{Size=UDim2.new(1,0,0,22),BackgroundTransparency=1,LayoutOrder=nextOrder(),ZIndex=5},P)
+		local bar2=new("Frame",{Position=UDim2.fromOffset(2,5),Size=UDim2.fromOffset(3,12),BackgroundColor3=tint,BorderSizePixel=0,ZIndex=5},h2)
+		corner(bar2,2)
+		tr(mkLabel(h2,12,4,300,14,"",10,tint,TITLE_FONT),"// "..th,"// "..en)
+	end
+	local function row(h2)
+		local f=new("Frame",{Size=UDim2.new(1,0,0,h2),BackgroundTransparency=1,LayoutOrder=nextOrder(),ZIndex=5},P)
+		return f
+	end
+	local function mkTog(parent,ox,oy,state,cb)
+		local BW,BH=44,22
+		local bg2=new("Frame",{Position=UDim2.fromOffset(ox,oy),Size=UDim2.fromOffset(BW,BH),
+			BackgroundColor3=state and tint or Color3.fromRGB(50,50,50),BorderSizePixel=0,ZIndex=7},parent)
+		corner(bg2,BH/2)
+		local dot=new("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.fromOffset(state and(BW-BH+2) or 2,BH/2),
+			Size=UDim2.fromOffset(BH-4,BH-4),BackgroundColor3=WHITE,BorderSizePixel=0,ZIndex=8},bg2)
+		corner(dot,(BH-4)/2)
+		local btn=new("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",ZIndex=9},bg2)
+		local cur=state
+		btn.MouseButton1Click:Connect(function()
+			cur=not cur
+			bg2.BackgroundColor3=cur and tint or Color3.fromRGB(50,50,50)
+			dot.Position=UDim2.fromOffset(cur and(BW-BH+2) or 2,BH/2)
+			cb(cur) sfx("click",nil,1.5)
+		end)
+		return bg2
+	end
+
+	-- ===== Crosshair =====
+	section("Crosshair","Crosshair")
+	local crosshairGui, crosshairEnabled=nil,false
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"Crosshair กลางจอ",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r,CW-70,7,false,function(v)
+			crosshairEnabled=v
+			if crosshairGui then pcall(function() crosshairGui:Destroy() end); crosshairGui=nil end
+			if v then
+				local sg=Instance.new("ScreenGui")
+				sg.Name="NEXORA_Crosshair"; sg.ResetOnSpawn=false
+				sg.IgnoreGuiInset=true; sg.DisplayOrder=100
+				pcall(function() sg.Parent=gethui() end)
+				if not sg.Parent then sg.Parent=LocalPlayer:WaitForChild("PlayerGui") end
+				crosshairGui=sg
+				local function mkLine(w,h,ox,oy)
+					local f=Instance.new("Frame"); f.AnchorPoint=Vector2.new(0.5,0.5)
+					f.Size=UDim2.fromOffset(w,h); f.Position=UDim2.new(0.5,ox,0.5,oy)
+					f.BackgroundColor3=Color3.fromRGB(255,255,255); f.BorderSizePixel=0; f.ZIndex=100
+					local ui=Instance.new("UIStroke"); ui.Color=Color3.new(0,0,0); ui.Thickness=0.5; ui.Parent=f
+					f.Parent=sg; return f
+				end
+				mkLine(14,2,0,0); mkLine(2,14,0,0) -- + shape
+				mkLine(2,2,0,0) -- center dot
+			end
+		end)
+	end
+	do
+		-- สี crosshair
+		local r=row(36)
+		mkLabel(r,12,10,200,16,"สี Crosshair",12,WHITE,FONT)
+		local chColors={
+			{"ขาว",Color3.new(1,1,1)},{"เขียว",Color3.fromRGB(0,255,80)},
+			{"แดง",Color3.fromRGB(255,60,60)},{"เหลือง",Color3.fromRGB(255,220,0)},
+		}
+		for i,cc in ipairs(chColors) do
+			local b=new("TextButton",{
+				Position=UDim2.fromOffset(160+(i-1)*46,7),Size=UDim2.fromOffset(40,22),
+				BackgroundColor3=cc[2],Font=Enum.Font.GothamBold,TextSize=10,
+				TextColor3=WHITE,Text=cc[1],AutoButtonColor=false,ZIndex=7,
+			},r)
+			corner(b,5)
+			b.MouseButton1Click:Connect(function()
+				if crosshairGui then
+					for _,f in ipairs(crosshairGui:GetDescendants()) do
+						if f:IsA("Frame") then f.BackgroundColor3=cc[2] end
+					end
+				end
+				sfx("click",nil,1.5)
+			end)
+		end
+	end
+
+	-- ===== Hotkeys =====
+	section("Hotkeys","Hotkeys")
+	do
+		local hotkeys={
+			{key=Enum.KeyCode.F1, label="F1 = เปิด/ปิด GUI",
+			 action=function() end}, -- GUI toggle ทำโดย RightShift แล้ว
+			{key=Enum.KeyCode.F2, label="F2 = Snap/Unsnap ESP",
+			 action=function()
+				espBoxes=not espBoxes; espLines=not espLines; espNames=not espNames
+				toast("ESP toggled","ESP toggled")
+			 end},
+			{key=Enum.KeyCode.F3, label="F3 = Aimbot On/Off",
+			 action=function()
+				_aimEnabled_ref.v = not _aimEnabled_ref.v
+				startAim()
+				toast(_aimEnabled_ref.v and "Aimbot เปิด" or "Aimbot ปิด",
+				      _aimEnabled_ref.v and "Aimbot on" or "Aimbot off")
+			 end},
+		}
+		local hotConn
+		local hotEnabled=false
+		local r2=row(36)
+		mkLabel(r2,12,10,220,16,"เปิดใช้ Hotkeys (F2 F3)",12,WHITE,Enum.Font.GothamBold)
+		mkTog(r2,CW-70,7,false,function(v)
+			hotEnabled=v
+			if hotConn then hotConn:Disconnect(); hotConn=nil end
+			if v then
+				hotConn=UIS.InputBegan:Connect(function(inp,gpe)
+					if gpe then return end
+					for _,hk in ipairs(hotkeys) do
+						if inp.KeyCode==hk.key then hk.action(); sfx("tick",nil,1.5) end
+					end
+				end)
+			end
+		end)
+		local desc=row(72)
+		mkLabel(desc,12,2,CW-20,68,
+			"F2 = toggle ESP ทั้งหมด\nF3 = toggle Aimbot\n(ต้องเปิด hotkeys ก่อน)",
+			11,GRAY,HUD_FONT).TextWrapped=true
+	end
+
+	-- ===== Notify Kill =====
+	section("แจ้งเตือน","Notifications")
+	local killNotifyOn=false
+	local killConn2
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"แจ้งเตือนเมื่อ Kill ผู้เล่น",12,WHITE,FONT)
+		mkTog(r,CW-70,7,false,function(v)
+			killNotifyOn=v
+			if killConn2 then killConn2:Disconnect(); killConn2=nil end
+			if v then
+				-- ฟังจาก Humanoid.Died ของผู้เล่นอื่น
+				local function hookPlayer(plr)
+					if plr==LocalPlayer then return end
+					plr.CharacterAdded:Connect(function(char)
+						local hum=char:WaitForChild("Humanoid",5)
+						if hum then
+							hum.Died:Connect(function()
+								if killNotifyOn then
+									toast("💀 "..plr.DisplayName.." ถูก Kill!", "💀 Killed "..plr.DisplayName)
+								end
+							end)
+						end
+					end)
+					local char=plr.Character
+					local hum=char and char:FindFirstChildOfClass("Humanoid")
+					if hum then
+						hum.Died:Connect(function()
+							if killNotifyOn then
+								toast("💀 "..plr.DisplayName.." ถูก Kill!", "💀 Killed "..plr.DisplayName)
+							end
+						end)
+					end
+				end
+				for _,plr in ipairs(Players:GetPlayers()) do hookPlayer(plr) end
+				killConn2=Players.PlayerAdded:Connect(hookPlayer)
+				toast("Kill Notify เปิดแล้ว","Kill Notify enabled")
+			end
+		end)
+	end
+
+	-- ===== Anti-Screenshot (เบลอ GUI เมื่อ Prt Sc) =====
+	section("เบ็ดเตล็ด","Misc")
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"ซ่อน GUI เมื่อกด PrintScreen",12,WHITE,FONT)
+		mkTog(r,CW-70,7,false,function(v)
+			if v then
+				UIS.InputBegan:Connect(function(inp,gpe)
+					if inp.KeyCode==Enum.KeyCode.F12 or inp.KeyCode==Enum.KeyCode.Print then
+						Main.Visible=false
+						task.delay(0.5,function() Main.Visible=true end)
+					end
+				end)
+				toast("ซ่อน GUI เมื่อ screenshot เปิดแล้ว","Hide on screenshot enabled")
+			end
+		end)
+	end
+	do
+		local r=row(36)
+		mkLabel(r,12,10,220,16,"ล็อกหน้าต่าง GUI (ไม่ให้ลาก)",12,WHITE,FONT)
+		local locked=false
+		mkTog(r,CW-70,7,false,function(v)
+			locked=v
+			-- disable drag handle (Win = draggable window root)
+			pcall(function() Win.Active = not v end)
+			toast(v and "ล็อก GUI แล้ว" or "ปลดล็อก GUI แล้ว", v and "GUI locked" or "GUI unlocked")
+		end)
+	end
+end
+
 guard("categories", function()
 	buildEye()
 	buildTools()
 	buildCategory("prank", "แกล้ง", "PRANK")
 	buildCategory("music", "เพลง", "MUSIC")
 	buildFake()
+	buildWorld()
+	buildMisc()
 end)
 
 end
